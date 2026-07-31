@@ -1211,6 +1211,10 @@ const dict = {
     'more.maintenance.hint': 'Requests, technicians, and cost approval',
     'more.tenants': 'Tenants',
     'more.tenants.hint': 'Profiles, portals, and contracts',
+    'more.monthly': 'Monthly summary',
+    'more.monthly.hint': 'Rents, arrears, exits and entries by month',
+    'more.officialTenants': 'Official tenant registry',
+    'more.officialTenants.hint': 'Latest statement names + official edits for auto-contact',
 
     'guided.nextStep': 'Your next step',
     'guided.openAction': 'Go there now',
@@ -2892,6 +2896,10 @@ const dict = {
     'more.maintenance.hint': 'البلاغات والفنيون واعتماد التكلفة',
     'more.tenants': 'المستأجرون',
     'more.tenants.hint': 'الملفات والبوابات والعقود',
+    'more.monthly': 'الملخص الشهري المفصّل',
+    'more.monthly.hint': 'الإيجارات والمتأخرات ومن غادر ومن دخل لكل شهر',
+    'more.officialTenants': 'قاعدة المستأجرين الرسمية',
+    'more.officialTenants.hint': 'أسماء آخر كشف + تعديل رسمي للتواصل الآلي',
 
     'guided.nextStep': 'خطوتك التالية',
     'guided.openAction': 'انتقل الآن',

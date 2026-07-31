@@ -73,7 +73,28 @@ export default function TenantDetailScreen() {
 
   const contactTenant = async () => {
     Haptics.selectionAsync();
-    const phone = (view.phone || '').replace(/\s+/g, '');
+    let phone = (view.phone || '').replace(/\s+/g, '');
+    try {
+      const { resolveOfficialContact, buildWhatsAppCollectionMessage, loadCanonicalTenants } = await import('@/src/utils/canonical-tenant-store');
+      const official = await resolveOfficialContact(tenant.id);
+      if (official?.phone) {
+        phone = official.phone.replace(/\s+/g, '');
+      }
+      const reg = await loadCanonicalTenants();
+      const ct = reg.tenants.find((x) => x.osTenantId === tenant.id && x.status === 'active');
+      if (ct) {
+        const arrears = ledger.reduce((s, l) => s + (Number(l.remaining) || 0), 0);
+        const msg = buildWhatsAppCollectionMessage(ct, ar, arrears);
+        if (!phone) {
+          Alert.alert(t('tenant.detail.noPhone' as any));
+          return;
+        }
+        const digits = phone.replace(/\D/g, '');
+        const url = `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`;
+        Linking.openURL(url).catch(() => Share.share({ message: msg }));
+        return;
+      }
+    } catch { /* fall through */ }
     if (!phone) {
       Alert.alert(t('tenant.detail.noPhone' as any));
       return;
@@ -110,6 +131,14 @@ export default function TenantDetailScreen() {
         <Pressable testID="tenant-contact" style={styles.actionBtn} onPress={contactTenant}>
           <Feather name="message-circle" size={14} color={colors.gold} />
           <Text style={styles.actionText}>{t('tenant.detail.contact' as any)}</Text>
+        </Pressable>
+        <Pressable
+          testID="tenant-official"
+          style={styles.actionBtn}
+          onPress={() => { Haptics.selectionAsync(); router.push('/tenants/official' as any); }}
+        >
+          <Feather name="book" size={14} color={colors.emerald} />
+          <Text style={styles.actionText}>{ar ? 'تعديل رسمي' : 'Official edit'}</Text>
         </Pressable>
         <Pressable
           testID="tenant-new-maint"

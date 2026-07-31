@@ -64,6 +64,10 @@ export type TenantRecord = {
   portalUrl: string;
   qrData: string;
   whatsAppMessage: string;
+  /** When true, manual official edits survive re-import of latest statement. */
+  manualOfficial?: boolean;
+  /** Official rent amount used for auto-communication when set. */
+  officialRent?: number;
 };
 
 export type ContractRecord = {
@@ -166,6 +170,15 @@ export type ImportBatch = {
   changeLog: ImportChangeEntry[];
 };
 
+/** Occupancy churn captured from latest statement lifecycle (who left / who entered). */
+export type OccupancyMoveSnapshot = {
+  at: string;
+  batchId?: string;
+  period?: string;
+  departed: { unit: string; tenant: string; phone?: string }[];
+  newcomers: { unit: string; tenant: string; phone?: string; rent?: number }[];
+};
+
 export type PropertyOSState = {
   property: PropertyRecord | null;
   units: UnitRecord[];
@@ -179,6 +192,8 @@ export type PropertyOSState = {
   payments?: PaymentRecord[];
   /** WP-1: full per-month operational ledger materialised from analysis. */
   paymentLedger?: PaymentLedgerEntry[];
+  /** Lifecycle moves from consecutive statement applies (months 1–8…). */
+  occupancyMoves?: OccupancyMoveSnapshot[];
   lastImportAt?: string;
   lastImportBatchId?: string;
   startedAt?: string;

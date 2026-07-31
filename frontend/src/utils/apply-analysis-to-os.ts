@@ -16,6 +16,7 @@ import type {
   ContractRecord,
   ImportBatch,
   ImportChangeEntry,
+  OccupancyMoveSnapshot,
   PaymentLedgerEntry,
   PaymentRecord,
   PropertyOSState,
@@ -25,6 +26,7 @@ import type {
 } from '@/src/types/property-os';
 import { buildTenantPortal, buildWhatsAppWelcome } from '@/src/hooks/usePropertyOS';
 import { storage } from '@/src/utils/storage';
+import { syncCanonicalFromPropertyOS } from '@/src/utils/canonical-tenant-store';
 
 const OS_KEY = 'spp.propertyOS';
 const REPORTS_KEY = 'spp.importedReports';
@@ -548,14 +550,26 @@ export async function persistApplyFromAnalysis(
     'tenant',
     changeLog,
     (t) => t.name,
-    // Keep portal credentials stable across re-apply of the same tenant id.
-    (prev, next) => ({
-      ...next,
-      portalToken: prev.portalToken || next.portalToken,
-      portalUrl: prev.portalUrl || next.portalUrl,
-      qrData: prev.qrData || next.qrData,
-      whatsAppMessage: prev.whatsAppMessage || next.whatsAppMessage,
-    }),
+    // Latest statement names win — unless tenant was edited as manualOfficial.
+    (prev, next) => {
+      if (prev.manualOfficial) {
+        return {
+          ...prev,
+          portalToken: prev.portalToken || next.portalToken,
+          portalUrl: prev.portalUrl || next.portalUrl,
+          qrData: prev.qrData || next.qrData,
+          whatsAppMessage: prev.whatsAppMessage || next.whatsAppMessage,
+        };
+      }
+      return {
+        ...next,
+        portalToken: prev.portalToken || next.portalToken,
+        portalUrl: prev.portalUrl || next.portalUrl,
+        qrData: prev.qrData || next.qrData,
+        whatsAppMessage: buildWhatsAppWelcome(next.name, prev.portalUrl || next.portalUrl, lang),
+        manualOfficial: false,
+      };
+    },
   );
   const contracts = mergeById(prevState?.contracts ?? [], incoming.contracts, 'contract', changeLog, (c) => c.number);
   const batchId = `batch_${analysis.analysis_id.slice(0, 8)}_${Date.now().toString(36)}`;
@@ -610,6 +624,88 @@ export async function persistApplyFromAnalysis(
     changeLog,
   };
 
+  // Capture who left / who entered from latest statement lifecycle.
+  const life = analysis.property_knowledge?.lifecycle;
+  const move: OccupancyMoveSnapshot | null = (life?.departed?.length || life?.newcomers?.length)
+    ? {
+        at: now,
+        batchId,
+        period: analysis.executive_brief?.period || '',
+        departed: (life?.departed ?? []).map((d) => ({
+          unit: String(d.unit || ''),
+          tenant: String(d.tenant || ''),
+          phone: d.phone ? String(d.phone) : undefined,
+        })),
+        newcomers: (life?.newcomers ?? []).map((n) => ({
+          unit: String(n.unit || ''),
+          tenant: String(n.tenant || ''),
+          phone: n.phone ? String(n.phone) : undefined,
+          rent: num(n.rent) || undefined,
+        })),
+      }
+    : null;
+
+  // Also detect name replacements per unit vs previous OS (replacement tenant).
+  const detectedDeparted: OccupancyMoveSnapshot['departed'] = [];
+  const detectedEntered: OccupancyMoveSnapshot['newcomers'] = [];
+  if (prevState?.tenants?.length) {
+    const prevByUnit = new Map(prevState.tenants.map((t) => {
+      const u = prevState.units.find((x) => x.id === t.unitId);
+      return [u?.number || t.unitId, t] as const;
+    }));
+    for (const t of tenants) {
+      const u = units.find((x) => x.id === t.unitId);
+      const unitNum = u?.number || t.unitId;
+      const prevT = prevByUnit.get(unitNum);
+      if (prevT && prevT.name && t.name && prevT.name.trim() !== t.name.trim() && !prevT.manualOfficial) {
+        detectedDeparted.push({ unit: unitNum, tenant: prevT.name, phone: prevT.phone });
+        detectedEntered.push({ unit: unitNum, tenant: t.name, phone: t.phone, rent: u?.rentAmount });
+      }
+    }
+  }
+
+  const mergedMove: OccupancyMoveSnapshot | null = (() => {
+    if (!move && !detectedDeparted.length && !detectedEntered.length) return null;
+    const departed = [...(move?.departed ?? []), ...detectedDeparted];
+    const newcomers = [...(move?.newcomers ?? []), ...detectedEntered];
+    // de-dupe by unit+tenant
+    const depKey = new Set<string>();
+    const newKey = new Set<string>();
+    return {
+      at: now,
+      batchId,
+      period: analysis.executive_brief?.period || move?.period || '',
+      departed: departed.filter((d) => {
+        const k = `${d.unit}|${d.tenant}`;
+        if (depKey.has(k)) return false;
+        depKey.add(k);
+        return true;
+      }),
+      newcomers: newcomers.filter((n) => {
+        const k = `${n.unit}|${n.tenant}`;
+        if (newKey.has(k)) return false;
+        newKey.add(k);
+        return true;
+      }),
+    };
+  })();
+
+  const occupancyMoves = [
+    ...(mergedMove ? [mergedMove] : []),
+    ...(prevState?.occupancyMoves ?? []),
+  ].slice(0, 24);
+
+  // History entries for departed
+  const historyFromMoves = (mergedMove?.departed ?? []).map((d) => {
+    const unit = units.find((u) => u.number === d.unit);
+    return {
+      unitId: unit?.id || `unit_imp_${slug(d.unit)}`,
+      tenantName: d.tenant,
+      note: lang === 'ar' ? 'غادر — من آخر كشف' : 'Departed — from latest statement',
+      endedAt: now,
+    };
+  });
+
   const nextState: PropertyOSState = {
     property,
     units,
@@ -619,15 +715,26 @@ export async function persistApplyFromAnalysis(
     technicianPortalToken: prevState?.technicianPortalToken || uid('tech').slice(-12),
     dismissedProgress: true,
     setupCompleted: true,
-    unitHistory: prevState?.unitHistory ?? [],
+    unitHistory: [...(prevState?.unitHistory ?? []), ...historyFromMoves],
     payments,
     paymentLedger: ledger,
+    occupancyMoves,
     startedAt: prevState?.startedAt ?? now,
     lastImportAt: now,
     lastImportBatchId: batchId,
   };
 
   await storage.setItem(OS_KEY, JSON.stringify(nextState));
+
+  // Official tenant DB: latest statement names become canonical (unless manualOfficial).
+  try {
+    await syncCanonicalFromPropertyOS(nextState, {
+      period: analysis.executive_brief?.period || '',
+      lang,
+    });
+  } catch {
+    /* non-fatal */
+  }
 
   // Append import batch history (newest first, keep prior batches — no deletion).
   const prevBatchesRaw = await storage.getItem<string>(BATCHES_KEY, '[]');

@@ -45,6 +45,25 @@ export default function Tenants() {
       <SetupProgressBar compact testID="tenants-setup-progress" />
       <GuidedSetup flowId="tenant" defaultOpen={tenants.length === 0 && !osState.tenants.length} testID="tenants-guided" />
 
+      <Pressable
+        onPress={() => { Haptics.selectionAsync(); router.push('/tenants/official' as any); }}
+        style={styles.officialBanner}
+        testID="tenants-official-link"
+      >
+        <Text style={[styles.officialBannerText, isRTL && styles.rtl]}>
+          {isRTL ? 'قاعدة المستأجرين الرسمية (تعديل · إخلاء · نقل · تواصل) ←' : 'Official tenant registry (edit · vacate · transfer · contact) →'}
+        </Text>
+      </Pressable>
+      <Pressable
+        onPress={() => { Haptics.selectionAsync(); router.push('/operational/monthly-summary' as any); }}
+        style={styles.officialBanner}
+        testID="tenants-monthly-link"
+      >
+        <Text style={[styles.officialBannerText, isRTL && styles.rtl]}>
+          {isRTL ? 'الملخص الشهري المفصّل (1–8) ←' : 'Detailed monthly summary (1–8) →'}
+        </Text>
+      </Pressable>
+
       {osState.tenants.length > 0 ? (
         <View style={{ marginBottom: spacing.lg, gap: spacing.md }}>
           <Text style={[styles.localBadge, isRTL && styles.rtl]}>{t('result.localData' as any)}</Text>
@@ -147,6 +166,16 @@ const styles = StyleSheet.create({
     fontWeight: typography.weight.semibold,
   },
   rtl: { writingDirection: 'rtl', textAlign: 'right' },
+  officialBanner: {
+    marginBottom: spacing.sm,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.goldEdge,
+    backgroundColor: colors.goldSoft,
+  },
+  officialBannerText: { color: colors.gold, fontSize: 13, fontWeight: typography.weight.semibold },
   portalToggle: {
     paddingVertical: 10,
     alignItems: 'center',
