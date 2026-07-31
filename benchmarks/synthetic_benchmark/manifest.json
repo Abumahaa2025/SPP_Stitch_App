@@ -1,0 +1,24 @@
+{
+  "version": "synthetic-v1",
+  "description": "Level 1 — synthetic 2-month rent roll with tenant turnover (Khalid→Reem) and one late tenant (Nora).",
+  "lang": "ar",
+  "use_beta_seed": false,
+  "metrics": {
+    "min_months_linked": 2,
+    "min_total_units": 4
+  },
+  "koil": {
+    "version": "koil-reasoning-v1",
+    "brief_prefix": "كويل",
+    "min_what_items": 1,
+    "require_evidence": true,
+    "specific_markers": ["Nora", "Reem", "Khalid"]
+  },
+  "sections": {
+    "required_keys": ["months", "late_tenants", "departed", "moved_in"]
+  },
+  "files": [
+    "files/rent_jan.csv",
+    "files/rent_feb.csv"
+  ]
+}

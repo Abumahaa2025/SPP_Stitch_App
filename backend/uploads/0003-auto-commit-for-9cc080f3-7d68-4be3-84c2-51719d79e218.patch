@@ -1,0 +1,536 @@
+From bf389eac44137f00e94d4a4574f85181f5357633 Mon Sep 17 00:00:00 2001
+From: emergent-agent-e1 <github@emergent.sh>
+Date: Thu, 16 Jul 2026 06:40:26 +0000
+Subject: [PATCH 3/5] auto-commit for 9cc080f3-7d68-4be3-84c2-51719d79e218
+
+---
+ .../tests/test_role_isolation_regression.py   | 137 ++++++++++++++++++
+ frontend/app.json                             |   3 +-
+ frontend/app/_layout.tsx                      |  33 ++++-
+ frontend/app/portal/agent.tsx                 |   3 +
+ frontend/app/portal/tech.tsx                  |   9 ++
+ frontend/app/portal/tenant.tsx                |   7 +
+ frontend/package.json                         |   1 +
+ frontend/src/components/ActingAsBadge.tsx     | 108 ++++++++++++++
+ frontend/src/i18n/ops-v2-keys.ts              |  12 ++
+ test_reports/iteration_4.json                 |  51 +++++++
+ test_reports/pytest/iteration_4.xml           |   1 +
+ 11 files changed, 362 insertions(+), 3 deletions(-)
+ create mode 100644 backend/tests/test_role_isolation_regression.py
+ create mode 100644 frontend/src/components/ActingAsBadge.tsx
+ create mode 100644 test_reports/iteration_4.json
+ create mode 100644 test_reports/pytest/iteration_4.xml
+
+diff --git a/backend/tests/test_role_isolation_regression.py b/backend/tests/test_role_isolation_regression.py
+new file mode 100644
+index 0000000..b9a4a61
+--- /dev/null
++++ b/backend/tests/test_role_isolation_regression.py
+@@ -0,0 +1,137 @@
++"""SPP Backend Regression – iteration_4.
++Covers all 18 endpoints listed in the review request, Upload → Analysis → Apply
++flow, and the /api/executive `executive-v2` version guarantee.
++
++Run against the public EXPO_PUBLIC_BACKEND_URL so we validate what the user sees.
++"""
++from __future__ import annotations
++
++import io
++import os
++import pytest
++import requests
++
++# Load frontend/.env manually — pytest doesn't have dotenv.
++_env_path = "/app/frontend/.env"
++_env = {}
++if os.path.exists(_env_path):
++    for line in open(_env_path):
++        line = line.strip()
++        if not line or line.startswith("#") or "=" not in line:
++            continue
++        k, v = line.split("=", 1)
++        _env[k.strip()] = v.strip().strip('"').strip("'")
++
++BASE_URL = _env.get("EXPO_PUBLIC_BACKEND_URL")
++assert BASE_URL, "EXPO_PUBLIC_BACKEND_URL not set in /app/frontend/.env"
++BASE_URL = BASE_URL.rstrip("/")
++
++ENDPOINTS = [
++    "/api/briefing",
++    "/api/executive",
++    "/api/properties",
++    "/api/tenants",
++    "/api/contracts",
++    "/api/reports",
++    "/api/notifications",
++    "/api/intelligence",
++    "/api/portfolio-memory",
++    "/api/sensors",
++    "/api/decisions",
++    "/api/timeline",
++    "/api/knowledge",
++    "/api/guides",
++    "/api/beta/info",
++    "/api/build-info",
++    "/api/owner",
++    "/api/verdicts",
++]
++
++
++@pytest.fixture(scope="module")
++def api_client():
++    s = requests.Session()
++    s.headers.update({"Content-Type": "application/json"})
++    return s
++
++
++# ------------- 18 endpoints must all be 200 -------------
++@pytest.mark.parametrize("endpoint", ENDPOINTS)
++def test_endpoint_returns_200(api_client, endpoint):
++    r = api_client.get(f"{BASE_URL}{endpoint}", timeout=30)
++    assert r.status_code == 200, f"{endpoint} → {r.status_code} · body={r.text[:200]}"
++    # JSON body check
++    body = r.json()
++    assert body is not None
++
++
++# ------------- /api/executive shape guarantee -------------
++class TestExecutive:
++    def test_version_executive_v2(self, api_client):
++        r = api_client.get(f"{BASE_URL}/api/executive", timeout=30)
++        assert r.status_code == 200
++        data = r.json()
++        assert data.get("version") == "executive-v2", f"got {data.get('version')}"
++
++    def test_real_portfolio_numbers(self, api_client):
++        r = api_client.get(f"{BASE_URL}/api/executive", timeout=30)
++        data = r.json()
++        # Real shape: data.portfolio = { units, tenants, occupancy_pct, ... }
++        portfolio = data.get("portfolio") or {}
++        assert portfolio.get("units") == 42, f"units={portfolio.get('units')}"
++        assert portfolio.get("tenants") == 42, f"tenants={portfolio.get('tenants')}"
++        assert portfolio.get("occupancy_pct") == 100, (
++            f"occupancy_pct={portfolio.get('occupancy_pct')}"
++        )
++
++
++# ------------- Upload → Analysis → Apply -------------
++class TestUploadFlow:
++    ARABIC_TEXT = (
++        "تقرير المحفظة العقارية\n"
++        "العقار: برج الرومي\n"
++        "الوحدات: 42\n"
++        "المستأجرين: 42\n"
++        "معدل الإشغال: 100%\n"
++        "الإيرادات السنوية: 1,200,000 د.ك\n"
++    )
++
++    def test_upload_portfolio_analysis(self, api_client):
++        payload = {
++            "files": [
++                {
++                    "name": "portfolio_test.txt",
++                    "mimeType": "text/plain",
++                    "size": len(self.ARABIC_TEXT.encode("utf-8")),
++                    "textSnippet": self.ARABIC_TEXT,
++                }
++            ],
++            "lang": "ar",
++        }
++        r = requests.post(
++            f"{BASE_URL}/api/upload/portfolio-analysis",
++            json=payload,
++            timeout=90,
++        )
++        assert r.status_code == 200, f"upload → {r.status_code}: {r.text[:300]}"
++        data = r.json()
++        assert "analysis_id" in data, f"missing analysis_id: {list(data.keys())}"
++        assert data.get("executive_report") or data.get("report"), "no executive_report"
++        assert data.get("metrics") is not None, "no metrics field"
++        # Stash for the follow-up test
++        pytest._SPP_ANALYSIS_ID = data["analysis_id"]
++        pytest._SPP_UPLOAD_FILES = payload["files"]
++
++    def test_apply_analysis(self, api_client):
++        analysis_id = getattr(pytest, "_SPP_ANALYSIS_ID", None)
++        if not analysis_id:
++            pytest.skip("upload test did not produce analysis_id")
++        files = getattr(pytest, "_SPP_UPLOAD_FILES", None)
++        r = requests.post(
++            f"{BASE_URL}/api/upload/apply-analysis",
++            json={"analysis_id": analysis_id, "files": files},
++            timeout=60,
++        )
++        assert r.status_code == 200, f"apply → {r.status_code}: {r.text[:300]}"
++        data = r.json()
++        assert data.get("ok") is True, f"apply did not return ok=true: {data}"
+diff --git a/frontend/app.json b/frontend/app.json
+index ddcded9..93e3e4b 100644
+--- a/frontend/app.json
++++ b/frontend/app.json
+@@ -38,7 +38,8 @@
+           "resizeMode": "contain",
+           "backgroundColor": "#050A12"
+         }
+-      ]
++      ],
++      "expo-localization"
+     ],
+     "experiments": {
+       "typedRoutes": true
+diff --git a/frontend/app/_layout.tsx b/frontend/app/_layout.tsx
+index 6d4f270..4043477 100644
+--- a/frontend/app/_layout.tsx
++++ b/frontend/app/_layout.tsx
+@@ -1,5 +1,6 @@
+ import { Stack, useRouter, usePathname } from "expo-router";
+ import * as SplashScreen from "expo-splash-screen";
++import * as Localization from "expo-localization";
+ import { useEffect, useState } from "react";
+ import { LogBox, View } from "react-native";
+ import { SafeAreaProvider } from "react-native-safe-area-context";
+@@ -17,6 +18,29 @@ LogBox.ignoreAllLogs(true);
+ 
+ SplashScreen.preventAutoHideAsync();
+ 
++/**
++ * Detects the language SPP should start in when the user has NOT yet
++ * expressed an explicit preference (`spp.lang` unset).
++ *
++ * Rule (per user directive):
++ *   · If the device locale starts with `ar` (any Arabic script variant),
++ *     open in Arabic + RTL.
++ *   · Otherwise fall back to English.
++ *   · Any saved user preference always wins — this helper is only
++ *     consulted when there is no stored preference.
++ */
++function detectDeviceLang(): 'ar' | 'en' {
++  try {
++    const locales = Localization.getLocales?.() ?? [];
++    // Newer API returns a list; older API exposes .locale as a string.
++    const first = locales[0]?.languageTag ?? (Localization as any).locale ?? '';
++    if (typeof first === 'string' && first.toLowerCase().startsWith('ar')) return 'ar';
++  } catch {
++    /* fall through */
++  }
++  return 'en';
++}
++
+ /**
+  * Root layout — enforces the cold-start ritual:
+  *   1. Load fonts + restore language.
+@@ -35,10 +59,15 @@ export default function RootLayout() {
+   const pathname = usePathname();
+ 
+   // Restore language before rendering any screen.
++  //   1. Any explicit user preference (`spp.lang`) always wins — never override.
++  //   2. Otherwise, detect device locale via expo-localization (Arabic → RTL).
+   useEffect(() => {
+     (async () => {
+-      const saved = await storage.getItem<'en' | 'ar'>('spp.lang', 'ar');
+-      setLang(saved ?? 'ar');
++      const saved = await storage.getItem<'en' | 'ar' | null>('spp.lang', null);
++      const chosen: 'en' | 'ar' = saved === 'en' || saved === 'ar'
++        ? saved
++        : detectDeviceLang();
++      setLang(chosen);
+       setLangReady(true);
+     })();
+   }, []);
+diff --git a/frontend/app/portal/agent.tsx b/frontend/app/portal/agent.tsx
+index 49fcc4a..0560cfd 100644
+--- a/frontend/app/portal/agent.tsx
++++ b/frontend/app/portal/agent.tsx
+@@ -6,6 +6,7 @@ import { ScreenScaffold } from '@/src/components/ScreenScaffold';
+ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
+ import { GlassCard } from '@/src/components/GlassCard';
+ import { AliveEmpty } from '@/src/components/AliveEmpty';
++import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+ import { usePortalAccess } from '@/src/hooks/usePortalAccess';
+ import { setActiveAgentSession } from '@/src/components/AgentPermissionGate';
+ import { colors, spacing, typography } from '@/src/theme';
+@@ -51,6 +52,8 @@ export default function AgentPortalScreen() {
+         showBack
+       />
+ 
++      <ActingAsBadge role="agent" displayName={agent.name} scope={agent.email} />
++
+       <GlassCard padding={16} radiusToken="md" edge="gold">
+         <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.portals.addAgent' as any)}</Text>
+         {(['contracts', 'maintenance', 'tenants', 'wallet', 'settings'] as const).map((p) => (
+diff --git a/frontend/app/portal/tech.tsx b/frontend/app/portal/tech.tsx
+index 469eb51..2f581a3 100644
+--- a/frontend/app/portal/tech.tsx
++++ b/frontend/app/portal/tech.tsx
+@@ -9,6 +9,7 @@ import { ScreenScaffold } from '@/src/components/ScreenScaffold';
+ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
+ import { GlassCard } from '@/src/components/GlassCard';
+ import { AliveEmpty } from '@/src/components/AliveEmpty';
++import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+ import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
+ import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
+ import { usePropertyOS } from '@/src/hooks/usePropertyOS';
+@@ -168,6 +169,14 @@ export default function TechPortalScreen() {
+         showBack
+       />
+ 
++      {tech ? (
++        <ActingAsBadge
++          role="tech"
++          displayName={tech.name}
++          scope={`${t('maint.techJobs' as any)}: ${tech.completedJobs ?? 0} · ${t('maint.techRating' as any)}: ${tech.avgRating ?? '—'}`}
++        />
++      ) : null}
++
+       {tech ? (
+         <GlassCard padding={14} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }}>
+           <Text style={styles.dim}>
+diff --git a/frontend/app/portal/tenant.tsx b/frontend/app/portal/tenant.tsx
+index ec30370..2497f3f 100644
+--- a/frontend/app/portal/tenant.tsx
++++ b/frontend/app/portal/tenant.tsx
+@@ -7,6 +7,7 @@ import { ScreenScaffold } from '@/src/components/ScreenScaffold';
+ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
+ import { GlassCard } from '@/src/components/GlassCard';
+ import { AliveEmpty } from '@/src/components/AliveEmpty';
++import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+ import { MaintenanceJourney } from '@/src/components/maintenance/MaintenanceJourney';
+ import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
+ import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
+@@ -64,6 +65,12 @@ export default function TenantPortalScreen() {
+         showBack
+       />
+ 
++      <ActingAsBadge
++        role="tenant"
++        displayName={tenant.name}
++        scope={`${t('op.tenant.unit')} ${unit?.number ?? '—'} · ${state.property?.name ?? ''}`}
++      />
++
+       <GlassCard padding={18} radiusToken="md" edge="gold">
+         <Text style={[styles.section, isRTL && styles.rtl]}>{t('op.tenant.unit')}</Text>
+         <Text style={[styles.body, isRTL && styles.rtl]}>
+diff --git a/frontend/package.json b/frontend/package.json
+index 2a96360..9f0646d 100644
+--- a/frontend/package.json
++++ b/frontend/package.json
+@@ -30,6 +30,7 @@
+     "expo-image": "3.0.11",
+     "expo-linear-gradient": "15.0.8",
+     "expo-linking": "8.0.12",
++    "expo-localization": "~17.0.9",
+     "expo-router": "6.0.24",
+     "expo-secure-store": "15.0.8",
+     "expo-splash-screen": "31.0.13",
+diff --git a/frontend/src/components/ActingAsBadge.tsx b/frontend/src/components/ActingAsBadge.tsx
+new file mode 100644
+index 0000000..dca50a2
+--- /dev/null
++++ b/frontend/src/components/ActingAsBadge.tsx
+@@ -0,0 +1,108 @@
++/**
++ * ActingAsBadge — a small, unmistakable label at the top of every
++ * portal explaining WHICH role the current session belongs to.
++ *
++ * Owner never sees this (they use the main app). Agent/Tech/Tenant
++ * portals each mount it right below the ScreenHeader so the visitor
++ * always knows "I am here as X, and I only see X's data."
++ *
++ * Non-invasive · additive · no dependency on backend or auth engine.
++ */
++import React from 'react';
++import { View, Text, StyleSheet } from 'react-native';
++import { Feather } from '@expo/vector-icons';
++import { colors, spacing, typography, radius, iconSize } from '../theme';
++import { useI18n } from '../i18n';
++
++export type PortalRole = 'agent' | 'tech' | 'tenant';
++
++const ROLE_META: Record<PortalRole, {
++  labelKey: string;
++  icon: keyof typeof Feather.glyphMap;
++  color: string;
++  edge: string;
++  bg: string;
++}> = {
++  agent:  { labelKey: 'role.badge.agent',  icon: 'briefcase', color: colors.gold,    edge: colors.goldEdge,    bg: colors.goldSoft },
++  tech:   { labelKey: 'role.badge.tech',   icon: 'tool',      color: colors.emerald, edge: colors.emeraldEdge, bg: colors.emeraldSoft },
++  tenant: { labelKey: 'role.badge.tenant', icon: 'home',      color: colors.gold,    edge: colors.goldEdge,    bg: colors.goldSoft },
++};
++
++type Props = {
++  role: PortalRole;
++  displayName: string;
++  /** Optional secondary line — the property/unit/scope of this session. */
++  scope?: string;
++};
++
++export function ActingAsBadge({ role, displayName, scope }: Props) {
++  const { t, isRTL } = useI18n();
++  const meta = ROLE_META[role];
++
++  return (
++    <View style={styles.wrap}>
++      <View style={[
++        styles.pill,
++        { borderColor: meta.edge, backgroundColor: meta.bg },
++        isRTL && { flexDirection: 'row-reverse' },
++      ]}>
++        <View style={[styles.chip, { borderColor: meta.edge }]}>
++          <Feather name={meta.icon} size={iconSize.sm} color={meta.color} />
++        </View>
++        <View style={{ flex: 1, gap: 2 }}>
++          <View style={[styles.headline, isRTL && { flexDirection: 'row-reverse' }]}>
++            <Text style={[styles.roleLabel, { color: meta.color }]}>
++              {t(meta.labelKey as any).toUpperCase()}
++            </Text>
++            <View style={[styles.dot, { backgroundColor: meta.color }]} />
++            <Text style={[styles.name, isRTL && styles.rtl]} numberOfLines={1}>
++              {displayName}
++            </Text>
++          </View>
++          {scope ? (
++            <Text style={[styles.scope, isRTL && styles.rtl]} numberOfLines={1}>
++              {scope}
++            </Text>
++          ) : null}
++        </View>
++      </View>
++      <Text style={[styles.hint, isRTL && styles.rtl]}>
++        {t('role.badge.hint' as any)}
++      </Text>
++    </View>
++  );
++}
++
++const styles = StyleSheet.create({
++  wrap: { marginBottom: spacing.md, gap: 6 },
++  pill: {
++    flexDirection: 'row', alignItems: 'center', gap: 12,
++    paddingHorizontal: 14, paddingVertical: 12, borderRadius: radius.md,
++    borderWidth: StyleSheet.hairlineWidth,
++  },
++  chip: {
++    width: 30, height: 30, borderRadius: 15,
++    borderWidth: StyleSheet.hairlineWidth,
++    alignItems: 'center', justifyContent: 'center',
++    backgroundColor: 'rgba(255,255,255,0.03)',
++  },
++  headline: { flexDirection: 'row', alignItems: 'center', gap: 8 },
++  roleLabel: {
++    fontSize: 10, letterSpacing: 1.6,
++    fontWeight: typography.weight.semibold,
++  },
++  dot: { width: 3, height: 3, borderRadius: 2, opacity: 0.6 },
++  name: {
++    color: colors.text, fontSize: 13,
++    fontWeight: typography.weight.semibold, letterSpacing: -0.15,
++    flexShrink: 1,
++  },
++  rtl: { textAlign: 'right', writingDirection: 'rtl' },
++  scope: {
++    color: colors.textMuted, fontSize: 11.5, letterSpacing: 0.2,
++  },
++  hint: {
++    color: colors.textSubtle, fontSize: 10.5, letterSpacing: 0.2,
++    lineHeight: 15, marginHorizontal: 4,
++  },
++});
+diff --git a/frontend/src/i18n/ops-v2-keys.ts b/frontend/src/i18n/ops-v2-keys.ts
+index 5576697..983b425 100644
+--- a/frontend/src/i18n/ops-v2-keys.ts
++++ b/frontend/src/i18n/ops-v2-keys.ts
+@@ -113,6 +113,12 @@ export const opsV2En = {
+   'opsv2.agent.denied': 'This action is outside your agent permissions.',
+   'opsv2.agent.welcome': 'Welcome, {name}',
+ 
++  // Role badges — Batch 2 · portal role clarity
++  'role.badge.agent': 'Signed in as agent',
++  'role.badge.tech': 'Signed in as technician',
++  'role.badge.tenant': 'Signed in as tenant',
++  'role.badge.hint': 'You only see the data linked to your role. The owner never sees this view.',
++
+   'maint.progress': 'Progress',
+   'maint.eta': 'Expected arrival',
+   'maint.minutes': 'min',
+@@ -274,6 +280,12 @@ export const opsV2Ar = {
+   'opsv2.agent.denied': 'هذا الإجراء خارج صلاحيات الوكيل.',
+   'opsv2.agent.welcome': 'مرحبًا، {name}',
+ 
++  // شارات الأدوار — وضوح الجلسة
++  'role.badge.agent': 'مسجَّل الدخول كوكيل',
++  'role.badge.tech': 'مسجَّل الدخول كفنّي',
++  'role.badge.tenant': 'مسجَّل الدخول كمستأجر',
++  'role.badge.hint': 'ترى فقط ما يخصّ دورك. المالك لا يرى هذه الشاشة.',
++
+   'maint.progress': 'نسبة الإنجاز',
+   'maint.eta': 'الوصول المتوقع',
+   'maint.minutes': 'دقيقة',
+diff --git a/test_reports/iteration_4.json b/test_reports/iteration_4.json
+new file mode 100644
+index 0000000..75bed90
+--- /dev/null
++++ b/test_reports/iteration_4.json
+@@ -0,0 +1,51 @@
++{
++  "summary": "Backend regression PASS (22/22 pytest). All 18 review-request endpoints return 200 against the public EXPO_PUBLIC_BACKEND_URL: /api/briefing /api/executive /api/properties /api/tenants /api/contracts /api/reports /api/notifications /api/intelligence /api/portfolio-memory /api/sensors /api/decisions /api/timeline /api/knowledge /api/guides /api/beta/info /api/build-info /api/owner /api/verdicts. /api/executive correctly reports version='executive-v2' with portfolio={units:42, tenants:42, occupancy_pct:100, contracts_tracked:34, annual_revenue_aed:2031792, expiring_contracts:20}. Upload→Analysis→Apply flow verified end-to-end: POST /api/upload/portfolio-analysis with an Arabic-text file returns 200 with analysis_id + executive_report + metrics; POST /api/upload/apply-analysis with that analysis_id + files returns {ok:true, gas:true, applied_at:...}. Frontend cold-start splash fades and lands on /onboarding (STEP 1 OF 4) on a fresh session — device English locale + no spp.lang correctly picks ENGLISH, confirming expo-localization defaults. When spp.lang='ar' is saved to localStorage, reload renders Arabic (العقار الذكي / تحضير…) — saved preference correctly wins. The More menu (reached by tapping the More tab, URL /hub) renders correctly with the SectionTitle primitive ('TOOLS 5', 'SETUP & IMPORT 2', 'ACCOUNT 2') and ListRow primitive (Reports, Connections, Settings, Help & support, About, Property setup, Upload, Profile, Billing, Sign out). ActingAsBadge component code-review PASS — properly imported and mounted in all three portal screens (agent.tsx:55, tech.tsx:173-178, tenant.tsx:68-72) under the valid-session branch, with role/displayName/scope props and role-appropriate colors (agent=gold, tech=emerald, tenant=gold). BLOCKER for URL-level portal + Group 1/2 regression: the cold-start guard in /app/frontend/app/_layout.tsx (line 87-110) issues a one-shot router.replace('/' or '/onboarding') on EVERY cold-start regardless of the incoming pathname — so /portal/agent, /portal/tech, /portal/tenant, /support, /about, /billing all get hijacked to '/' when hit via URL bar or QR-code deep-link. This means the reviewer-requested visual verification of the ActingAsBadge on the invalid-link path (and the SectionTitle/ListRow primitives on /support /about /billing) cannot be exercised via direct URL navigation — only via in-app router.push after cold-start finishes. In-app routing does work (More→/hub confirmed) so the app itself is not broken, but the deep-link surface is regressed vs. the reviewer's expectation that '/portal/xxx' would show AliveEmpty when params are missing.",
++  "backend_issues": {
++    "critical": [],
++    "minor": []
++  },
++  "frontend_issues": {
++    "ui_bugs": [],
++    "integration_issues": [
++      {
++        "flow": "Deep-link → portal/support/about/billing URL",
++        "issue": "Cold-start guard in _layout.tsx force-replaces every URL-entry path to '/' (or '/onboarding'), so QR-code deep-links like /portal/tenant?id=X&t=Y and Group 1/2 shortcut URLs (/support, /about, /billing) never render their intended screens on cold-load. Verified: page.goto('/portal/agent?id=NOPE&t=BAD') → final URL '/', body = home screen; same for /support, /about, /billing. The reviewer explicitly expected /portal/* to render AliveEmpty (invalid link) as proof of role isolation — that path is unreachable. Reference: /app/frontend/app/_layout.tsx:87-110 (the unconditional `if (pathname !== target) router.replace(target)` inside the routed-once effect).",
++        "affected_testIDs": ["agent-portal", "tech-portal", "tenant-portal"]
++      }
++    ],
++    "design_issues": [],
++    "react_native_issues": [
++      {
++        "component": "react-native-web deprecation (carry-over)",
++        "issue": "Console still surfaces 'shadow* style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents' — same warnings noted in iteration_1/2/3. Non-blocking."
++      }
++    ]
++  },
++  "test_report_links": [
++    "/app/backend/tests/test_role_isolation_regression.py",
++    "/app/test_reports/pytest/iteration_4.xml"
++  ],
++  "action_items": [
++    "In /app/frontend/app/_layout.tsx (cold-start routing effect, lines 87-110): whitelist deep-linkable routes (/portal/agent, /portal/tech, /portal/tenant, /support, /about, /billing, and probably any '/portal/*' or similar shareable route) so they are NOT force-replaced to '/'. Suggested minimal change: guard the router.replace() with `pathname === '/' || pathname === '/onboarding' || pathname === '/beta-login'` (i.e. only force-route when the user actually landed on the naked root), OR maintain an explicit allowlist of deep-link routes that skip the replace.",
++    "After the deep-link fix, re-verify: (a) /portal/agent /portal/tech /portal/tenant render AliveEmpty when params are missing (no data leak); (b) valid params trigger ActingAsBadge with role label + agent/tech/tenant name + scope; (c) /support /about /billing render their SectionTitle + ListRow content when hit via URL.",
++    "Optional cleanup (carry-over from iteration_3): migrate remaining shadow* props → boxShadow and props.pointerEvents → style.pointerEvents to silence RN-Web deprecation console noise."
++  ],
++  "critical_code_review_comments": [
++    "ActingAsBadge is correctly mounted in all 3 portals under the valid-session branch (agent.tsx:55, tech.tsx:172-178, tenant.tsx:68-72). Component itself is well-formed: role prop is typed, i18n label via t(meta.labelKey), RTL flow-reverse handled, displayName numberOfLines=1, scope optional. testID missing on the wrap View — worth adding for future testing.",
++    "Cold-start guard is TOO AGGRESSIVE: '_layout.tsx:87-110' issues a router.replace on EVERY non-root path on cold-load. This was added in iteration_3 to fix a /health deep-link regression but it over-corrected and now blocks every legitimate deep-link (portals, /support, /about, /billing).",
++    "Backend /api/executive shape stayed stable across the branch: version='executive-v2', portfolio.units=42, portfolio.tenants=42, portfolio.occupancy_pct=100 — regression-safe.",
++    "Upload+Apply endpoints are JSON-based (not multipart) — schema is UploadPortfolioRequest({files:[UploadFileMeta{name,mimeType,size,textSnippet}], lang}). Any client sending multipart/form-data will get 422 (verified). Confirm the frontend uploader is sending JSON with textSnippet."
++  ],
++  "updated_files": [
++    "/app/backend/tests/test_role_isolation_regression.py (NEW — 22 tests covering the 18 endpoints, executive-v2 shape, and upload→apply flow)"
++  ],
++  "success_rate": {
++    "backend": "100% (22/22 pytest on public URL)",
++    "frontend": "70% — cold-start ok, splash+onboarding ok, English/Arabic locale toggle ok, More menu at /hub ok with SectionTitle+ListRow. Portal deep-links + /support//about//billing URL access BLOCKED by cold-start guard. ActingAsBadge visual verification therefore not exercised (code review pass only)."
++  },
++  "seed_data_creation": "None. Backend uses its own seeded portfolio (42 units / 42 tenants / 100% occupancy).",
++  "retest_needed": true,
++  "should_main_agent_self_test": false,
++  "context_for_next_testing_agent": "Once the cold-start deep-link guard is fixed, re-run the frontend playwright script: (1) set localStorage.setItem('spp.onboarded','true'); (2) page.goto('/portal/agent') → expect AliveEmpty + no ActingAsBadge (invalid session — proof of role isolation); (3) page.goto('/portal/tenant') / page.goto('/portal/tech') same; (4) page.goto('/support'), /about, /billing → expect SectionTitle+ListRow content. To test the VALID portal path (with ActingAsBadge visible), you'll need an agent/tech/tenant id+portalToken pair from /operational/portals — that's owner-side QR-code setup UI and needs seeded portal tokens in memory store. Backend tests (test_role_isolation_regression.py) are stable and cover all 18 endpoints + upload/apply flow — re-run with `pytest /app/backend/tests/test_role_isolation_regression.py -v`.",
++  "rca_of_issue": "ROOT CAUSE — cold-start URL hijack. File: /app/frontend/app/_layout.tsx, lines 87-110. Effect body: `let target = '/'; if (betaMode && !betaAuthed) target='/beta-login'; else if (!onboarded) target='/onboarding'; else if (persona==='technician') target='/maintenance'; else if (persona==='tenant') target='/notifications'; if (pathname !== target) router.replace(target); setRouted(true);`. Because the effect fires exactly once on cold-start with routed=false, ANY URL entry whose pathname is not the computed target gets replaced to the target. In iteration_3 this behavior was intentional to prevent /health from being deep-linked, but there was no allowlist for legitimate deep-linkable routes. REPRODUCTION: 1) `localStorage.setItem('spp.onboarded','true')`; 2) page.goto('/portal/agent?id=X&t=Y') or page.goto('/support'); 3) observe final URL is '/' with home content, not the requested screen. MITIGATION: replace the unconditional replace() with an allowlist check — e.g. `const isDeepLink = pathname.startsWith('/portal/') || ['/support','/about','/billing'].includes(pathname); if (!isDeepLink && pathname !== target) router.replace(target); setRouted(true);` — that preserves the /health hijack fix while restoring deep-link surface."
++}
+diff --git a/test_reports/pytest/iteration_4.xml b/test_reports/pytest/iteration_4.xml
+new file mode 100644
+index 0000000..fe09724
+--- /dev/null
++++ b/test_reports/pytest/iteration_4.xml
+@@ -0,0 +1 @@
++<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="22" time="35.471" timestamp="2026-07-16T06:33:37.374247+00:00" hostname="agent-env-13c99299-5777-414e-8f69-1730c3e4036d"><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/briefing]" time="17.270" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/executive]" time="0.041" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/properties]" time="0.039" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/tenants]" time="0.039" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/contracts]" time="0.059" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/reports]" time="0.162" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/notifications]" time="5.604" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/intelligence]" time="0.041" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/portfolio-memory]" time="0.081" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/sensors]" time="0.038" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/decisions]" time="0.045" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/timeline]" time="0.072" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/knowledge]" time="0.083" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/guides]" time="0.041" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/beta/info]" time="0.045" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/build-info]" time="0.041" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/owner]" time="0.040" /><testcase classname="backend.tests.test_role_isolation_regression" name="test_endpoint_returns_200[/api/verdicts]" time="0.038" /><testcase classname="backend.tests.test_role_isolation_regression.TestExecutive" name="test_version_executive_v2" time="0.039" /><testcase classname="backend.tests.test_role_isolation_regression.TestExecutive" name="test_real_portfolio_numbers" time="0.038" /><testcase classname="backend.tests.test_role_isolation_regression.TestUploadFlow" name="test_upload_portfolio_analysis" time="6.170" /><testcase classname="backend.tests.test_role_isolation_regression.TestUploadFlow" name="test_apply_analysis" time="5.366" /></testsuite></testsuites>
+\ No newline at end of file
+-- 
+2.39.5
+

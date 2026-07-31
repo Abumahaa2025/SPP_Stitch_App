@@ -1,0 +1,51 @@
+{
+  "summary": "Backend regression PASS (22/22 pytest). All 18 review-request endpoints return 200 against the public EXPO_PUBLIC_BACKEND_URL: /api/briefing /api/executive /api/properties /api/tenants /api/contracts /api/reports /api/notifications /api/intelligence /api/portfolio-memory /api/sensors /api/decisions /api/timeline /api/knowledge /api/guides /api/beta/info /api/build-info /api/owner /api/verdicts. /api/executive correctly reports version='executive-v2' with portfolio={units:42, tenants:42, occupancy_pct:100, contracts_tracked:34, annual_revenue_aed:2031792, expiring_contracts:20}. Upload→Analysis→Apply flow verified end-to-end: POST /api/upload/portfolio-analysis with an Arabic-text file returns 200 with analysis_id + executive_report + metrics; POST /api/upload/apply-analysis with that analysis_id + files returns {ok:true, gas:true, applied_at:...}. Frontend cold-start splash fades and lands on /onboarding (STEP 1 OF 4) on a fresh session — device English locale + no spp.lang correctly picks ENGLISH, confirming expo-localization defaults. When spp.lang='ar' is saved to localStorage, reload renders Arabic (العقار الذكي / تحضير…) — saved preference correctly wins. The More menu (reached by tapping the More tab, URL /hub) renders correctly with the SectionTitle primitive ('TOOLS 5', 'SETUP & IMPORT 2', 'ACCOUNT 2') and ListRow primitive (Reports, Connections, Settings, Help & support, About, Property setup, Upload, Profile, Billing, Sign out). ActingAsBadge component code-review PASS — properly imported and mounted in all three portal screens (agent.tsx:55, tech.tsx:173-178, tenant.tsx:68-72) under the valid-session branch, with role/displayName/scope props and role-appropriate colors (agent=gold, tech=emerald, tenant=gold). BLOCKER for URL-level portal + Group 1/2 regression: the cold-start guard in /app/frontend/app/_layout.tsx (line 87-110) issues a one-shot router.replace('/' or '/onboarding') on EVERY cold-start regardless of the incoming pathname — so /portal/agent, /portal/tech, /portal/tenant, /support, /about, /billing all get hijacked to '/' when hit via URL bar or QR-code deep-link. This means the reviewer-requested visual verification of the ActingAsBadge on the invalid-link path (and the SectionTitle/ListRow primitives on /support /about /billing) cannot be exercised via direct URL navigation — only via in-app router.push after cold-start finishes. In-app routing does work (More→/hub confirmed) so the app itself is not broken, but the deep-link surface is regressed vs. the reviewer's expectation that '/portal/xxx' would show AliveEmpty when params are missing.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Deep-link → portal/support/about/billing URL",
+        "issue": "Cold-start guard in _layout.tsx force-replaces every URL-entry path to '/' (or '/onboarding'), so QR-code deep-links like /portal/tenant?id=X&t=Y and Group 1/2 shortcut URLs (/support, /about, /billing) never render their intended screens on cold-load. Verified: page.goto('/portal/agent?id=NOPE&t=BAD') → final URL '/', body = home screen; same for /support, /about, /billing. The reviewer explicitly expected /portal/* to render AliveEmpty (invalid link) as proof of role isolation — that path is unreachable. Reference: /app/frontend/app/_layout.tsx:87-110 (the unconditional `if (pathname !== target) router.replace(target)` inside the routed-once effect).",
+        "affected_testIDs": ["agent-portal", "tech-portal", "tenant-portal"]
+      }
+    ],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "react-native-web deprecation (carry-over)",
+        "issue": "Console still surfaces 'shadow* style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents' — same warnings noted in iteration_1/2/3. Non-blocking."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_role_isolation_regression.py",
+    "/app/test_reports/pytest/iteration_4.xml"
+  ],
+  "action_items": [
+    "In /app/frontend/app/_layout.tsx (cold-start routing effect, lines 87-110): whitelist deep-linkable routes (/portal/agent, /portal/tech, /portal/tenant, /support, /about, /billing, and probably any '/portal/*' or similar shareable route) so they are NOT force-replaced to '/'. Suggested minimal change: guard the router.replace() with `pathname === '/' || pathname === '/onboarding' || pathname === '/beta-login'` (i.e. only force-route when the user actually landed on the naked root), OR maintain an explicit allowlist of deep-link routes that skip the replace.",
+    "After the deep-link fix, re-verify: (a) /portal/agent /portal/tech /portal/tenant render AliveEmpty when params are missing (no data leak); (b) valid params trigger ActingAsBadge with role label + agent/tech/tenant name + scope; (c) /support /about /billing render their SectionTitle + ListRow content when hit via URL.",
+    "Optional cleanup (carry-over from iteration_3): migrate remaining shadow* props → boxShadow and props.pointerEvents → style.pointerEvents to silence RN-Web deprecation console noise."
+  ],
+  "critical_code_review_comments": [
+    "ActingAsBadge is correctly mounted in all 3 portals under the valid-session branch (agent.tsx:55, tech.tsx:172-178, tenant.tsx:68-72). Component itself is well-formed: role prop is typed, i18n label via t(meta.labelKey), RTL flow-reverse handled, displayName numberOfLines=1, scope optional. testID missing on the wrap View — worth adding for future testing.",
+    "Cold-start guard is TOO AGGRESSIVE: '_layout.tsx:87-110' issues a router.replace on EVERY non-root path on cold-load. This was added in iteration_3 to fix a /health deep-link regression but it over-corrected and now blocks every legitimate deep-link (portals, /support, /about, /billing).",
+    "Backend /api/executive shape stayed stable across the branch: version='executive-v2', portfolio.units=42, portfolio.tenants=42, portfolio.occupancy_pct=100 — regression-safe.",
+    "Upload+Apply endpoints are JSON-based (not multipart) — schema is UploadPortfolioRequest({files:[UploadFileMeta{name,mimeType,size,textSnippet}], lang}). Any client sending multipart/form-data will get 422 (verified). Confirm the frontend uploader is sending JSON with textSnippet."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_role_isolation_regression.py (NEW — 22 tests covering the 18 endpoints, executive-v2 shape, and upload→apply flow)"
+  ],
+  "success_rate": {
+    "backend": "100% (22/22 pytest on public URL)",
+    "frontend": "70% — cold-start ok, splash+onboarding ok, English/Arabic locale toggle ok, More menu at /hub ok with SectionTitle+ListRow. Portal deep-links + /support//about//billing URL access BLOCKED by cold-start guard. ActingAsBadge visual verification therefore not exercised (code review pass only)."
+  },
+  "seed_data_creation": "None. Backend uses its own seeded portfolio (42 units / 42 tenants / 100% occupancy).",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Once the cold-start deep-link guard is fixed, re-run the frontend playwright script: (1) set localStorage.setItem('spp.onboarded','true'); (2) page.goto('/portal/agent') → expect AliveEmpty + no ActingAsBadge (invalid session — proof of role isolation); (3) page.goto('/portal/tenant') / page.goto('/portal/tech') same; (4) page.goto('/support'), /about, /billing → expect SectionTitle+ListRow content. To test the VALID portal path (with ActingAsBadge visible), you'll need an agent/tech/tenant id+portalToken pair from /operational/portals — that's owner-side QR-code setup UI and needs seeded portal tokens in memory store. Backend tests (test_role_isolation_regression.py) are stable and cover all 18 endpoints + upload/apply flow — re-run with `pytest /app/backend/tests/test_role_isolation_regression.py -v`.",
+  "rca_of_issue": "ROOT CAUSE — cold-start URL hijack. File: /app/frontend/app/_layout.tsx, lines 87-110. Effect body: `let target = '/'; if (betaMode && !betaAuthed) target='/beta-login'; else if (!onboarded) target='/onboarding'; else if (persona==='technician') target='/maintenance'; else if (persona==='tenant') target='/notifications'; if (pathname !== target) router.replace(target); setRouted(true);`. Because the effect fires exactly once on cold-start with routed=false, ANY URL entry whose pathname is not the computed target gets replaced to the target. In iteration_3 this behavior was intentional to prevent /health from being deep-linked, but there was no allowlist for legitimate deep-linkable routes. REPRODUCTION: 1) `localStorage.setItem('spp.onboarded','true')`; 2) page.goto('/portal/agent?id=X&t=Y') or page.goto('/support'); 3) observe final URL is '/' with home content, not the requested screen. MITIGATION: replace the unconditional replace() with an allowlist check — e.g. `const isDeepLink = pathname.startsWith('/portal/') || ['/support','/about','/billing'].includes(pathname); if (!isDeepLink && pathname !== target) router.replace(target); setRouted(true);` — that preserves the /health hijack fix while restoring deep-link surface."
+}

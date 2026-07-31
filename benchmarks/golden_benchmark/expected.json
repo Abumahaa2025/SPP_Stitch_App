@@ -1,0 +1,45 @@
+{
+  "version": "golden-v1",
+  "description": "Official golden benchmark — owner's 7 rent rolls Jan–Jul 2026. Phone-confirmed reference.",
+  "required_file_count": 7,
+  "period": {
+    "from_month": 1,
+    "from_year": 2026,
+    "to_month": 7,
+    "to_year": 2026,
+    "label_ar": "يناير 2026 → يوليو 2026"
+  },
+  "metrics": {
+    "total_units": 30,
+    "apartment_count": 26,
+    "shop_count": 4,
+    "min_months_linked": 7,
+    "min_files_analyzed": 7
+  },
+  "koil": {
+    "version": "koil-reasoning-v1",
+    "brief_prefix": "كويل",
+    "min_what_items": 1,
+    "min_recommendations": 1,
+    "require_evidence": true,
+    "reject_generic_only": true
+  },
+  "sections": {
+    "required_keys": [
+      "koil_brief",
+      "koil_what",
+      "koil_why",
+      "koil_risks",
+      "koil_recommendations"
+    ]
+  },
+  "file_name_hints": [
+    "كشف شهر 1-2026.xlsx",
+    "شكشف شهر 2-2026.xlsx",
+    "كشف شهر 3-2026.xlsx",
+    "كشف شهر 4-2026.xlsx",
+    "كشف شهر 5-2026.xlsx",
+    "كشف -شهر -6-2026-.xlsx",
+    "كشف شهر7-2026.xlsx"
+  ]
+}

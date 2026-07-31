@@ -1,0 +1,156 @@
+From 34944ca1fcd9248b2095a54d16c301030d24c11a Mon Sep 17 00:00:00 2001
+From: emergent-agent-e1 <github@emergent.sh>
+Date: Thu, 16 Jul 2026 06:59:32 +0000
+Subject: [PATCH 5/5] auto-commit for a80d95a6-61ed-4243-919d-876195763728
+
+---
+ backend/tests/test_final_smoke.py   | 84 +++++++++++++++++++++++++++++
+ test_reports/iteration_6.json       | 35 ++++++++++++
+ test_reports/pytest/iteration_6.xml |  1 +
+ 3 files changed, 120 insertions(+)
+ create mode 100644 backend/tests/test_final_smoke.py
+ create mode 100644 test_reports/iteration_6.json
+ create mode 100644 test_reports/pytest/iteration_6.xml
+
+diff --git a/backend/tests/test_final_smoke.py b/backend/tests/test_final_smoke.py
+new file mode 100644
+index 0000000..a6fc1bd
+--- /dev/null
++++ b/backend/tests/test_final_smoke.py
+@@ -0,0 +1,84 @@
++"""Iteration 6 — final smoke test.
++
++Verifies all 18 backend /api endpoints return 200 and the upload → apply
++round-trip returns ok:true.
++"""
++import os
++import pytest
++import requests
++
++BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "").rstrip("/")
++if not BASE_URL:
++    # Local fallback used only inside container tests
++    BASE_URL = "http://localhost:8001"
++
++
++GET_ENDPOINTS = [
++    "/api/",
++    "/api/briefing",
++    "/api/executive",
++    "/api/portfolio-memory",
++    "/api/intelligence",
++    "/api/properties",
++    "/api/decisions",
++    "/api/tenants",
++    "/api/contracts",
++    "/api/timeline",
++    "/api/sensors",
++    "/api/notifications",
++    "/api/reports",
++    "/api/knowledge",
++    "/api/guides",
++    "/api/owner",
++    "/api/beta/info",
++    "/api/build-info",
++    "/api/verdicts",
++    "/api/upload/last-applied",
++]
++
++
++@pytest.mark.parametrize("path", GET_ENDPOINTS)
++def test_get_endpoint_returns_200(path):
++    resp = requests.get(f"{BASE_URL}{path}", timeout=30)
++    assert resp.status_code == 200, f"{path} → {resp.status_code}: {resp.text[:200]}"
++    # ensure it's valid JSON
++    resp.json()
++
++
++def test_upload_analysis_and_apply_roundtrip():
++    files_payload = {
++        "files": [
++            {
++                "name": "TEST_portfolio.csv",
++                "mimeType": "text/csv",
++                "size": 128,
++                "textSnippet": (
++                    "property,unit,tenant,rent\n"
++                    "Marina Crest,PH-01,TEST Alpha,24000\n"
++                    "Marina Crest,PH-02,TEST Beta,22500\n"
++                ),
++            }
++        ],
++        "lang": "en",
++    }
++
++    analyze = requests.post(
++        f"{BASE_URL}/api/upload/portfolio-analysis",
++        json=files_payload,
++        timeout=60,
++    )
++    assert analyze.status_code == 200, f"analyze status {analyze.status_code}: {analyze.text[:300]}"
++    body = analyze.json()
++    analysis_id = body.get("analysis_id") or body.get("id") or body.get("session_id")
++    assert analysis_id, f"analyze response missing analysis_id: {body}"
++
++    apply_resp = requests.post(
++        f"{BASE_URL}/api/upload/apply-analysis",
++        json={"analysis_id": analysis_id, "files": files_payload["files"]},
++        timeout=60,
++    )
++    # Accept either 200 (full commit ok) or 404 if session expired between calls
++    assert apply_resp.status_code == 200, f"apply status {apply_resp.status_code}: {apply_resp.text[:300]}"
++    apply_body = apply_resp.json()
++    assert apply_body.get("ok") is True, f"apply body not ok: {apply_body}"
++    assert apply_body.get("analysis_id") == analysis_id
+diff --git a/test_reports/iteration_6.json b/test_reports/iteration_6.json
+new file mode 100644
+index 0000000..cf4c0e5
+--- /dev/null
++++ b/test_reports/iteration_6.json
+@@ -0,0 +1,35 @@
++{
++  "summary": "FINAL SMOKE PASS. All 4 review scenarios green. (a) Backend — pytest suite backend/tests/test_final_smoke.py = 21/21 in 37.13s: 20 GET endpoints (/api/, /briefing, /executive, /portfolio-memory, /intelligence, /properties, /decisions, /tenants, /contracts, /timeline, /sensors, /notifications, /reports, /knowledge, /guides, /owner, /beta/info, /build-info, /verdicts, /upload/last-applied) all return 200 with valid JSON. Review asked for 18; we covered the full 20-GET public surface. (b) Upload → Analysis → Apply round-trip against the public preview URL: POST /api/upload/portfolio-analysis returns analysis_id → POST /api/upload/apply-analysis returns ok:true with matching analysis_id (verified body.ok is True, body.analysis_id preserved). (c) Cold-start deep-links — fresh viewport + cleared storage, navigated directly to /portal/agent, /portal/tech, /portal/tenant: final_url stays on the requested path for all three, `agent-portal` / `tech-portal` / `tenant-portal` testIDs render, no redirect to /onboarding — the isDeepLink allowlist in _layout.tsx:101-103 is still working. Each portal shows its own invalid-link AliveEmpty scaffold (no cross-role leak). (d) expo-localization — with empty storage, device locale English → app defaults to English (dir=ltr, html.lang=en, screen text 'Property agent portal · Invalid or inactive link.'). With localStorage seed spp.lang='\"ar\"' (JSON-stringified, matches AsyncStorage-web format), Arabic RTL wins: 'بوابة الوكيل العقاري · الرابط غير صالح أو غير مفعّل.' rendered right-aligned, back-arrow visually mirrored — Arabic glyph check passed (contains_arabic=True). Note: document.documentElement.dir stays 'ltr' — RTL is achieved via per-Text writingDirection:'rtl' driven by useI18n().isRTL, not a document-level flip. This matches the existing implementation and does not affect the user-visible RTL. No new bugs. Only non-blocking console warnings persist (react-native-web `shadow*` and `props.pointerEvents` deprecations), unchanged from iterations 1–5.",
++  "backend_issues": {"critical": [], "minor": []},
++  "frontend_issues": {
++    "ui_bugs": [],
++    "integration_issues": [],
++    "design_issues": [],
++    "react_native_issues": [
++      {"component": "react-native-web (carry-over)", "issue": "Console still logs '\"shadow*\" style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents' on every screen mount. Non-blocking; tracked since iteration_1."}
++    ]
++  },
++  "test_report_links": [
++    "/app/backend/tests/test_final_smoke.py",
++    "/app/test_reports/pytest/iteration_6.xml"
++  ],
++  "action_items": [
++    "None required — smoke green across all four review scenarios.",
++    "Optional (still open): migrate remaining shadow* → boxShadow and props.pointerEvents → style.pointerEvents to silence RN-Web deprecation warnings.",
++    "Optional polish: consider setting document.documentElement.dir='rtl' on web when lang='ar' so third-party embedded content (e.g., iframe overlays) inherits RTL — currently only per-Text writingDirection is applied. Not blocking user-visible layout."
++  ],
++  "critical_code_review_comments": [
++    "_layout.tsx:64-73 — detectDeviceLang() correctly falls back only when spp.lang is unset (saved === 'en' || saved === 'ar' ? saved : detectDeviceLang()). Explicit user preference always wins, per spec.",
++    "_layout.tsx:101-103 — isDeepLink allowlist for '/portal/*' + {/support,/about,/billing,/privacy,/terms} continues to short-circuit the cold-start router.replace(); regression-safe.",
++    "server.py:1042-1116 — upload/apply-analysis has a clean GAS-first path with a local fallback that materialises the Property Knowledge session into _memory_db; both branches return ok:true, so the round-trip smoke never falsely fails when GAS is offline."
++  ],
++  "updated_files": [
++    "/app/backend/tests/test_final_smoke.py (new — 21-test parametrised smoke)"
++  ],
++  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (4/4 review scenarios: 3 portal deep-links + localization default/Arabic)"},
++  "seed_data_creation": "None persisted. Upload roundtrip pushed a TEST_ prefixed CSV snippet through the analyse+apply path; commit went to in-memory beta store which resets on process restart.",
++  "retest_needed": false,
++  "should_main_agent_self_test": true,
++  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_final_smoke.py for future regression sweeps — it's the current source of truth for the 20-endpoint smoke + upload/apply roundtrip. Run with `EXPO_PUBLIC_BACKEND_URL=<preview_url> pytest backend/tests/test_final_smoke.py -v`. For the localization Arabic path, seed via `localStorage.setItem('spp.lang', JSON.stringify('ar'))` (JSON-stringified — AsyncStorage-web parses back with JSON.parse). For cold-start deep-links, clear localStorage first, then goto /portal/agent (or /tech, /tenant); expect testID `${role}-portal` and URL to stay on /portal/*, no /onboarding bounce.",
++  "rca_of_issue": "N/A — smoke only. All scenarios in the review request pass."
++}
+diff --git a/test_reports/pytest/iteration_6.xml b/test_reports/pytest/iteration_6.xml
+new file mode 100644
+index 0000000..423c3f2
+--- /dev/null
++++ b/test_reports/pytest/iteration_6.xml
+@@ -0,0 +1 @@
++<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="0" skipped="0" tests="21" time="37.134" timestamp="2026-07-16T06:55:41.913993+00:00" hostname="agent-env-13c99299-5777-414e-8f69-1730c3e4036d"><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/]" time="0.293" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/briefing]" time="18.964" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/executive]" time="0.115" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/portfolio-memory]" time="0.086" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/intelligence]" time="0.105" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/properties]" time="0.090" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/decisions]" time="0.076" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/tenants]" time="0.083" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/contracts]" time="0.098" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/timeline]" time="0.160" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/sensors]" time="0.070" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/notifications]" time="6.416" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/reports]" time="0.111" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/knowledge]" time="0.069" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/guides]" time="0.097" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/owner]" time="0.073" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/beta/info]" time="0.113" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/build-info]" time="0.099" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/verdicts]" time="0.085" /><testcase classname="backend.tests.test_final_smoke" name="test_get_endpoint_returns_200[/api/upload/last-applied]" time="0.074" /><testcase classname="backend.tests.test_final_smoke" name="test_upload_analysis_and_apply_roundtrip" time="9.784" /></testsuite></testsuites>
+\ No newline at end of file
+-- 
+2.39.5
+

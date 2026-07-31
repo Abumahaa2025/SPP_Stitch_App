@@ -1,0 +1,474 @@
+From 995ad4e79d72e95332bf924def3264329a09292e Mon Sep 17 00:00:00 2001
+From: emergent-agent-e1 <github@emergent.sh>
+Date: Thu, 16 Jul 2026 05:26:09 +0000
+Subject: [PATCH 1/5] auto-commit for 9d64c189-1121-4076-8557-cf1c946f3915
+
+---
+ frontend/app/about.tsx                   |   8 +-
+ frontend/app/support.tsx                 |  68 +++++------
+ frontend/src/components/ListRow.tsx      | 142 +++++++++++++++++++++++
+ frontend/src/components/SectionTitle.tsx | 109 +++++++++++++++++
+ frontend/src/theme/tokens.ts             |  35 +++++-
+ 5 files changed, 316 insertions(+), 46 deletions(-)
+ create mode 100644 frontend/src/components/ListRow.tsx
+ create mode 100644 frontend/src/components/SectionTitle.tsx
+
+diff --git a/frontend/app/about.tsx b/frontend/app/about.tsx
+index de24dae..b542214 100644
+--- a/frontend/app/about.tsx
++++ b/frontend/app/about.tsx
+@@ -4,8 +4,9 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
+ import { ScreenScaffold } from '@/src/components/ScreenScaffold';
+ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
+ import { GlassCard } from '@/src/components/GlassCard';
++import { SectionTitle } from '@/src/components/SectionTitle';
+ import { BrandOrb, Wordmark } from '@/src/components/BrandOrb';
+-import { colors, spacing, typography } from '@/src/theme';
++import { colors, spacing, typography, cardPadding } from '@/src/theme';
+ import { useI18n } from '@/src/i18n';
+ 
+ export default function About() {
+@@ -35,8 +36,8 @@ export default function About() {
+       </Animated.View>
+ 
+       <View style={{ marginTop: spacing.lg }}>
+-        <GlassCard padding={22} radiusToken="lg">
+-          <Text style={styles.section}>{t('about.platform').toUpperCase()}</Text>
++        <SectionTitle eyebrow={t('about.platform')} testID="about-platform-title" />
++        <GlassCard padding={cardPadding.standard} radiusToken="lg">
+           {items.map((it, i) => (
+             <View key={it.label}>
+               <View style={[styles.row, isRTL && styles.rowRtl]}>
+@@ -60,7 +61,6 @@ export default function About() {
+ const styles = StyleSheet.create({
+   tagline: { color: colors.textSubtle, fontSize: 10, letterSpacing: 2.5, fontWeight: typography.weight.medium },
+   mission: { color: colors.textDim, fontSize: 14, lineHeight: 21, textAlign: 'center', marginTop: 12, maxWidth: 300 },
+-  section: { color: colors.textMuted, fontSize: 10.5, letterSpacing: 2, textTransform: 'uppercase', fontWeight: typography.weight.medium, marginBottom: 12 },
+   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
+   rowRtl: { flexDirection: 'row-reverse' },
+   rowLabel: { color: colors.textDim, fontSize: 13.5 },
+diff --git a/frontend/app/support.tsx b/frontend/app/support.tsx
+index 7a864b4..9601b8f 100644
+--- a/frontend/app/support.tsx
++++ b/frontend/app/support.tsx
+@@ -1,22 +1,23 @@
+ import React from 'react';
+-import { View, Text, StyleSheet, Pressable, Linking } from 'react-native';
+-import { Feather } from '@expo/vector-icons';
++import { View, StyleSheet, Text, Linking } from 'react-native';
+ import Animated, { FadeInDown } from 'react-native-reanimated';
+ import * as Haptics from 'expo-haptics';
+ 
+ import { ScreenScaffold } from '@/src/components/ScreenScaffold';
+ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
+ import { GlassCard } from '@/src/components/GlassCard';
+-import { colors, spacing, typography } from '@/src/theme';
++import { ListRow } from '@/src/components/ListRow';
++import { SectionTitle } from '@/src/components/SectionTitle';
++import { colors, spacing, typography, cardPadding } from '@/src/theme';
+ import { useI18n } from '@/src/i18n';
+ 
+ export default function Support() {
+   const { t, isRTL } = useI18n();
+ 
+   const channels = [
+-    { icon: 'message-circle' as const, labelKey: 'support.channel.whatsapp', hintKey: 'support.channel.whatsappHint', href: 'https://wa.me/971000000000', accent: 'emerald' as const },
+-    { icon: 'mail' as const, labelKey: 'support.channel.email', hintKey: 'support.channel.emailHint', href: 'mailto:support@spp.ai', accent: 'gold' as const },
+-    { icon: 'phone' as const, labelKey: 'support.channel.phone', hintKey: 'support.channel.phoneHint', href: 'tel:+971000000000' },
++    { key: 'whatsapp', icon: 'message-circle' as const, labelKey: 'support.channel.whatsapp', hintKey: 'support.channel.whatsappHint', href: 'https://wa.me/971000000000', accent: 'emerald' as const },
++    { key: 'email', icon: 'mail' as const, labelKey: 'support.channel.email', hintKey: 'support.channel.emailHint', href: 'mailto:support@spp.ai', accent: 'gold' as const },
++    { key: 'phone', icon: 'phone' as const, labelKey: 'support.channel.phone', hintKey: 'support.channel.phoneHint', href: 'tel:+971000000000', accent: 'neutral' as const },
+   ];
+ 
+   const faqs = [
+@@ -30,41 +31,31 @@ export default function Support() {
+       <StoryScreenHeader question={t('page.q.support')} hint={t('support.sub')} showBack testID="support-header" />
+ 
+       {channels.map((c, i) => (
+-        <Animated.View key={c.labelKey} entering={FadeInDown.duration(600).delay(60 * i)}>
+-          <Pressable
++        <Animated.View key={c.key} entering={FadeInDown.duration(600).delay(60 * i)}>
++          <ListRow
+             testID={`support-${c.icon}`}
+-            onPress={() => { Haptics.selectionAsync(); Linking.openURL(c.href).catch(() => {}); }}
+-            style={{ marginBottom: spacing.md }}
+-          >
+-            <GlassCard padding={20} radiusToken="lg" edge={c.accent ?? 'neutral'}>
+-              <View style={styles.row}>
+-                <View style={[
+-                  styles.iconChip,
+-                  c.accent === 'gold' && { borderColor: colors.goldEdge, backgroundColor: colors.goldSoft },
+-                  c.accent === 'emerald' && { borderColor: colors.emeraldEdge, backgroundColor: colors.emeraldSoft },
+-                ]}>
+-                  <Feather
+-                    name={c.icon}
+-                    size={16}
+-                    color={c.accent === 'gold' ? colors.gold : c.accent === 'emerald' ? colors.emerald : colors.textDim}
+-                  />
+-                </View>
+-                <View style={{ flex: 1 }}>
+-                  <Text style={[styles.label, isRTL && styles.rtl]}>{t(c.labelKey as 'support.channel.whatsapp')}</Text>
+-                  <Text style={[styles.hint, isRTL && styles.rtl]}>{t(c.hintKey as 'support.channel.whatsappHint')}</Text>
+-                </View>
+-                <Feather name="arrow-up-right" size={16} color={colors.textDim} />
+-              </View>
+-            </GlassCard>
+-          </Pressable>
++            icon={c.icon}
++            title={t(c.labelKey as 'support.channel.whatsapp')}
++            subtitle={t(c.hintKey as 'support.channel.whatsappHint')}
++            accent={c.accent}
++            trailing="external"
++            onPress={() => {
++              Haptics.selectionAsync();
++              Linking.openURL(c.href).catch(() => {});
++            }}
++          />
+         </Animated.View>
+       ))}
+ 
+-      <View style={{ marginTop: spacing.lg }}>
+-        <Text style={styles.faqTitle}>{t('support.faqTitle').toUpperCase()}</Text>
++      <View style={{ marginTop: spacing.xl }}>
++        <SectionTitle eyebrow={t('support.faqTitle')} testID="support-faq-title" />
+         {faqs.map((f, i) => (
+-          <Animated.View key={f.q} entering={FadeInDown.duration(600).delay(200 + 60 * i)} style={{ marginTop: spacing.sm }}>
+-            <GlassCard padding={18} radiusToken="lg">
++          <Animated.View
++            key={f.q}
++            entering={FadeInDown.duration(600).delay(200 + 60 * i)}
++            style={{ marginTop: spacing.sm }}
++          >
++            <GlassCard padding={cardPadding.compact} radiusToken="lg">
+               <Text style={[styles.q, isRTL && styles.rtl]}>{f.q}</Text>
+               <Text style={[styles.a, isRTL && styles.rtl]}>{f.a}</Text>
+             </GlassCard>
+@@ -76,11 +67,6 @@ export default function Support() {
+ }
+ 
+ const styles = StyleSheet.create({
+-  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+-  iconChip: { width: 40, height: 40, borderRadius: 20, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' },
+-  label: { color: colors.text, fontSize: 15, fontWeight: typography.weight.semibold, letterSpacing: -0.2 },
+-  hint: { color: colors.textMuted, fontSize: 12.5, marginTop: 3 },
+-  faqTitle: { color: colors.textMuted, fontSize: 10.5, letterSpacing: 2, fontWeight: typography.weight.medium, marginBottom: spacing.sm },
+   q: { color: colors.text, fontSize: 14, fontWeight: typography.weight.semibold, letterSpacing: -0.1 },
+   a: { color: colors.textDim, fontSize: 13, lineHeight: 20, marginTop: 8 },
+   rtl: { writingDirection: 'rtl', textAlign: 'right' },
+diff --git a/frontend/src/components/ListRow.tsx b/frontend/src/components/ListRow.tsx
+new file mode 100644
+index 0000000..1273163
+--- /dev/null
++++ b/frontend/src/components/ListRow.tsx
+@@ -0,0 +1,142 @@
++/**
++ * ListRow — the tappable row primitive for lists across Beta 18.
++ *
++ * Codifies the pattern already used in `support.tsx`, `more.tsx`, and
++ * numerous menu-style screens: a GlassCard containing icon chip + label
++ * + hint + trailing chevron. This component wraps that pattern so we
++ * stop re-implementing it in every file.
++ *
++ * Design contract (matches existing Beta 18 rows):
++ *   · Icon chip: 40×40, radius 20, hairline border
++ *   · Label: fontSize 15, semibold, letterSpacing -0.2
++ *   · Hint: fontSize 12.5, muted, marginTop 3
++ *   · Trailing: chevron/arrow that auto-mirrors in RTL
++ */
++import React from 'react';
++import { View, Text, StyleSheet, Pressable } from 'react-native';
++import { Feather } from '@expo/vector-icons';
++import * as Haptics from 'expo-haptics';
++import { GlassCard } from './GlassCard';
++import { colors, spacing, typography, radius, iconSize, cardPadding } from '../theme';
++import { useI18n } from '../i18n';
++
++type Accent = 'gold' | 'emerald' | 'neutral' | 'danger';
++
++type Props = {
++  icon: keyof typeof Feather.glyphMap;
++  title: string;
++  subtitle?: string;
++  /** Trailing pill · e.g. "3" or "قريباً". */
++  meta?: string;
++  /** Colored accent — drives icon chip + card edge. */
++  accent?: Accent;
++  /** Trailing indicator. */
++  trailing?: 'chevron' | 'arrow' | 'external' | null;
++  onPress?: () => void;
++  disabled?: boolean;
++  testID?: string;
++};
++
++const ACCENT_COLOR: Record<Accent, string> = {
++  gold: colors.gold,
++  emerald: colors.emerald,
++  neutral: colors.textDim,
++  danger: colors.danger,
++};
++
++export function ListRow({
++  icon, title, subtitle, meta, accent = 'neutral', trailing = 'chevron',
++  onPress, disabled, testID,
++}: Props) {
++  const { isRTL } = useI18n();
++  const accentColor = ACCENT_COLOR[accent];
++  const chipBg =
++    accent === 'gold' ? colors.goldSoft :
++    accent === 'emerald' ? colors.emeraldSoft :
++    accent === 'danger' ? 'rgba(233,107,107,0.13)' :
++    'rgba(255,255,255,0.02)';
++  const chipEdge =
++    accent === 'gold' ? colors.goldEdge :
++    accent === 'emerald' ? colors.emeraldEdge :
++    accent === 'danger' ? 'rgba(233,107,107,0.32)' :
++    colors.border;
++
++  const trailingName =
++    trailing === 'chevron' ? (isRTL ? 'chevron-left' : 'chevron-right') :
++    trailing === 'arrow' ? (isRTL ? 'arrow-left' : 'arrow-right') :
++    trailing === 'external' ? 'arrow-up-right' :
++    null;
++
++  const inner = (
++    <GlassCard
++      padding={cardPadding.compact}
++      radiusToken="lg"
++      edge={accent === 'danger' ? 'neutral' : (accent as any)}
++    >
++      <View style={[styles.row, isRTL && { flexDirection: 'row-reverse' }]}>
++        <View style={[styles.chip, { borderColor: chipEdge, backgroundColor: chipBg }]}>
++          <Feather name={icon} size={iconSize.md} color={accentColor} />
++        </View>
++        <View style={{ flex: 1, gap: 3 }}>
++          <Text style={[styles.title, isRTL && styles.rtl]} numberOfLines={1}>
++            {title}
++          </Text>
++          {subtitle ? (
++            <Text style={[styles.subtitle, isRTL && styles.rtl]} numberOfLines={2}>
++              {subtitle}
++            </Text>
++          ) : null}
++        </View>
++        {meta ? (
++          <View style={styles.meta}>
++            <Text style={styles.metaText}>{meta}</Text>
++          </View>
++        ) : null}
++        {trailingName ? (
++          <Feather name={trailingName} size={iconSize.md} color={colors.textDim} />
++        ) : null}
++      </View>
++    </GlassCard>
++  );
++
++  if (!onPress) return inner;
++
++  return (
++    <Pressable
++      testID={testID}
++      disabled={disabled}
++      onPress={() => { Haptics.selectionAsync(); onPress(); }}
++      style={({ pressed }) => [
++        { marginBottom: spacing.sm },
++        pressed && !disabled && { opacity: 0.9, transform: [{ scale: 0.995 }] },
++        disabled && { opacity: 0.55 },
++      ]}
++    >
++      {inner}
++    </Pressable>
++  );
++}
++
++const styles = StyleSheet.create({
++  row: { flexDirection: 'row', alignItems: 'center', gap: 14 },
++  chip: {
++    width: 40, height: 40, borderRadius: 20,
++    borderWidth: StyleSheet.hairlineWidth,
++    alignItems: 'center', justifyContent: 'center',
++  },
++  title: {
++    color: colors.text, fontSize: 15,
++    fontWeight: typography.weight.semibold, letterSpacing: -0.2,
++  },
++  rtl: { textAlign: 'right', writingDirection: 'rtl' },
++  subtitle: { color: colors.textMuted, fontSize: 12.5, lineHeight: 18 },
++  meta: {
++    paddingHorizontal: 9, paddingVertical: 4, borderRadius: radius.pill,
++    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
++    backgroundColor: 'rgba(255,255,255,0.03)',
++  },
++  metaText: {
++    color: colors.textDim, fontSize: 10.5, letterSpacing: 0.4,
++    fontWeight: typography.weight.medium, fontVariant: ['tabular-nums'],
++  },
++});
+diff --git a/frontend/src/components/SectionTitle.tsx b/frontend/src/components/SectionTitle.tsx
+new file mode 100644
+index 0000000..84d2576
+--- /dev/null
++++ b/frontend/src/components/SectionTitle.tsx
+@@ -0,0 +1,109 @@
++/**
++ * SectionTitle — the ONE way every Beta 18 screen introduces a group.
++ *
++ * This primitive DOES NOT impose a new visual identity. It codifies the
++ * eyebrow style already used across support.tsx (`faqTitle`), about.tsx
++ * (`section`), portfolio.tsx and elsewhere:
++ *   fontSize 10.5 · letterSpacing 2.0 · uppercase · medium weight
++ *
++ * Additive features:
++ *   · Optional micro gold bar on the leading edge (auto-mirrors in RTL).
++ *   · Optional count badge for lists (tabular-nums, gold-soft).
++ *   · Optional trailing CTA (chevron by default).
++ *   · Optional short sub-line.
++ *
++ * Adopt gradually — never overwrite an existing ad-hoc header wholesale.
++ */
++import React from 'react';
++import { View, Text, StyleSheet, Pressable } from 'react-native';
++import { Feather } from '@expo/vector-icons';
++import * as Haptics from 'expo-haptics';
++import { colors, spacing, typography, iconSize } from '../theme';
++import { useI18n } from '../i18n';
++
++type Props = {
++  eyebrow: string;
++  sub?: string;
++  count?: number;
++  onCtaPress?: () => void;
++  ctaLabel?: string;
++  /** Show the small gold bar on the leading edge. Default: true. */
++  bar?: boolean;
++  testID?: string;
++};
++
++export function SectionTitle({
++  eyebrow, sub, count, onCtaPress, ctaLabel,
++  bar = true, testID,
++}: Props) {
++  const { isRTL } = useI18n();
++  return (
++    <View style={styles.wrap} testID={testID}>
++      <View style={[styles.row, isRTL && { flexDirection: 'row-reverse' }]}>
++        {bar ? <View style={styles.bar} /> : null}
++        <Text style={[styles.eyebrow, isRTL && styles.rtl]}>
++          {eyebrow.toUpperCase()}
++        </Text>
++        {typeof count === 'number' ? (
++          <View style={styles.count}>
++            <Text style={styles.countText}>{count}</Text>
++          </View>
++        ) : null}
++        <View style={{ flex: 1 }} />
++        {onCtaPress ? (
++          <Pressable
++            testID={testID ? `${testID}-cta` : undefined}
++            onPress={() => { Haptics.selectionAsync(); onCtaPress(); }}
++            hitSlop={8}
++            style={[styles.cta, isRTL && { flexDirection: 'row-reverse' }]}
++          >
++            {ctaLabel ? <Text style={styles.ctaText}>{ctaLabel}</Text> : null}
++            <Feather
++              name={isRTL ? 'chevron-left' : 'chevron-right'}
++              size={iconSize.sm}
++              color={colors.textMuted}
++            />
++          </Pressable>
++        ) : null}
++      </View>
++      {sub ? (
++        <Text style={[styles.sub, isRTL && styles.rtl]}>{sub}</Text>
++      ) : null}
++    </View>
++  );
++}
++
++const styles = StyleSheet.create({
++  wrap: { marginBottom: spacing.md },
++  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
++  bar: {
++    width: 3, height: 12, borderRadius: 2,
++    backgroundColor: colors.gold, opacity: 0.75,
++  },
++  eyebrow: {
++    color: colors.textMuted, fontSize: 10.5, letterSpacing: 2,
++    fontWeight: typography.weight.medium,
++  },
++  rtl: { textAlign: 'right', writingDirection: 'rtl' },
++  count: {
++    minWidth: 22, height: 20, borderRadius: 10,
++    paddingHorizontal: 6,
++    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.goldEdge,
++    backgroundColor: colors.goldSoft,
++    alignItems: 'center', justifyContent: 'center',
++  },
++  countText: {
++    color: colors.gold, fontSize: 10.5,
++    fontWeight: typography.weight.semibold,
++    fontVariant: ['tabular-nums'],
++  },
++  cta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
++  ctaText: {
++    color: colors.textMuted, fontSize: 11.5,
++    letterSpacing: 0.4, fontWeight: typography.weight.medium,
++  },
++  sub: {
++    color: colors.textSubtle, fontSize: 12, marginTop: 4, marginHorizontal: 11,
++    lineHeight: 18, letterSpacing: 0.1,
++  },
++});
+diff --git a/frontend/src/theme/tokens.ts b/frontend/src/theme/tokens.ts
+index 267c194..d93383e 100644
+--- a/frontend/src/theme/tokens.ts
++++ b/frontend/src/theme/tokens.ts
+@@ -66,6 +66,39 @@ export const radius = {
+   pill: 999,
+ } as const;
+ 
++/**
++ * Icon size scale — enforces one visual rhythm across every screen.
++ *
++ * Existing Beta 18 usage tends to be size 12/14/16/18 · this scale
++ * codifies those exact values so we stop guessing.
++ *   xs (11) · pill metadata / footer icons
++ *   sm (14) · card metadata / secondary CTAs
++ *   md (16) · standard action icons (already the Beta 18 default)
++ *   lg (18) · feature icons in header chips
++ *   xl (22) · hero / illustrative icons
++ */
++export const iconSize = {
++  xs: 11,
++  sm: 14,
++  md: 16,
++  lg: 18,
++  xl: 22,
++} as const;
++
++/**
++ * Card padding scale — matches the padding values already scattered
++ * across Beta 18 (18 · 20 · 22 · 26). Adopting this scale is optional
++ * and non-breaking; every existing `padding={20}` keeps working as-is.
++ *   compact (18) · list rows / dense tiles
++ *   standard (22) · default informational card
++ *   hero (28) · headline card at the top of a screen
++ */
++export const cardPadding = {
++  compact: 18,
++  standard: 22,
++  hero: 28,
++} as const;
++
+ export const typography = {
+   // Strict scale from design spec.
+   display: 32,
+@@ -140,5 +173,5 @@ export const motion = {
+   breath: 2800,
+ };
+ 
+-export const theme = { colors, spacing, radius, typography, shadows, motion };
++export const theme = { colors, spacing, radius, typography, shadows, motion, iconSize, cardPadding };
+ export default theme;
+-- 
+2.39.5
+

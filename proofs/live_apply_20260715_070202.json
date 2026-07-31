@@ -1,0 +1,254 @@
+{
+  "render": "https://spp-beta-api.onrender.com",
+  "started_at": "2026-07-15T07:02:02.931921+00:00",
+  "target_commit": "8901639",
+  "steps": {
+    "health": {
+      "status": 200,
+      "body": {
+        "app": "SPP",
+        "status": "online"
+      }
+    },
+    "beta_info": {
+      "beta": true,
+      "personas": [
+        {
+          "id": "owner",
+          "email": "demo.owner@spp.beta",
+          "label": "Owner"
+        },
+        {
+          "id": "tenant",
+          "email": "demo.tenant@spp.beta",
+          "label": "Tenant"
+        },
+        {
+          "id": "technician",
+          "email": "demo.tech@spp.beta",
+          "label": "Technician"
+        }
+      ],
+      "data_source": "fictional_beta_seed",
+      "gas_disabled": true
+    },
+    "build_info": {
+      "status": 404,
+      "body": {
+        "detail": "Not Found"
+      }
+    },
+    "analysis_status": 200,
+    "analysis": {
+      "analysis_id": "preview_1784098952233",
+      "success_message": "كويل · يناير 2026 → فبراير 2026: يحتمل وجود تغيير في الوحدة 102 خلال فبراير 2026 ويحتاج مراجعتك. الأولوية: تواصل مع ريم ",
+      "has_engines": false,
+      "section_keys": [
+        "koil_understanding_summary",
+        "koil_understanding_files",
+        "koil_understanding_relationships",
+        "koil_understanding_ambiguities",
+        "files",
+        "koil_brief",
+        "koil_what",
+        "koil_why",
+        "koil_risks",
+        "koil_recommendations",
+        "units_summary",
+        "months"
+      ],
+      "pk_tenants": 0,
+      "metrics": {
+        "properties": 1,
+        "units": 2,
+        "tenants": 2,
+        "occupancy_pct": 100.0,
+        "occupied_units": 2,
+        "vacant_units": 0,
+        "residential_units": 2,
+        "commercial_units": 0,
+        "total_revenue_annual": 20800,
+        "collected": 15800,
+        "remaining": 5000,
+        "total_expenses": 0,
+        "contracts_expired": 0,
+        "contracts_expiring_soon": 0,
+        "late_tenants": 1,
+        "late_value": 5000,
+        "maintenance_open": 0,
+        "maintenance_done": 1,
+        "net_profit": 15800,
+        "balance": 6320,
+        "files_analyzed": 2,
+        "months_linked": 2,
+        "departed_count": 1,
+        "newcomers_count": 0,
+        "collection_rate_pct": 76,
+        "analysis_confidence_pct": 92.0
+      }
+    },
+    "pk_phones": {},
+    "apply_status": 200,
+    "apply": {
+      "ok": true,
+      "analysis_id": "preview_1784098952233",
+      "applied_at": "2026-07-15T07:03:17.211405+00:00",
+      "gas": true,
+      "commit": {
+        "ok": true,
+        "batchId": "preview_1784098952233",
+        "unitsCreated": 0,
+        "unitsUpdated": 2,
+        "paymentsAdded": 0,
+        "paymentsSkipped": 3,
+        "historyAdded": 1,
+        "sheets": [
+          "dashboard",
+          "Rent_Payments",
+          "Tenant_History",
+          "Annual_Import_Stats"
+        ],
+        "departedReports": [
+          {
+            "unit": "102",
+            "tenant": "سعد القحطاني",
+            "departedMonth": 2,
+            "departedYear": 2026,
+            "stayMonths": 1,
+            "rent": 4800,
+            "contract": "",
+            "phone": "966502222222",
+            "hadLate": false,
+            "maintenance": {
+              "count": 0,
+              "totalCost": 0,
+              "items": [],
+              "summary": "لا بلاغات مسجّلة"
+            }
+          }
+        ]
+      }
+    },
+    "tenants_status": 200,
+    "tenants": [
+      {
+        "id": "ten_b1",
+        "name": "سارة الخالد",
+        "property_id": "prop_b1",
+        "unit": "1204",
+        "since": "2024-01-15",
+        "rent": 12000,
+        "reliability": 96
+      },
+      {
+        "id": "ten_b2",
+        "name": "محمد العتيبي",
+        "property_id": "prop_b1",
+        "unit": "805",
+        "since": "2023-08-01",
+        "rent": 10500,
+        "reliability": 89
+      },
+      {
+        "id": "ten_b3",
+        "name": "شركة أفق للتجارة",
+        "property_id": "prop_b2",
+        "unit": "G-02",
+        "since": "2022-11-20",
+        "rent": 22000,
+        "reliability": 84
+      },
+      {
+        "id": "ten_b4",
+        "name": "فاطمة الزهراني",
+        "property_id": "prop_b3",
+        "unit": "فيلا",
+        "since": "2023-03-10",
+        "rent": 28000,
+        "reliability": 98
+      }
+    ],
+    "properties": [
+      {
+        "id": "prop_b1",
+        "name": "برج النخيل السكني",
+        "address": "شارع الشيخ زايد",
+        "city": "دبي",
+        "kind": "apartment",
+        "units": 6,
+        "occupancy": 0.83,
+        "monthly_revenue": 48000,
+        "health_score": 86,
+        "hero_image": "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=1200&q=80",
+        "tenant_ids": [
+          "ten_b1",
+          "ten_b2"
+        ],
+        "owner_id": "own_beta"
+      },
+      {
+        "id": "prop_b2",
+        "name": "مجمع الواحة التجاري",
+        "address": "المركز التجاري",
+        "city": "أبوظبي",
+        "kind": "office",
+        "units": 4,
+        "occupancy": 0.75,
+        "monthly_revenue": 62000,
+        "health_score": 72,
+        "hero_image": "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200",
+        "tenant_ids": [
+          "ten_b3"
+        ],
+        "owner_id": "own_beta"
+      },
+      {
+        "id": "prop_b3",
+        "name": "فilla الريف",
+        "address": "منطقة الريف",
+        "city": "الشارقة",
+        "kind": "villa",
+        "units": 1,
+        "occupancy": 1.0,
+        "monthly_revenue": 28000,
+        "health_score": 91,
+        "hero_image": "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=1200",
+        "tenant_ids": [
+          "ten_b4"
+        ],
+        "owner_id": "own_beta"
+      }
+    ],
+    "reports": [
+      {
+        "id": "r_b1",
+        "title": "ملخص المحفظة — تجريبي",
+        "summary": "3 عقارات · 83% إشغال · 2 تنبيهات تحتاجك.",
+        "pages": 4,
+        "at": "2026-07-13T07:03:18.497487+00:00"
+      }
+    ]
+  },
+  "assertions": {
+    "service_online": true,
+    "analysis_has_engines": false,
+    "analysis_has_koil_sections": true,
+    "apply_not_502_on_gas_fail_or_disabled": true,
+    "apply_ok": true,
+    "apply_returns_commit_shape": true,
+    "apply_gas_false_local_materialise": false,
+    "phones_present_after_apply": false,
+    "tenants_linked_to_property": true,
+    "pk_had_phones_pre_apply": false,
+    "all_required": false
+  },
+  "deploy": {
+    "build_info_available": false,
+    "build_body": {
+      "detail": "Not Found"
+    },
+    "note": "Without /build-info, deploy SHA is inferred via Apply local materialise + phone behavior (8901639).",
+    "target_commit": "89016396e545bdde21a3d70a19eda2ce5c36912b"
+  },
+  "finished_at": "2026-07-15T07:03:21.241446+00:00"
+}

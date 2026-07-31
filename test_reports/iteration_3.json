@@ -1,0 +1,35 @@
+{
+  "summary": "SplashIntro cold-start regression + full backend regression. Backend: 21/21 pytest passed (added TestVerdicts covering the new /api/verdicts endpoint — response is exactly 13 keyed verdicts: home, portfolio, insights, health, maintenance, sensors, tenants, contracts, notifications, reports, knowledge, guides, owner; each verdict carries headline/why/action/route). /api/chat still responds via GPT-5.2 (real reply). Frontend: SplashIntro overlay (data-testid='splash-intro') renders ~200ms after every reload, holds through t≥1.2s (min-hold ~1.4s satisfied), shows BrandOrb + Wordmark 'S P P' + tagline 'AI OPERATING SYSTEM · REAL ESTATE', z-index=999 correctly covering content. First-launch (no spp.onboarded) lands on onboarding-screen; onboarded=true lands on ai-employee-home. Deep-link regression VERIFIED: navigating to /health then reloading correctly shows the intro and the router replaces to '/', landing the user on ai-employee-home (URL rewritten from /health to /). Bottom tab bar (tab-home, tab-properties, tab-brain, tab-analytics) navigates correctly post-fade. BrainVerdict cards render on Portfolio (brain-verdict-portfolio) and Insights (brain-verdict-insights) with a gold action pill (brain-verdict-cta-*) that correctly routes (portfolio CTA → /property/prop_4 'Aurum Office Tower'). No red screen / worklet errors — the earlier shiftBy regression remains fixed. Two carry-over deprecation warnings from prior iterations remain (shadow* and props.pointerEvents), non-blocking.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "SplashIntro.tsx", "issue": "Reanimated warning: 'Properties [opacity, transform] may be overwritten by a layout animation. Please wrap your component with an animated view and apply the layout animation on the wrapper.' The outer Animated.View has an opacity shared value while the inner children use FadeIn/FadeInDown 'entering' layout animations. Non-blocking. Reference: /app/frontend/src/components/SplashIntro.tsx:37-70."},
+      {"component": "react-native-web deprecation", "issue": "Console still surfaces 'shadow* style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents' — carried over from iteration_1/2. Non-blocking."}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_spp_backend.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Optional: unmount SplashIntro (return null when introDone) instead of leaving it in the DOM with opacity 0. Currently the element persists after fade-out (pointerEvents='none' correctly stops it from blocking taps, but Playwright/DOM still sees the fullscreen absolute overlay). Cleaner DOM + fixes the Reanimated 'may be overwritten by layout animation' warning.",
+    "Optional cleanup: migrate remaining shadow* props → boxShadow and props.pointerEvents → style.pointerEvents to silence RN-Web deprecation console noise (carry-over)."
+  ],
+  "critical_code_review_comments": [
+    "_layout.tsx cold-start ritual is correct: min-hold (1400ms) + router.replace to '/' or '/onboarding' + fade-out are all wired via useEffect dependencies. Verified end-to-end.",
+    "SplashIntro overlay is kept mounted even after opacity animates to 0. Consider `if (introDone) return null` or removing the sibling <SplashIntro/> once done — minor cleanliness only; taps are not blocked because pointerEvents flips to 'none' at opacity ≤ 0.02.",
+    "/api/verdicts is correctly shaped: 13 keys, each { headline, why, action, route }; conditional verdicts (portfolio/health/contracts) can be null if underlying data is missing, but seeded DB satisfies them all."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_spp_backend.py (added TestVerdicts class — 2 tests covering shape + fields for /api/verdicts)"
+  ],
+  "success_rate": {"backend": "100% (21/21 pytest)", "frontend": "100% on the launch-flow regression: splash-intro visibility, min-hold, first-launch onboarding path, onboarded home path, /health deep-link regression, tab nav, BrainVerdict rendering + gold-pill routing all verified."},
+  "seed_data_creation": "None. Backend seeds on empty DB.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Cold-start ritual is confirmed working. Key test recipe: (1) set localStorage 'spp.onboarded' = 'true' (or remove it for first-launch), (2) reload, (3) verify [data-testid=splash-intro] present with z-index 999, (4) wait 3.5s and confirm [data-testid=ai-employee-home] (or onboarding-screen for first-launch) is visible. /health deep-link regression: goto /health, reload, and expect final URL '/' with ai-employee-home visible. For BrainVerdict tests, navigate via tab bar or in-app router.push — a URL-bar navigation triggers the cold-start replace and lands on '/'. Backend /api/verdicts returns exactly 13 keys and /api/chat still returns real GPT-5.2 replies via Emergent Universal Key.",
+  "rca_of_issue": "Launch-flow bug (report only, already fixed by main agent): the app previously rehydrated the last visited pathname on cold-start because expo-router restored the URL state and no root guard replaced it. The fix in _layout.tsx now (a) mounts a full-screen SplashIntro (z-index 999) at every cold-start, (b) enforces a minimum 1400ms hold via a timeout state, (c) issues a one-shot router.replace('/' or '/onboarding') gated by a 'routed' state so it fires exactly once, and (d) fades the SplashIntro out only after fonts+i18n+min-hold+routed are all true. Verified by first navigating to /health, reloading, and observing (i) intro visible immediately, (ii) URL replaced to '/', (iii) ai-employee-home visible after fade — the user never stays on the deep-linked route."
+}

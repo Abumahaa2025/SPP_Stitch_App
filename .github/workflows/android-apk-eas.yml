@@ -1,0 +1,63 @@
+# Beta APK via EAS (same flow as before — needs EAS build quota / Starter plan).
+# Secrets: EXPO_TOKEN (expo.dev → Access Tokens)
+name: Beta APK — EAS Cloud
+
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: 'Build note (optional)'
+        required: false
+        default: 'manual beta build'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: EAS Build (Android APK — preview)
+        id: eas
+        env:
+          EXPO_PUBLIC_BETA_MODE: 'true'
+          EXPO_PUBLIC_BACKEND_URL: https://spp-beta-api.onrender.com
+        run: |
+          eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --json > build-result.json
+          APK_URL=$(node -e "
+            const r = require('./build-result.json');
+            const b = Array.isArray(r) ? r[0] : r;
+            const url = b?.artifacts?.buildUrl || b?.artifacts?.applicationArchiveUrl || '';
+            process.stdout.write(url);
+          ")
+          echo "apk_url=$APK_URL" >> "$GITHUB_OUTPUT"
+          echo "APK: $APK_URL"
+
+      - name: Build summary
+        run: |
+          echo "## Beta APK (EAS)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Note: ${{ github.event.inputs.note }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- APK: ${{ steps.eas.outputs.apk_url }}" >> "$GITHUB_STEP_SUMMARY"

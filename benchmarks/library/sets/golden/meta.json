@@ -1,0 +1,50 @@
+{
+  "set_id": "golden",
+  "imported_at": "2026-07-12T01:27:10.412154+00:00",
+  "file_count": 7,
+  "files": [
+    {
+      "name": "شكشف شهر 2-2026.xlsx",
+      "size": 19118,
+      "mtime": 1781557389,
+      "sha256": "b1f3537ea5953aa49f71133cb5d868aa72a6f957252a31a1f694da699e65fc59"
+    },
+    {
+      "name": "كشف -شهر -6-2026-.xlsx",
+      "size": 20071,
+      "mtime": 1783712785,
+      "sha256": "2c7b0c8ccb8ca41b5a3841dfe26374a31d508a21793e08335c2c8324ebaa4566"
+    },
+    {
+      "name": "كشف شهر 1-2026.xlsx",
+      "size": 19366,
+      "mtime": 1781557486,
+      "sha256": "6394be3f12eff7e7b4c67699a3845195621eb4c534c97b47638f75af2270917c"
+    },
+    {
+      "name": "كشف شهر 3-2026.xlsx",
+      "size": 19033,
+      "mtime": 1781556561,
+      "sha256": "1e6c2881e0d457e92582934c276cfd82f9ee1062c9ee7ebc33142dbc17feb922"
+    },
+    {
+      "name": "كشف شهر 4-2026.xlsx",
+      "size": 19068,
+      "mtime": 1783712546,
+      "sha256": "ab34839091aaf98fccc300532c5ec62aa2e417b6c9164736ed8862cbf8e58ea0"
+    },
+    {
+      "name": "كشف شهر 5-2026.xlsx",
+      "size": 19016,
+      "mtime": 1783712467,
+      "sha256": "9f1a58ba7d564567f349546c8ee58efa3706f2adc12d718d37e3692599b4799d"
+    },
+    {
+      "name": "كشف شهر7-2026.xlsx",
+      "size": 20043,
+      "mtime": 1783712928,
+      "sha256": "b732bca6d172ed8ff48f5fba380439e4e9b8ff61aaa698da2555eb152435883f"
+    }
+  ],
+  "source": "benchmark_library"
+}

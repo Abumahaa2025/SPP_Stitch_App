@@ -1,0 +1,28 @@
+{
+  "summary": "Regression test for the 'shiftBy is not a function (it is Object)' worklet crash in AmbientBackground.tsx. Confirmed the red-screen error is GONE. App boots (Onboarding on first launch, then AI Employee Home), scroll parallax on Home runs without any worklet exceptions, and every screen that uses AmbientBackground via ScreenScaffold (portfolio, brain, insights, maintenance, health, sensors, notifications, settings, onboarding, property/[id]) renders normally. All 4 bottom tabs (tab-home, tab-properties, tab-brain, tab-analytics) navigate cleanly with 0 runtime errors. The fix (inlining interpolate() into each useAnimatedStyle worklet so no external JS closure is invoked from the UI thread) is correct.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "react-native-web deprecation", "issue": "Console warns: 'shadow*' style props are deprecated. Use 'boxShadow'. Reference: multiple components using shadowColor/shadowOffset/shadowOpacity/shadowRadius. Not blocking, but should migrate to boxShadow or use Platform-specific styles."},
+      {"component": "react-native-web deprecation", "issue": "Console warns: props.pointerEvents is deprecated. Use style.pointerEvents. Reference: AmbientBackground.tsx:65 uses <View pointerEvents='none'> — move to style.pointerEvents for RN Web parity."}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "None for the shiftBy regression — it is fixed and verified across all screens listed in the request.",
+    "Optional cleanup: migrate `pointerEvents='none'` -> `style={{ pointerEvents: 'none' }}` in AmbientBackground.tsx (line 65) and audit `shadow*` props -> `boxShadow` to silence RN Web deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "AmbientBackground.tsx: fix is clean — each useAnimatedStyle worklet inlines interpolate() with scrollY?.value, so no non-worklet closure is invoked from the UI thread. No further changes needed for this bug."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend-only regression)", "frontend": "100% for shiftBy regression (0 page errors, 0 shiftBy triggers across 11 routes + 4 tab navigations + Home parallax scroll)"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "AmbientBackground worklet bug is verified fixed. Web preview covers the exact code path that failed on Expo Go (the useAnimatedStyle -> interpolate call). If further Expo Go native validation is required, only a device build can catch native-only worklet regressions — web preview cannot fully simulate the RN native worklet runtime.",
+  "rca_of_issue": "RCA (from main agent + verified by code review): Original AmbientBackground.tsx defined a JS function `shiftBy(sv, range)` OUTSIDE the useAnimatedStyle worklets and called it from within them. Reanimated worklets run on the UI thread and can only call other worklets or serialised values; calling a non-worklet JS closure crashes with 'X is not a function (it is Object)' because the closure is serialised as a plain object. Fix: inline `interpolate(scrollY.value, [0,600], [...], Extrapolation.CLAMP)` directly inside each of the 3 useAnimatedStyle callbacks (emeraldStyle, goldStyle, deepStyle). Since `interpolate` and `Extrapolation` are already reanimated worklet-safe primitives, and `scrollY?.value` is read inside the worklet, no external JS closure is required. Verified: 0 page errors, 0 shiftBy triggers on Home + 10 other AmbientBackground-using routes."
+}

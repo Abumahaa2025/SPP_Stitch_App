@@ -1,0 +1,19 @@
+{
+  "version": "client-messy-v1",
+  "description": "Level 3 — alternate Arabic headers and spacing (format tolerance).",
+  "lang": "ar",
+  "metrics": {
+    "min_months_linked": 2,
+    "min_total_units": 2
+  },
+  "koil": {
+    "version": "koil-reasoning-v1",
+    "min_what_items": 1,
+    "require_evidence": true,
+    "specific_markers": ["15", "18", "متأخر"]
+  },
+  "files": [
+    "files/kashf_1.csv",
+    "files/kashf_2.csv"
+  ]
+}

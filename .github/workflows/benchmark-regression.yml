@@ -1,0 +1,48 @@
+# SPP Engine Benchmark Gate — run before deploy to Render (master)
+name: Benchmark Regression
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - 'benchmarks/**'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'backend/**'
+      - 'benchmarks/**'
+  workflow_dispatch:
+
+jobs:
+  benchmark-gate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements-render.txt pytest
+
+      - name: Level 1 — Synthetic (always)
+        run: python scripts/run_benchmark_gate.py --level 1
+
+      - name: Level 3 — Client variants (always)
+        run: python scripts/run_benchmark_gate.py --level 3
+
+      - name: Level 2 — Golden (when files present)
+        run: |
+          if [ "$(find ../benchmarks/golden_benchmark/files -type f ! -name '.gitkeep' 2>/dev/null | wc -l)" -ge 6 ]; then
+            python scripts/run_benchmark_gate.py --level 2
+          else
+            echo "::warning::Golden benchmark files not in repo — Level 2 skipped in CI until 6 files are committed."
+          fi
+
+      - name: Pytest benchmark suite
+        run: pytest tests/test_benchmark_regression.py tests/test_koil_reasoning.py -q

@@ -1,0 +1,19 @@
+{
+  "version": "client-incomplete-v1",
+  "description": "Level 3 — missing phones/contracts; engine must still infer risks.",
+  "lang": "ar",
+  "use_beta_seed": false,
+  "metrics": {
+    "min_months_linked": 1,
+    "min_total_units": 2
+  },
+  "koil": {
+    "version": "koil-reasoning-v1",
+    "min_what_items": 1,
+    "require_evidence": true,
+    "must_include_risk_keywords": ["جوال", "phone"]
+  },
+  "files": [
+    "files/rent.csv"
+  ]
+}

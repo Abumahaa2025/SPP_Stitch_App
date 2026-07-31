@@ -1,0 +1,33 @@
+{
+  "summary": "Beta 18 REGRESSION PASS at HEAD 30aaf64 — no code modifications, per user directive. (a) Backend: pytest /app/backend/tests/test_final_smoke.py against public preview URL — 21/21 green in 33.16s. All 20 GET endpoints return 200 with valid JSON (/api/, /briefing, /executive, /portfolio-memory, /intelligence, /properties, /decisions, /tenants, /contracts, /timeline, /sensors, /notifications, /reports, /knowledge, /guides, /owner, /beta/info, /build-info, /verdicts, /upload/last-applied). Upload→Apply round-trip: POST /api/upload/portfolio-analysis returns analysis_id, POST /api/upload/apply-analysis returns ok:true with matching analysis_id. (b) GET /api/executive verified live GAS-backed: portfolio={units:42, tenants:42, contracts_tracked:34, open_decisions:9, avg_health:60, annual_revenue_aed:2,031,792, expiring_contracts:20}, Arabic daily_brief.what payload rendered — this is NOT mock (memory seed would show 4 properties / 4 tenants — Alexander Vale). (c) Frontend: web preview loads clean on mobile 390x844 viewport, title 'SPP', bilingual welcome screen renders (English label + Arabic 'العقار الذكي'), no red screen, no page errors. (d) Deep-link cold-start: /portal/agent, /portal/tech, /portal/tenant — all three keep final_url on requested path and render testID `${role}-portal` (no /onboarding bounce, allowlist in _layout.tsx intact). (e) Arabic RTL: seeded localStorage spp.lang=JSON.stringify('ar'), navigated to /portal/agent — Arabic glyphs render ('بوابة الوكيل العقاري · الرابط غير صالح أو غير مفعّل.'), back-arrow visually mirrored. Only pre-existing non-blocking warnings: react-native-web `shadow*` and `props.pointerEvents` deprecations (unchanged since iteration_1, user asked to ignore).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "react-native-web", "issue": "Console warnings: '\"shadow*\" style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents' — carry-over from iterations 1–6, user explicitly said ignore. Non-blocking."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_final_smoke.py",
+    "/app/test_reports/pytest/iteration_7.xml"
+  ],
+  "action_items": [
+    "None — regression pass green. Approve APK build.",
+    "Optional (deferred by user): migrate shadow* → boxShadow and props.pointerEvents → style.pointerEvents to silence RN-Web deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "No code changes made this iteration — pure regression per user directive.",
+    "server.py:777-788 /api/executive is confirmed live GAS-backed via _portfolio_live_context() hitting hybrid data source; 42 units + AR daily_brief prove data is not mocked.",
+    "server.py:1042-1116 upload/apply-analysis GAS-first with local fallback still returns ok:true either way — round-trip smoke never falsely fails when GAS commit is offline.",
+    "_layout.tsx isDeepLink allowlist for /portal/* remains functional — cold-start to /portal/agent|tech|tenant does not bounce to /onboarding."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (home load + 3 portal deep-links + Arabic RTL)"},
+  "seed_data_creation": "None persisted. Upload round-trip used TEST_ prefixed CSV snippet; commit went to in-memory beta store which resets on process restart (known behaviour, user asked not to fix — data persists in GAS).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "For future regression, reuse /app/backend/tests/test_final_smoke.py — run with `EXPO_PUBLIC_BACKEND_URL=<preview_url> pytest backend/tests/test_final_smoke.py -v`. For Arabic RTL frontend test, seed via `localStorage.setItem('spp.lang', JSON.stringify('ar'))` (JSON-stringified — AsyncStorage-web parses back). For cold-start deep-links, clear localStorage first then goto /portal/{agent|tech|tenant}; expect testID `${role}-portal` and URL stays on /portal/*.",
+  "rca_of_issue": "N/A — pure regression pass, no bugs surfaced."
+}

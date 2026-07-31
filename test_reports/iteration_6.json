@@ -1,0 +1,35 @@
+{
+  "summary": "FINAL SMOKE PASS. All 4 review scenarios green. (a) Backend — pytest suite backend/tests/test_final_smoke.py = 21/21 in 37.13s: 20 GET endpoints (/api/, /briefing, /executive, /portfolio-memory, /intelligence, /properties, /decisions, /tenants, /contracts, /timeline, /sensors, /notifications, /reports, /knowledge, /guides, /owner, /beta/info, /build-info, /verdicts, /upload/last-applied) all return 200 with valid JSON. Review asked for 18; we covered the full 20-GET public surface. (b) Upload → Analysis → Apply round-trip against the public preview URL: POST /api/upload/portfolio-analysis returns analysis_id → POST /api/upload/apply-analysis returns ok:true with matching analysis_id (verified body.ok is True, body.analysis_id preserved). (c) Cold-start deep-links — fresh viewport + cleared storage, navigated directly to /portal/agent, /portal/tech, /portal/tenant: final_url stays on the requested path for all three, `agent-portal` / `tech-portal` / `tenant-portal` testIDs render, no redirect to /onboarding — the isDeepLink allowlist in _layout.tsx:101-103 is still working. Each portal shows its own invalid-link AliveEmpty scaffold (no cross-role leak). (d) expo-localization — with empty storage, device locale English → app defaults to English (dir=ltr, html.lang=en, screen text 'Property agent portal · Invalid or inactive link.'). With localStorage seed spp.lang='\"ar\"' (JSON-stringified, matches AsyncStorage-web format), Arabic RTL wins: 'بوابة الوكيل العقاري · الرابط غير صالح أو غير مفعّل.' rendered right-aligned, back-arrow visually mirrored — Arabic glyph check passed (contains_arabic=True). Note: document.documentElement.dir stays 'ltr' — RTL is achieved via per-Text writingDirection:'rtl' driven by useI18n().isRTL, not a document-level flip. This matches the existing implementation and does not affect the user-visible RTL. No new bugs. Only non-blocking console warnings persist (react-native-web `shadow*` and `props.pointerEvents` deprecations), unchanged from iterations 1–5.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "react-native-web (carry-over)", "issue": "Console still logs '\"shadow*\" style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents' on every screen mount. Non-blocking; tracked since iteration_1."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_final_smoke.py",
+    "/app/test_reports/pytest/iteration_6.xml"
+  ],
+  "action_items": [
+    "None required — smoke green across all four review scenarios.",
+    "Optional (still open): migrate remaining shadow* → boxShadow and props.pointerEvents → style.pointerEvents to silence RN-Web deprecation warnings.",
+    "Optional polish: consider setting document.documentElement.dir='rtl' on web when lang='ar' so third-party embedded content (e.g., iframe overlays) inherits RTL — currently only per-Text writingDirection is applied. Not blocking user-visible layout."
+  ],
+  "critical_code_review_comments": [
+    "_layout.tsx:64-73 — detectDeviceLang() correctly falls back only when spp.lang is unset (saved === 'en' || saved === 'ar' ? saved : detectDeviceLang()). Explicit user preference always wins, per spec.",
+    "_layout.tsx:101-103 — isDeepLink allowlist for '/portal/*' + {/support,/about,/billing,/privacy,/terms} continues to short-circuit the cold-start router.replace(); regression-safe.",
+    "server.py:1042-1116 — upload/apply-analysis has a clean GAS-first path with a local fallback that materialises the Property Knowledge session into _memory_db; both branches return ok:true, so the round-trip smoke never falsely fails when GAS is offline."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_final_smoke.py (new — 21-test parametrised smoke)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (4/4 review scenarios: 3 portal deep-links + localization default/Arabic)"},
+  "seed_data_creation": "None persisted. Upload roundtrip pushed a TEST_ prefixed CSV snippet through the analyse+apply path; commit went to in-memory beta store which resets on process restart.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Reuse /app/backend/tests/test_final_smoke.py for future regression sweeps — it's the current source of truth for the 20-endpoint smoke + upload/apply roundtrip. Run with `EXPO_PUBLIC_BACKEND_URL=<preview_url> pytest backend/tests/test_final_smoke.py -v`. For the localization Arabic path, seed via `localStorage.setItem('spp.lang', JSON.stringify('ar'))` (JSON-stringified — AsyncStorage-web parses back with JSON.parse). For cold-start deep-links, clear localStorage first, then goto /portal/agent (or /tech, /tenant); expect testID `${role}-portal` and URL to stay on /portal/*, no /onboarding bounce.",
+  "rca_of_issue": "N/A — smoke only. All scenarios in the review request pass."
+}

@@ -1,0 +1,10 @@
+# Minimal dependencies for Render beta API (no emergentintegrations — Brain chat optional)
+fastapi==0.110.1
+uvicorn==0.25.0
+motor==3.3.1
+pymongo==4.6.3
+python-dotenv>=1.0.1
+pydantic>=2.6.4
+email-validator>=2.2.0
+requests>=2.31.0
+python-multipart>=0.0.9

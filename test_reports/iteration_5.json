@@ -1,0 +1,40 @@
+{
+  "summary": "Cold-start deep-link fix VERIFIED. All 7 review-request scenarios pass on the frontend. The `isDeepLink` allowlist in /app/frontend/app/_layout.tsx (lines 101-103) correctly short-circuits the cold-start router.replace() for pathnames starting with `/portal/` and for the fixed set {/support, /about, /billing, /privacy, /terms}. TEST1 /portal/agent (no params, fresh storage) → final URL stays /portal/agent, `agent-portal` testID renders, AliveEmpty body reads 'Invalid or inactive link.' (Property agent portal). TEST2 /portal/tech → `tech-portal` testID renders (invalid-link AliveEmpty branch). TEST3 /portal/tenant → `tenant-portal` testID renders (invalid-link AliveEmpty branch). Role isolation confirmed: each portal renders its own screen with no cross-role data — same AliveEmpty scaffold, no ActingAsBadge (invalid session), no tenant/tech/agent data leaks. TEST4 /support → `support-screen` renders with 3 ListRow items visible (`support-message-circle` WhatsApp emerald, `support-mail` Email gold, `support-phone` Phone neutral) + `support-faq-title` SectionTitle. TEST5 /about → `about-screen` renders with `about-platform-title` SectionTitle. TEST6 /billing → `billing-screen` renders with `billing-plans-title` (count=3) + `billing-invoices-title` SectionTitles; current plan card (Executive · ACTIVE · AED 199) is visible in the screenshot. TEST7 Onboarding flow intact — after localStorage.clear() and page.goto('/'), the guard still redirects to `/onboarding` and STEP 1 OF 4 renders. Backend testing was intentionally skipped per the review request (frontend-only retest). Non-blocking react-native-web console warnings persist (`shadow*` and `props.pointerEvents` deprecations) — unchanged from prior iterations.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {
+        "component": "react-native-web deprecation (carry-over from iterations 1–4)",
+        "issue": "Console still surfaces '\"shadow*\" style props are deprecated. Use \"boxShadow\"' and 'props.pointerEvents is deprecated. Use style.pointerEvents' on every screen load. Non-blocking; already tracked."
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_role_isolation_regression.py (from iteration_4 — not re-run in this iteration; frontend-only retest)"
+  ],
+  "action_items": [
+    "None required for the review request — the fix works end-to-end.",
+    "Optional cleanup (still open from iteration_3/4): migrate remaining shadow* → boxShadow and props.pointerEvents → style.pointerEvents to silence RN-Web deprecation console noise."
+  ],
+  "critical_code_review_comments": [
+    "_layout.tsx:101-103 — clean allowlist: `const isDeepLink = pathname.startsWith('/portal/') || ['/support','/about','/billing','/privacy','/terms'].includes(pathname);`. Guard is applied only inside the cold-start effect, so subsequent navigation (persona/beta enforcement) still works correctly. Well-scoped fix.",
+    "Portal invalid-link branches on all three role screens (agent.tsx:32-39, tech.tsx:98-105, tenant.tsx:49-56) correctly render `AliveEmpty` and do NOT mount `ActingAsBadge` — proving role isolation: an invalid link cannot bleed identity or data from another role.",
+    "Support / About / Billing screens use the Group 1/2 primitives consistently: `SectionTitle` (with `count` badge on Billing plans + invoices) and `ListRow` (WhatsApp/Email/Phone with distinct accents on Support). No hardcoded strings — everything runs through `t()`."
+  ],
+  "updated_files": [],
+  "success_rate": {
+    "backend": "not re-tested this iteration (frontend-only per review request); prior iteration_4 = 100% (22/22)",
+    "frontend": "100% (7/7 review-request scenarios pass — 3 portal invalid-link renders + /support + /about + /billing + onboarding regression)"
+  },
+  "seed_data_creation": "None.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Cold-start deep-link fix is stable. If future changes touch /app/frontend/app/_layout.tsx cold-start effect (lines 92-119), re-verify the 7 scenarios in this iteration: (1) clear storage + goto /portal/agent → agent-portal testID + AliveEmpty; (2) /portal/tech; (3) /portal/tenant; (4) set spp.onboarded=true + goto /support → support-screen + 3 ListRows + faq SectionTitle; (5) /about → about-screen + platform SectionTitle; (6) /billing → billing-screen + plans+invoices SectionTitles; (7) clear storage + goto / → onboarding STEP 1 OF 4. To visually verify the ActingAsBadge (valid-session path), you still need a real agent/tech/tenant id+portalToken pair — the owner-side QR-setup UI at /operational/portals is the source. Backend regression suite at /app/backend/tests/test_role_isolation_regression.py is unchanged and can be re-run any time.",
+  "rca_of_issue": "N/A — bug from iteration_4 is fixed. Root cause was over-aggressive cold-start `router.replace()` in _layout.tsx; mitigation shipped in the fix under review is the `isDeepLink` allowlist (lines 101-103 + guard on line 116). Verified working."
+}

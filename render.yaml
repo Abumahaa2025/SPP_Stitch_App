@@ -1,0 +1,25 @@
+# Render Blueprint — SPP Beta API + GAS Smart Property engines
+# Deploy: Render Dashboard → New → Blueprint → connect Abumahaa2025/SPP_Flutter (branch: master)
+# Public URL: https://spp-beta-api.onrender.com
+
+services:
+  - type: web
+    name: spp-beta-api
+    runtime: python
+    branch: master
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements-render.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/beta/info
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SPP_BETA_MODE
+        value: "true"
+      - key: SPP_DEMO_MODE
+        value: "false"
+      - key: GOOGLE_APPS_SCRIPT_URL
+        value: "https://script.google.com/macros/s/AKfycbx6Z_2_lNVJfbI2oVpkIKjRwAySQiZ5-WbhGpnw-WpNucH-6YZ0DHdlGP0XhH4XdVcb6A/exec"
+      - key: SPP_DATA_SOURCE
+        value: hybrid

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "description": "SPP Benchmark Library — managed test sets inside the project (no external paths).",
+  "default_set": "golden",
+  "sets": {
+    "golden": {
+      "id": "golden",
+      "name_ar": "Golden Benchmark",
+      "name_en": "Golden",
+      "kind": "owner",
+      "required_files": 7,
+      "enabled": true
+    },
+    "client_2": {
+      "id": "client_2",
+      "name_ar": "Benchmark عميل 2",
+      "name_en": "Client 2",
+      "kind": "client",
+      "required_files": 3,
+      "enabled": false
+    },
+    "client_3": {
+      "id": "client_3",
+      "name_ar": "Benchmark عميل 3",
+      "name_en": "Client 3",
+      "kind": "client",
+      "required_files": 3,
+      "enabled": false
+    },
+    "commercial": {
+      "id": "commercial",
+      "name_ar": "Benchmark تجاري",
+      "name_en": "Commercial",
+      "kind": "commercial",
+      "required_files": 2,
+      "enabled": false
+    },
+    "mixed": {
+      "id": "mixed",
+      "name_ar": "Benchmark مختلط",
+      "name_en": "Mixed",
+      "kind": "mixed",
+      "required_files": 4,
+      "enabled": false
+    }
+  },
+  "commands_ar": {
+    "import": "استورد ملفات Golden Benchmark",
+    "run": "شغّل Golden Benchmark",
+    "replace": "استبدل Golden Benchmark",
+    "run_set": "شغّل Benchmark {set_id}"
+  }
+}

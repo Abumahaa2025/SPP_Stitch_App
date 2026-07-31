@@ -1,0 +1,24 @@
+SPP Beta — intakev2 (جديد — ليس loginfix)
+=============================================
+
+⚠️ روابط OTA لا تثبّت التطبيق — للتحديث فقط بعد التثبيت.
+   الرابط القديم (loginfix) ≠ intakev2 — ثبّت APK الجديد أدناه.
+
+✅ APK beta.5 + intakev2 (تثبيت مباشر — Chrome على أندرويد):
+https://expo.dev/artifacts/eas/Z5RZ7WJF6aLInqJgNNFwkCpqlsyPeCFukQiuYIMR8qA.apk
+
+صفحة البناء:
+https://expo.dev/accounts/abumahaa2025/projects/spp-beta/builds/606966d0-3583-480f-87ea-db34f3950eea
+
+الطابع المتوقع: beta-1.0.0-beta.5+intakev2
+
+خطوات:
+1. احذف/أزل تطبيق SPP القديم (loginfix) من الهاتف
+2. افتح رابط APK أعلاه من Chrome
+3. ثبّت → افتح → تحقق من الطابع في شاشة الرفع
+
+OTA (بعد تثبيت beta.5 — اختياري):
+https://expo.dev/accounts/abumahaa2025/projects/spp-beta/updates/6191cccc-ba48-4fec-8e3f-8b8b4ab87d77
+
+Backend API:
+https://spp-beta-api.onrender.com

@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+!.env.beta.example
+!.env.gas.example
+__pycache__/
+.pytest_cache/
+*.pyc
+.mypy_cache/

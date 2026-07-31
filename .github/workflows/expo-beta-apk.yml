@@ -1,0 +1,140 @@
+# SPP Beta APK — final distribution pipeline.
+# Uses eas build --local + EXPO_TOKEN (same EAS Android keystore, no cloud quota).
+# Publishes to GitHub Release for direct mobile install.
+#
+# Required secret: EXPO_TOKEN
+name: Expo Beta APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch with frontend/ Expo app'
+        required: false
+        default: 'master'
+      note:
+        description: 'Build note (optional)'
+        required: false
+        default: 'Beta 12 — Late payments cards (monthly + tenant totals)'
+      release_tag:
+        description: 'GitHub Release tag'
+        required: false
+        default: 'v1.0.0-beta.12'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write
+    env:
+      CI: true
+      GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs=-Xmx4g
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: Enable swap (prevents OOM during native build)
+        run: |
+          sudo swapoff -a || true
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
+      - name: Require EXPO_TOKEN
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing EXPO_TOKEN secret."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: EAS local build (EAS signing key — upgrade-safe)
+        timeout-minutes: 100
+        env:
+          EXPO_PUBLIC_BETA_MODE: 'true'
+          EXPO_PUBLIC_BACKEND_URL: https://spp-beta-api.onrender.com
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          mkdir -p dist
+          eas build \
+            --platform android \
+            --profile preview \
+            --local \
+            --non-interactive \
+            --output "dist/spp-beta-${VERSION}.apk"
+          cp "dist/spp-beta-${VERSION}.apk" dist/spp-beta.apk
+          ls -la dist/
+
+      - name: Verify APK
+        run: |
+          APK="dist/spp-beta.apk"
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME/build-tools"/* | sort -V | tail -n1)
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          "$BUILD_TOOLS/aapt" dump badging "$APK" | head -n5
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spp-beta-apk
+          path: frontend/dist/*.apk
+          retention-days: 90
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.release_tag }}
+          name: Beta 12
+          body: |
+            SPP Beta 12 — Late payments: collapsible month cards, tenant fields, per-tenant totals.
+
+            **Direct install (Android / Chrome):**
+            https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.release_tag }}/spp-beta.apk
+
+            Backend: structured `late_payments` from Render (commit f37d146+).
+            Installs over previous beta versions without uninstalling. User data is preserved.
+          files: |
+            frontend/dist/spp-beta.apk
+            frontend/dist/spp-beta-*.apk
+          prerelease: true
+          make_latest: true
+          overwrite_files: true
+
+      - name: Summary
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          TAG="${{ github.event.inputs.release_tag }}"
+          echo "## SPP Beta APK (EAS-signed)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch: \`${{ github.event.inputs.branch }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Signing: EAS preview keystore (upgrade-safe)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Direct APK: https://github.com/${{ github.repository }}/releases/download/${TAG}/spp-beta.apk" >> "$GITHUB_STEP_SUMMARY"

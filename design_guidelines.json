@@ -1,0 +1,126 @@
+{
+  "app_name": "SPP",
+  "personality": "6 Glass / Luxe DARK",
+  "personality_one_liner": "An AI Operating System for real estate that feels like a premium luxury tool—deep, confident, minimal, and driven by intelligent insight rather than traditional data rows.",
+  "color": {
+    "surface": "#060B14",
+    "onSurface": "#F8FAFC",
+    "surfaceSecondary": "#111827",
+    "onSurfaceSecondary": "#94A3B8",
+    "surfaceTertiary": "#1F2937",
+    "onSurfaceTertiary": "#CBD5E1",
+    "surfaceInverse": "#FFFFFF",
+    "onSurfaceInverse": "#060B14",
+    "brand": "#50C878",
+    "brandPrimary": "#D4AF37",
+    "onBrandPrimary": "#060B14",
+    "brandSecondary": "#50C878",
+    "onBrandSecondary": "#060B14",
+    "brandTertiary": "rgba(80, 200, 120, 0.15)",
+    "onBrandTertiary": "#50C878",
+    "success": "#10B981",
+    "onSuccess": "#FFFFFF",
+    "warning": "#F59E0B",
+    "onWarning": "#FFFFFF",
+    "error": "#EF4444",
+    "onError": "#FFFFFF",
+    "info": "#3B82F6",
+    "onInfo": "#FFFFFF",
+    "border": "rgba(255, 255, 255, 0.08)",
+    "borderStrong": "rgba(212, 175, 55, 0.3)",
+    "divider": "rgba(255, 255, 255, 0.05)"
+  },
+  "typography": {
+    "displayFontFamily": "Geist",
+    "textFontFamily": "Geist",
+    "scale": {
+      "sm": 13,
+      "base": 15,
+      "lg": 18,
+      "xl": 22,
+      "2xl": 32
+    }
+  },
+  "spacing": {
+    "rule": "Generous spacing. Huge empty spaces. Allow the UI to breathe. Never crowd components.",
+    "xs": 4,
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "xl": 32,
+    "2xl": 48,
+    "3xl": 64
+  },
+  "radius_tokens": {
+    "sm": 8,
+    "md": 16,
+    "lg": 24,
+    "pill": 999
+  },
+  "shadow_tier": "2",
+  "navigation": "bottom_tabs",
+  "icon_set": "Phosphor",
+  "glassmorphism": {
+    "enabled": true,
+    "do's": [
+      "Use frosted glass over abstract emerald/gold gradient or cinematic imagery.",
+      "Apply glass to floating bottom tab bar, sticky headers, and hero widgets.",
+      "Ensure backdrop layer has a dark translucent tint (rgba(6, 11, 20, 0.75)) beneath the blur for perfect readability.",
+      "Keep text high-contrast (pure white) over glass."
+    ],
+    "dont's": [
+      "Do not over-blur every card on the screen. Limit to 2-3 prominent glass surfaces per view.",
+      "Never blur body text regions or form inputs.",
+      "Avoid white/light glass; stick to dark smoked glass."
+    ]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "AI Employee Home",
+      "purpose": "The daily briefing and command center telling the user exactly what to do next instead of presenting raw data.",
+      "states": {
+        "loading": "A dark, cinematic screen with a softly breathing, glowing emerald/gold orb in the center.",
+        "empty": "A clean view with an abstract gold/emerald light leak, reading 'All properties stable. No actions required today.'",
+        "error": "A minimal glass dialog reading 'Lost connection to SPP Brain.' with a subtle gold 'Reconnect' button."
+      },
+      "layout": "1. Hero Section: Edge-to-edge subtle gradient background (deep navy to soft emerald/gold light leak at top). A large 'Smart Greeting' display (e.g., 'Good morning. 2 actions need your attention.'). 2. Health Ring / Snapshot: A premium frosted glass widget showing 'Property Health' with a glowing emerald circular progress indicator. 3. AI Decisions Feed: A vertical stack of floating 'Action Cards' (e.g., Predictive Maintenance alert) with thin glass borders and gold accents for priority items. 4. Floating Action / Navigation: A glassmorphic bottom tab bar (max 4 tabs: Home, Properties, Unified Brain, Analytics) hovering above the screen edge."
+    }
+  ],
+  "images": {
+    "property_hero_architecture": {
+      "url": "https://images.unsplash.com/photo-1527576539890-dfa815648363?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjd8MHwxfHNlYXJjaHwzfHxkYXJrJTIwY2luZW1hdGljJTIwbW9kZXJuJTIwYXJjaGl0ZWN0dXJlfGVufDB8fHx8MTc4MzAyOTc1MXww&ixlib=rb-4.1.0&q=85",
+      "alt": "Dark cinematic modern architecture with elegant curves"
+    },
+    "ai_glow_light_leak": {
+      "url": "https://images.unsplash.com/photo-1763582537023-9a256b4004fc?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NDh8MHwxfHNlYXJjaHwyfHxhYnN0cmFjdCUyMGRhcmslMjBlbWVyYWxkJTIwZ29sZCUyMGxpZ2h0JTIwbGVha3xlbnwwfHx8fDE3ODMwMjk3NTF8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Abstract golden and emerald light leak on deep black background"
+    }
+  },
+  "instructions_to_main_agent": [
+    "Strictly follow the Dark Luxury Theme: Use the deep navy surface background (#060B14) as the base layer, preventing absolute black.",
+    "Implement the 'Arc Browser / Linear' aesthetic by using the Geist typography family exclusively. Respect the strict typography scale (Large Title 28-32).",
+    "For the AI Employee Home Screen, incorporate an atmospheric glowing background (using the ai_glow_light_leak image) with a heavy blur and dark overlay so it feels like a subtle pulse, not a photo.",
+    "Implement heavy glassmorphism for widgets and the tab bar. Always back the glass with a minimum 70% opacity dark tint (rgba(6,11,20,0.75)) to guarantee text contrast against the glow.",
+    "Do not use traditional table/CRUD lists. Format the 'AI Decisions Feed' as individual, beautifully spaced premium cards floating over the background.",
+    "Use Premium Gold (#D4AF37) strictly for accents or primary interactive elements, and Soft Emerald (#50C878) for the AI pulse and health indicators.",
+    "Only 4 tabs in the bottom navigation: Home, Properties, Unified Brain (Chat), Analytics."
+  ],
+  "haptics": {
+    "tab_press": "light",
+    "action_card_press": "medium",
+    "ai_chat_send": "success",
+    "pull_to_refresh": "medium"
+  }
+}

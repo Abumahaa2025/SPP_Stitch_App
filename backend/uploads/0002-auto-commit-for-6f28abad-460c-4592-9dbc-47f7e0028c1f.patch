@@ -1,0 +1,87 @@
+From 2de6e23a01888c1f7223a9a1c1210f8e8616944b Mon Sep 17 00:00:00 2001
+From: emergent-agent-e1 <github@emergent.sh>
+Date: Thu, 16 Jul 2026 05:52:49 +0000
+Subject: [PATCH 2/5] auto-commit for 6f28abad-460c-4592-9dbc-47f7e0028c1f
+
+---
+ frontend/app/billing.tsx             |  9 +++++++--
+ frontend/src/components/MoreMenu.tsx | 10 +++-------
+ 2 files changed, 10 insertions(+), 9 deletions(-)
+
+diff --git a/frontend/app/billing.tsx b/frontend/app/billing.tsx
+index c7bf75a..9b12cf6 100644
+--- a/frontend/app/billing.tsx
++++ b/frontend/app/billing.tsx
+@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
+ import { ScreenScaffold } from '@/src/components/ScreenScaffold';
+ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
+ import { GlassCard } from '@/src/components/GlassCard';
++import { SectionTitle } from '@/src/components/SectionTitle';
+ import { colors, spacing, typography, radius } from '@/src/theme';
+ import { useI18n } from '@/src/i18n';
+ import {
+@@ -120,7 +121,7 @@ export default function Billing() {
+       </Pressable>
+ 
+       <View style={{ marginTop: spacing.sm }}>
+-        <Text style={styles.section}>{t('billing.plans').toUpperCase()}</Text>
++        <SectionTitle eyebrow={t('billing.plans')} count={PLANS.length} testID="billing-plans-title" />
+         {PLANS.map((p, i) => {
+           const isCurrent = p.key === billing.plan;
+           return (
+@@ -168,7 +169,11 @@ export default function Billing() {
+ 
+       {/* Invoice history */}
+       <View style={{ marginTop: spacing.xl }}>
+-        <Text style={styles.section}>{t('billing.invoices').toUpperCase()}</Text>
++        <SectionTitle
++          eyebrow={t('billing.invoices')}
++          count={billing.invoices.length}
++          testID="billing-invoices-title"
++        />
+         <GlassCard padding={0} radiusToken="lg" style={{ marginTop: spacing.sm }}>
+           {billing.invoices.length === 0 ? (
+             <View style={styles.emptyInv}>
+diff --git a/frontend/src/components/MoreMenu.tsx b/frontend/src/components/MoreMenu.tsx
+index 9e58b2d..1e97ea7 100644
+--- a/frontend/src/components/MoreMenu.tsx
++++ b/frontend/src/components/MoreMenu.tsx
+@@ -6,6 +6,7 @@ import * as Haptics from 'expo-haptics';
+ import Animated, { FadeInDown } from 'react-native-reanimated';
+ 
+ import { GlassCard } from '@/src/components/GlassCard';
++import { SectionTitle } from '@/src/components/SectionTitle';
+ import { colors, spacing, typography, radius } from '@/src/theme';
+ import { useI18n } from '@/src/i18n';
+ import { signOutSession } from '@/src/services/beta-auth';
+@@ -39,13 +40,13 @@ const ACCOUNT_ITEMS: MoreItem[] = [
+   { key: 'billing', labelKey: 'more.billing', hintKey: 'more.billing.hint', icon: 'credit-card', route: '/billing', tone: 'gold' },
+ ];
+ 
+-function Section({ title, items, delayBase }: { title: string; items: MoreItem[]; delayBase: number }) {
++function Section({ title, items, delayBase, count }: { title: string; items: MoreItem[]; delayBase: number; count?: number }) {
+   const { t, isRTL } = useI18n();
+   const router = useRouter();
+ 
+   return (
+     <View style={styles.section}>
+-      <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>{title}</Text>
++      <SectionTitle eyebrow={title} count={count ?? items.length} />
+       {items.map((item, i) => {
+         const accent = item.tone === 'gold' ? colors.gold : item.tone === 'emerald' ? colors.emerald : colors.textDim;
+         return (
+@@ -131,11 +132,6 @@ export function MoreMenu() {
+ 
+ const styles = StyleSheet.create({
+   section: { marginBottom: spacing.lg, gap: spacing.sm },
+-  sectionTitle: {
+-    color: colors.textMuted, fontSize: 11, letterSpacing: 1.4,
+-    textTransform: 'uppercase', fontWeight: typography.weight.semibold,
+-    marginBottom: spacing.xs, paddingHorizontal: 2,
+-  },
+   rowCard: { marginBottom: 0, minHeight: 72 },
+   row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 56 },
+   rowRtl: { flexDirection: 'row-reverse' },
+-- 
+2.39.5
+

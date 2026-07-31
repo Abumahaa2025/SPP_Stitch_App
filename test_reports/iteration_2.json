@@ -1,0 +1,43 @@
+{
+  "summary": "Phase 3 refinement pass — regression + new-surface sweep. Backend: 19/19 pytest passed. All new/updated endpoints healthy: /api/briefing returns the new `narrative` array (executive-voice, 4 lines), /api/reports, /api/knowledge, /api/guides, /api/owner, /api/tenants, /api/contracts, /api/chat (GPT-5.2 via Emergent Universal Key — real replies observed). Frontend: Onboarding renders BrandOrb + Wordmark + tagline over 3 slides, Continue CTA advances slides and writes `spp.onboarded=true` then routes to Home. Home shows Wordmark, date eyebrow, salutation, headline, subhead, MORNING BRIEF card with 4 executive-voice bullets, Portfolio Health card, Today's priorities with 4 ActionCards, Ask the Unified Brain card, and quick-nav grid. Every requested tap works: notifications-btn → /notifications, health-card-btn → /health, open-brain-btn → /brain, qn-hub → /hub. Hub renders all 4 sections (Intelligence / Assets & People / Operations / Learn & Grow) and 14 tiles. All 6 new premium screens render richly and without errors: /reports (report cards with kind badge, pages, highlight, date), /knowledge (topic badge, reading time, 'Continue reading' CTA), /guides (poster image, level badge, gold play chip, duration, chapters), /tenants (initial avatars, reliability score + colored bar, monthly rent, since year), /contracts (Active/Expiring/Renewed status pills), /owner (BrandOrb + Wordmark identity card, portfolio value, properties, health, quick-link grid). Bottom tabs (tab-home, tab-properties, tab-brain, tab-analytics) navigate correctly. Brain empty state renders BrandOrb + 'Unified Brain' + 4 suggested prompts; suggest-0 fires a message and GPT-5.2 returns a real, well-formed reply. Zero page errors and zero worklet crashes observed anywhere (shiftBy regression remains fixed).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/briefing", "issue": "Narrative interpolates decision.impact via .lower() which turns 'AED' into 'aed' and produces double periods: 'prevents ≈ aed 42,000 emergency service + 2 tenant complaints..' — cosmetic but visible in the Morning Brief card. Consider .rstrip('.').lower() with an AED preserve or drop the .lower() call."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "hub.tsx ScrollView", "issue": "Bottom tab bar overlaps interactive tiles on the Hub screen. On a 390×844 viewport, hub-portfolio (y=792–935) and hub-tenants (y=792–935) sit under the fixed tab bar (y=755–821). Real taps on those tiles land on tab-home / tab-analytics instead. Fix: add contentContainerStyle paddingBottom = tabBarHeight + safe-area (≈100) to the ScreenScaffold used on /hub. Reference: /app/frontend/app/hub.tsx (routes /portfolio and /tenants ARE correctly wired — this is a hit-area/z-index problem, not a routing bug).", "testID": "hub-portfolio, hub-tenants", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/contracts", "issues": ["Expiring contracts show a countdown of '0d' because the seeded contract end dates (Feb/Sep 2026) have already elapsed relative to the current browser clock (July 2026). Either advance the seed dates so expiring contracts have a real forward-looking window, or clamp the countdown display to hide/handle expired dates gracefully."]},
+    {"screen": "Home · Morning Brief", "issues": ["First bullet reads 'prevents ≈ aed 42,000 emergency service + 2 tenant complaints..' — lowercase 'aed' + double period (see backend minor issue above)."]}
+    ],
+    "react_native_issues": [
+      {"component": "react-native-web deprecation", "issue": "Console still surfaces 'shadow* style props are deprecated. Use \"boxShadow\" instead' and 'props.pointerEvents is deprecated. Use style.pointerEvents' — carried over from iteration_1. Non-blocking, but should be migrated. Reference: AmbientBackground.tsx + any component still using shadowColor/shadowOffset/shadowOpacity/shadowRadius."}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_spp_backend.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Hub: add bottom padding to Hub's ScrollView (contentContainerStyle paddingBottom ≈ 100–120) so the last row of tiles clears the floating bottom tab bar. This is the highest-priority fix — Portfolio and Tenants tiles are effectively unreachable via tap on standard mobile viewports.",
+    "Backend/briefing: keep 'AED' in casing and remove the trailing double-period in the first narrative bullet.",
+    "Contracts: refresh seed contract end-dates or clamp the countdown so 'EXPIRING' cards do not display '0d' after their end date has passed.",
+    "Optional cleanup: migrate `shadow*` props → boxShadow and props.pointerEvents → style.pointerEvents to silence RN-Web deprecation console noise."
+  ],
+  "critical_code_review_comments": [
+    "server.py :434 — `top['impact'].lower()` clobbers 'AED' → 'aed' inside the Morning Brief narrative; drop .lower() or preserve currency tokens.",
+    "hub.tsx — tiles inside a ScrollView but Bottom tab bar is a fixed overlay; ScreenScaffold does not appear to add tabBar-aware bottom padding. Every scrollable screen that shows tabs should reserve ~100–120px of bottom padding.",
+    "No worklet/shadow errors introduced by the new premium screens — they consistently use GlassCard + ScreenScaffold + ScreenHeader tokens, keeping the visual system consistent."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_spp_backend.py (new pytest suite covering all 13 API surfaces + narrative validation + chat persistence)"
+  ],
+  "success_rate": {"backend": "100% (19/19 pytest)", "frontend": "~92% — every screen renders and every requested testID exists with no page errors; the only regressions are (1) Hub bottom-row tiles being tap-blocked by the fixed tab bar and (2) two content-polish items (aed casing / 0d countdown)."},
+  "seed_data_creation": "None. Backend already seeds on empty DB.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend seed data has hard-coded 2026 contract end-dates that have already elapsed relative to the browser clock, causing '0d' expiring countdowns. Hub tiles' pressable area is intersected by the fixed bottom tab bar (see BOUNDS log in iteration_2 run) — Portfolio and Tenants tiles are unreachable via touch on a 390×844 viewport. Chat/GPT-5.2 is fully working via Emergent Universal Key (no top-up fallback triggered during this run). Onboarding writes `spp.onboarded=true` to localStorage and routes to Home correctly.",
+  "rca_of_issue": "Hub tile hit-area bug: The Hub screen renders Assets & People (row 2) and Learn & Grow (row 4) tiles inside a ScrollView whose contentContainerStyle lacks paddingBottom equal to the floating bottom tab bar height. On a 390×844 viewport the last visible tile row lands at y=792–935 while the tab bar occupies y=755–821 (measured live via getBoundingClientRect). Because the tab bar is positioned above the ScrollView with a higher z-order, any tap at the tile's visible coordinates is captured by the tab bar. Users tapping 'Portfolio' actually fire tab-home, and users tapping 'Tenants' fire tab-analytics. Fix: add paddingBottom ≈ 110px to the Hub's ScrollView content, or make ScreenScaffold tab-aware."
+}
