@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, Pressable, Platform, ActivityIndicator,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
@@ -31,8 +31,14 @@ import { PhaseSaveResult } from '@/src/components/PhaseSaveResult';
 import { storage } from '@/src/utils/storage';
 import { UX_BUILD_STAMP } from '@/src/constants/build';
 import { apiUrl } from '@/src/constants/backend';
+import {
+  UPLOAD_DOCUMENT_TYPES,
+  consumeSharedFiles,
+  onSharedFilesStashed,
+  type IncomingPickedFile,
+} from '@/src/utils/upload-pick';
 
-type Picked = { name: string; mimeType?: string; size?: number; uri?: string };
+type Picked = IncomingPickedFile;
 
 const MAGIC_PHASE_MS = 520;
 
@@ -60,26 +66,62 @@ export default function UploadScreen() {
     fetch(apiUrl('/')).catch(() => {});
   }, []);
 
+  const ingestFiles = useCallback(async (next: Picked[]) => {
+    if (!next.length) return;
+    setFiles((prev) => [...prev, ...next]);
+    setResults([]);
+    setPortfolioAnalysis(null);
+    setApplyDone(false);
+    setAnalysisSource(null);
+    setAnalysisError(null);
+    setStep(1);
+    setPreview(null);
+    setPreviewReady(true);
+    setImportFailed(false);
+    setPickError(null);
+    try {
+      const pre = await buildFilePreview(next[0]);
+      setPreview(pre);
+    } catch {
+      setPreview(null);
+    }
+  }, []);
+
+  // Files shared from the system Share sheet (Files / WhatsApp / Drive…).
+  const pullShared = useCallback(async () => {
+    const shared = await consumeSharedFiles();
+    if (!shared.length) return;
+    await ingestFiles(shared);
+  }, [ingestFiles]);
+
+  useFocusEffect(
+    useCallback(() => {
+      pullShared();
+    }, [pullShared]),
+  );
+
+  useEffect(() => onSharedFilesStashed(() => { pullShared(); }), [pullShared]);
+
   const pickFiles = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPickError(null);
     setPicking(true);
     try {
+      // Pass a MIME array so Android uses ACTION_OPEN_DOCUMENT + EXTRA_MIME_TYPES
+      // (full DocumentsUI with sidebar: Downloads, Phone, Drive, USB… — not Downloads-only).
       const res = await DocumentPicker.getDocumentAsync({
         multiple: true,
         copyToCacheDirectory: true,
-        type: Platform.OS === 'android'
-          ? '*/*'
-          : [
-            'application/pdf',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/vnd.ms-excel',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'image/*',
-            'text/csv',
-            'text/comma-separated-values',
-          ],
+        type: Platform.OS === 'android' ? UPLOAD_DOCUMENT_TYPES : [
+          'application/pdf',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-excel',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'image/*',
+          'text/csv',
+          'text/comma-separated-values',
+        ],
       });
       if (res.canceled || !res.assets?.length) return;
       const next: Picked[] = res.assets.map((a) => ({
@@ -88,28 +130,13 @@ export default function UploadScreen() {
         size: a.size ?? undefined,
         uri: a.uri,
       }));
-      setFiles((prev) => [...prev, ...next]);
-      setResults([]);
-      setPortfolioAnalysis(null);
-      setApplyDone(false);
-      setAnalysisSource(null);
-      setAnalysisError(null);
-      setStep(1);
-      setPreview(null);
-      setPreviewReady(true);
-      setImportFailed(false);
-      try {
-        const pre = await buildFilePreview(next[0]);
-        setPreview(pre);
-      } catch {
-        setPreview(null);
-      }
+      await ingestFiles(next);
     } catch {
       setPickError(t('upload.pickError' as any));
     } finally {
       setPicking(false);
     }
-  }, [t]);
+  }, [t, ingestFiles]);
 
   const removeFile = (name: string) => {
     Haptics.selectionAsync();
@@ -359,6 +386,8 @@ export default function UploadScreen() {
           <Pressable onPress={pickFiles} style={styles.dropInner} testID="upload-pick-btn">
             <Feather name="upload-cloud" size={36} color={colors.gold} />
             <Text style={styles.dropTitle}>{t('upload.magicTitle')}</Text>
+            <Text style={styles.pickHint}>{t('upload.pickHint' as any)}</Text>
+            <Text style={styles.shareHint}>{t('upload.shareHint' as any)}</Text>
             <View style={styles.chips}>
               {(['pdf', 'excel', 'image', 'contract', 'invoice', 'receipt', 'whatsapp'] as const).map((k) => (
                 <View key={k} style={styles.chip}>
@@ -434,6 +463,20 @@ const styles = StyleSheet.create({
   },
   dropInner: { alignItems: 'center', paddingVertical: 40, paddingHorizontal: spacing.lg, gap: 14 },
   dropTitle: { color: colors.text, fontSize: 22, fontWeight: typography.weight.semibold, textAlign: 'center' },
+  pickHint: {
+    color: colors.textDim,
+    fontSize: 13,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  shareHint: {
+    color: colors.gold,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
+  },
   chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: spacing.sm },
   chip: {
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,

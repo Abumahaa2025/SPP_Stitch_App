@@ -3,7 +3,7 @@
     "name": "SPP Stitch",
     "slug": "spp-stitch-transfer",
     "owner": "abumahaa2025",
-    "version": "1.0.23",
+    "version": "1.0.25",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "spp",
@@ -20,7 +20,13 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#050A12"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VISUAL_USER_SELECTED"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -39,7 +45,41 @@
           "backgroundColor": "#050A12"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-document-picker",
+        {
+          "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      [
+        "expo-share-intent",
+        {
+          "disableIOS": true,
+          "androidIntentFilters": [
+            "*/*",
+            "application/*",
+            "application/pdf",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/*",
+            "text/csv",
+            "image/*"
+          ],
+          "androidMultiIntentFilters": [
+            "*/*",
+            "application/*",
+            "application/pdf",
+            "application/vnd.ms-excel",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "text/*",
+            "image/*"
+          ],
+          "androidMainActivityAttributes": {
+            "android:launchMode": "singleTask"
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
@@ -60,4 +100,3 @@
     }
   }
 }
-

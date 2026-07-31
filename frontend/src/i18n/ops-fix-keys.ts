@@ -36,6 +36,10 @@ export const opsFixEn = {
 
   'upload.picking': 'Opening files…',
 
+  'upload.pickHint': 'Opens your phone file manager — use the menu (☰) to browse Downloads, Phone storage, Drive, or USB.',
+
+  'upload.shareHint': 'Or open any file in Files / WhatsApp / Drive → Share → SPP Stitch.',
+
   'upload.fileSize': 'Size',
 
   'upload.doneActions': 'What next?',
@@ -100,6 +104,10 @@ export const opsFixAr = {
   'upload.pickError': 'تعذّر فتح الملفات. تحقق من صلاحية التخزين وحاول مرة أخرى.',
 
   'upload.picking': 'جاري فتح الملفات…',
+
+  'upload.pickHint': 'يفتح مدير ملفات الجوال — من القائمة (☰) اختر التنزيلات أو التخزين أو Drive أو USB.',
+
+  'upload.shareHint': 'أو من تطبيق الملفات / واتساب / Drive: مشاركة ← SPP Stitch.',
 
   'upload.fileSize': 'الحجم',
 
