@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Platform, ActivityIndicator,
+  View, Text, StyleSheet, Pressable, Platform, ActivityIndicator, Linking,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter, useFocusEffect } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
+import * as SppFileImport from 'spp-file-import';
 
 import { ScreenScaffold } from '@/src/components/ScreenScaffold';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
@@ -59,6 +60,7 @@ export default function UploadScreen() {
   const [pickError, setPickError] = useState<string | null>(null);
   const [lastFileMeta, setLastFileMeta] = useState<UploadFileMeta[]>([]);
   const [applyDone, setApplyDone] = useState(false);
+  const [showSources, setShowSources] = useState(false);
 
   // Warm up Render (free tier sleeps) so analysis doesn't eat the cold start.
   // Fire-and-forget: never blocks the screen, never surfaces an error.
@@ -79,6 +81,7 @@ export default function UploadScreen() {
     setPreviewReady(true);
     setImportFailed(false);
     setPickError(null);
+    setShowSources(false);
     try {
       const pre = await buildFilePreview(next[0]);
       setPreview(pre);
@@ -102,13 +105,69 @@ export default function UploadScreen() {
 
   useEffect(() => onSharedFilesStashed(() => { pullShared(); }), [pullShared]);
 
-  const pickFiles = useCallback(async () => {
+  const applyNativeResult = useCallback(async (res: {
+    canceled: boolean;
+    assets: Array<{ name: string; uri: string; mimeType?: string; size?: number }> | null;
+  } | null) => {
+    if (!res || res.canceled || !res.assets?.length) return;
+    await ingestFiles(res.assets.map((a) => ({
+      name: a.name,
+      mimeType: a.mimeType,
+      size: a.size,
+      uri: a.uri,
+    })));
+  }, [ingestFiles]);
+
+  /** Opens Android chooser with WhatsApp preferred at the top. */
+  const pickFromApps = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPickError(null);
     setPicking(true);
+    setShowSources(false);
     try {
-      // Pass a MIME array so Android uses ACTION_OPEN_DOCUMENT + EXTRA_MIME_TYPES
-      // (full DocumentsUI with sidebar: Downloads, Phone, Drive, USB… — not Downloads-only).
+      if (Platform.OS === 'android' && SppFileImport.isAvailable()) {
+        const res = await SppFileImport.pickFromApps({
+          multiple: true,
+          mimeType: '*/*',
+          title: t('upload.source.appsTitle' as any),
+        });
+        await applyNativeResult(res as any);
+        return;
+      }
+      const res = await DocumentPicker.getDocumentAsync({
+        multiple: true,
+        copyToCacheDirectory: true,
+        type: '*/*',
+      });
+      if (res.canceled || !res.assets?.length) return;
+      await ingestFiles(res.assets.map((a) => ({
+        name: a.name,
+        mimeType: a.mimeType ?? undefined,
+        size: a.size ?? undefined,
+        uri: a.uri,
+      })));
+    } catch {
+      setPickError(t('upload.pickError' as any));
+    } finally {
+      setPicking(false);
+    }
+  }, [t, applyNativeResult, ingestFiles]);
+
+  /** Phone storage manager — starts at internal storage (not Downloads). */
+  const pickFromStorage = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPickError(null);
+    setPicking(true);
+    setShowSources(false);
+    try {
+      if (Platform.OS === 'android' && SppFileImport.isAvailable()) {
+        const res = await SppFileImport.pickFromStorage({
+          multiple: true,
+          mimeType: '*/*',
+        });
+        await applyNativeResult(res as any);
+        return;
+      }
       const res = await DocumentPicker.getDocumentAsync({
         multiple: true,
         copyToCacheDirectory: true,
@@ -116,27 +175,44 @@ export default function UploadScreen() {
           'application/pdf',
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'application/vnd.ms-excel',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
           'image/*',
           'text/csv',
-          'text/comma-separated-values',
         ],
       });
       if (res.canceled || !res.assets?.length) return;
-      const next: Picked[] = res.assets.map((a) => ({
+      await ingestFiles(res.assets.map((a) => ({
         name: a.name,
         mimeType: a.mimeType ?? undefined,
         size: a.size ?? undefined,
         uri: a.uri,
-      }));
-      await ingestFiles(next);
+      })));
     } catch {
       setPickError(t('upload.pickError' as any));
     } finally {
       setPicking(false);
     }
-  }, [t, ingestFiles]);
+  }, [t, applyNativeResult, ingestFiles]);
+
+  const openWhatsApp = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowSources(false);
+    try {
+      const can = await Linking.canOpenURL('whatsapp://send');
+      if (can) {
+        await Linking.openURL('whatsapp://send');
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+    await pickFromApps();
+  }, [pickFromApps]);
+
+  const pickFiles = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPickError(null);
+    setShowSources(true);
+  }, []);
 
   const removeFile = (name: string) => {
     Haptics.selectionAsync();
@@ -399,6 +475,41 @@ export default function UploadScreen() {
         </Animated.View>
       ) : null}
 
+      {showSources && !busy && !results.length ? (
+        <Animated.View entering={FadeInDown.duration(280)} style={{ marginTop: spacing.md }}>
+          <GlassCard padding={16} radiusToken="lg" edge="gold">
+            <Text style={styles.sourceSheetTitle}>{t('upload.source.title' as any)}</Text>
+            <Pressable style={styles.sourceRow} onPress={openWhatsApp} testID="upload-source-whatsapp">
+              <Feather name="message-circle" size={18} color={colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sourceRowTitle}>{t('upload.source.whatsapp' as any)}</Text>
+                <Text style={styles.sourceRowSub}>{t('upload.source.whatsappSub' as any)}</Text>
+              </View>
+              <Feather name="chevron-left" size={18} color={colors.textMuted} />
+            </Pressable>
+            <Pressable style={styles.sourceRow} onPress={pickFromApps} testID="upload-source-apps">
+              <Feather name="grid" size={18} color={colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sourceRowTitle}>{t('upload.source.apps' as any)}</Text>
+                <Text style={styles.sourceRowSub}>{t('upload.source.appsSub' as any)}</Text>
+              </View>
+              <Feather name="chevron-left" size={18} color={colors.textMuted} />
+            </Pressable>
+            <Pressable style={styles.sourceRow} onPress={pickFromStorage} testID="upload-source-storage">
+              <Feather name="folder" size={18} color={colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sourceRowTitle}>{t('upload.source.storage' as any)}</Text>
+                <Text style={styles.sourceRowSub}>{t('upload.source.storageSub' as any)}</Text>
+              </View>
+              <Feather name="chevron-left" size={18} color={colors.textMuted} />
+            </Pressable>
+            <Pressable style={styles.sourceCancel} onPress={() => setShowSources(false)}>
+              <Text style={styles.secondaryText}>{t('upload.source.cancel' as any)}</Text>
+            </Pressable>
+          </GlassCard>
+        </Animated.View>
+      ) : null}
+
       {busy || results.length > 0 ? (
         <UploadMagic step={step} done={results.length > 0} />
       ) : null}
@@ -476,6 +587,30 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
     paddingHorizontal: spacing.sm,
+  },
+  sourceSheetTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: typography.weight.semibold,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  sourceRowTitle: { color: colors.text, fontSize: 15, fontWeight: typography.weight.medium },
+  sourceRowSub: { color: colors.textMuted, fontSize: 12, marginTop: 2, lineHeight: 16 },
+  sourceCancel: {
+    marginTop: spacing.sm,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: spacing.sm },
   chip: {

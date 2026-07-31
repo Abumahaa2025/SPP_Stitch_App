@@ -1,7 +1,6 @@
 /**
- * Android share target without expo-share-intent (that module crashed cold start).
- * Adds SEND / SEND_MULTIPLE so SPP appears in the Share sheet, and singleTask launchMode.
- * Shared files are ingested in JS via DocumentPicker; Share opens the app to Upload.
+ * Android share target + package queries for WhatsApp visibility (Android 11+).
+ * Keeps SEND filters so SPP appears when sharing from WhatsApp/Files.
  */
 const { withAndroidManifest, AndroidConfig } = require('@expo/config-plugins');
 
@@ -30,9 +29,43 @@ function ensureIntentFilters(androidManifest) {
   return androidManifest;
 }
 
+function ensureQueries(androidManifest) {
+  const manifest = androidManifest.manifest;
+  if (!manifest.queries) manifest.queries = [{}];
+  const q = manifest.queries[0];
+  if (!q.package) q.package = [];
+  const pkgs = new Set((q.package || []).map((p) => p.$?.['android:name']).filter(Boolean));
+  for (const name of ['com.whatsapp', 'com.whatsapp.w4b']) {
+    if (!pkgs.has(name)) {
+      q.package.push({ $: { 'android:name': name } });
+    }
+  }
+  if (!q.intent) q.intent = [];
+  const hasGetContent = q.intent.some((i) =>
+    (i.action || []).some((a) => a.$?.['android:name'] === 'android.intent.action.GET_CONTENT'),
+  );
+  if (!hasGetContent) {
+    q.intent.push({
+      action: [{ $: { 'android:name': 'android.intent.action.GET_CONTENT' } }],
+      data: [{ $: { 'android:mimeType': '*/*' } }],
+    });
+  }
+  const hasWhatsappScheme = q.intent.some((i) =>
+    (i.data || []).some((d) => d.$?.['android:scheme'] === 'whatsapp'),
+  );
+  if (!hasWhatsappScheme) {
+    q.intent.push({
+      action: [{ $: { 'android:name': 'android.intent.action.VIEW' } }],
+      data: [{ $: { 'android:scheme': 'whatsapp' } }],
+    });
+  }
+  return androidManifest;
+}
+
 function withAndroidShareImport(config) {
   return withAndroidManifest(config, (cfg) => {
     cfg.modResults = ensureIntentFilters(cfg.modResults);
+    cfg.modResults = ensureQueries(cfg.modResults);
     return cfg;
   });
 }

@@ -36,9 +36,27 @@ export const opsFixEn = {
 
   'upload.picking': 'Opening files…',
 
-  'upload.pickHint': 'Opens your phone file manager — use the menu (☰) to browse Downloads, Phone storage, Drive, or USB.',
+  'upload.pickHint': 'Choose where to import from — WhatsApp, apps, or phone storage.',
 
-  'upload.shareHint': 'Tip: from Files, tap Share → SPP Stitch to open Import, then choose the file.',
+  'upload.shareHint': 'From WhatsApp: open the file → Share → SPP Stitch.',
+
+  'upload.source.title': 'Import from',
+
+  'upload.source.whatsapp': 'WhatsApp',
+
+  'upload.source.whatsappSub': 'Open WhatsApp, then Share the file to SPP Stitch.',
+
+  'upload.source.apps': 'Apps (WhatsApp first)',
+
+  'upload.source.appsSub': 'System app list — WhatsApp appears at the top.',
+
+  'upload.source.appsTitle': 'Choose app to import from',
+
+  'upload.source.storage': 'Phone file manager',
+
+  'upload.source.storageSub': 'Browse phone storage, Drive, USB — not Downloads only.',
+
+  'upload.source.cancel': 'Cancel',
 
   'upload.fileSize': 'Size',
 
@@ -105,9 +123,27 @@ export const opsFixAr = {
 
   'upload.picking': 'جاري فتح الملفات…',
 
-  'upload.pickHint': 'يفتح مدير ملفات الجوال — من القائمة (☰) اختر التنزيلات أو التخزين أو Drive أو USB.',
+  'upload.pickHint': 'اختر مصدر الاستيراد — واتساب أو التطبيقات أو تخزين الجوال.',
 
-  'upload.shareHint': 'نصيحة: من الملفات اضغط مشاركة ← SPP Stitch لفتح الاستيراد، ثم اختر الملف.',
+  'upload.shareHint': 'من واتساب: افتح الملف ← مشاركة ← SPP Stitch.',
+
+  'upload.source.title': 'استيراد من',
+
+  'upload.source.whatsapp': 'واتساب',
+
+  'upload.source.whatsappSub': 'افتح واتساب ثم شارك الملف إلى SPP Stitch.',
+
+  'upload.source.apps': 'التطبيقات (واتساب أولاً)',
+
+  'upload.source.appsSub': 'قائمة تطبيقات النظام — واتساب في الأعلى.',
+
+  'upload.source.appsTitle': 'اختر تطبيقاً للاستيراد منه',
+
+  'upload.source.storage': 'مدير ملفات الجوال',
+
+  'upload.source.storageSub': 'تصفح تخزين الجوال وDrive وUSB — ليس التنزيلات فقط.',
+
+  'upload.source.cancel': 'إلغاء',
 
   'upload.fileSize': 'الحجم',
 
