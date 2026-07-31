@@ -102,18 +102,22 @@ jobs:
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
           GRADLE=android/app/build.gradle
-          MAIN=android/app/src/main/java/ai/spp/stitch/MainActivity.kt
           test -f "$MANIFEST"
           test -f "$GRADLE"
           grep -q 'android:name=".MainActivity"' "$MANIFEST"
           grep -q 'ai.spp.stitch' "$GRADLE"
           grep -q 'android.intent.action.SEND' "$MANIFEST"
-          grep -q 'spp-file-import' android/settings.gradle \
-            || grep -q 'spp-file-import' android/settings.gradle.kts \
-            || { echo "::error::spp-file-import not autolinked"; exit 1; }
-          if [ -f "$MAIN" ]; then
+          # Expo 54 autolinks via settings plugin — verify resolver, not settings.gradle text.
+          npx expo-modules-autolinking resolve --platform android | grep -q 'spp-file-import' \
+            || { echo "::error::spp-file-import not in expo-modules-autolinking resolve"; exit 1; }
+          MAIN=$(find android -name 'MainActivity.kt' -o -name 'MainActivity.java' | head -n 1)
+          if [ -n "$MAIN" ]; then
             grep -q 'sppHandleIncomingShare' "$MAIN" \
-              || { echo "::error::MainActivity missing share ingest"; exit 1; }
+              || { echo "::error::MainActivity missing share ingest ($MAIN)"; exit 1; }
+            echo "Share ingest OK in $MAIN"
+          else
+            echo "::error::MainActivity not found after prebuild"
+            exit 1
           fi
           if grep -qi 'emergent' "$MANIFEST"; then
             echo "::error::AndroidManifest mentions Emergent"
