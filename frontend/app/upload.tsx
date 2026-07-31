@@ -58,12 +58,27 @@ export default function UploadScreen() {
   const [pickError, setPickError] = useState<string | null>(null);
   const [lastFileMeta, setLastFileMeta] = useState<UploadFileMeta[]>([]);
   const [applyDone, setApplyDone] = useState(false);
-  const [showSources, setShowSources] = useState(false);
+  const [appList, setAppList] = useState<Array<{
+    packageName: string;
+    activityName?: string | null;
+    label: string;
+    kind: string;
+  }>>([]);
+  const [showAppList, setShowAppList] = useState(false);
+  const [nativeOk, setNativeOk] = useState(false);
+  const [nativeId, setNativeId] = useState<string | null>(null);
+  const [waHint, setWaHint] = useState(false);
 
   // Warm up Render (free tier sleeps) so analysis doesn't eat the cold start.
   // Fire-and-forget: never blocks the screen, never surfaces an error.
   useEffect(() => {
     fetch(apiUrl('/')).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const ok = Platform.OS === 'android' && SppFileImport.isAvailable();
+    setNativeOk(ok);
+    setNativeId(ok ? SppFileImport.nativeBuildId() : null);
   }, []);
 
   const ingestFiles = useCallback(async (next: Picked[]) => {
@@ -79,7 +94,8 @@ export default function UploadScreen() {
     setPreviewReady(true);
     setImportFailed(false);
     setPickError(null);
-    setShowSources(false);
+    setShowAppList(false);
+    setWaHint(false);
     try {
       const pre = await buildFilePreview(next[0]);
       setPreview(pre);
@@ -91,8 +107,14 @@ export default function UploadScreen() {
   const applyNativeResult = useCallback(async (res: {
     canceled: boolean;
     assets: Array<{ name: string; uri: string; mimeType?: string; size?: number }> | null;
+    openedWhatsApp?: boolean;
   } | null) => {
-    if (!res || res.canceled || !res.assets?.length) return;
+    if (!res) return;
+    if (res.openedWhatsApp) {
+      setWaHint(true);
+      return;
+    }
+    if (res.canceled || !res.assets?.length) return;
     await ingestFiles(res.assets.map((a) => ({
       name: a.name,
       mimeType: a.mimeType,
@@ -126,7 +148,6 @@ export default function UploadScreen() {
 
   useEffect(() => onSharedFilesStashed(() => { pullShared(); }), [pullShared]);
 
-  // Returning from WhatsApp Share → SPP lands here; drain pending files.
   useEffect(() => {
     const sub = AppState.addEventListener('change', (s) => {
       if (s === 'active') pullShared();
@@ -134,77 +155,87 @@ export default function UploadScreen() {
     return () => sub.remove();
   }, [pullShared]);
 
-  /** Opens Android GET_CONTENT chooser (real app list). No Downloads-only fallback. */
-  const pickFromApps = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setPickError(null);
-    setPicking(true);
-    setShowSources(false);
-    try {
-      if (Platform.OS !== 'android' || !SppFileImport.isAvailable()) {
-        setPickError(t('upload.pickNativeMissing' as any));
-        return;
-      }
-      const res = await SppFileImport.pickFromApps({
-        multiple: true,
-        mimeType: '*/*',
-        title: t('upload.source.appsTitle' as any),
-      });
-      await applyNativeResult(res as any);
-    } catch {
-      setPickError(t('upload.pickError' as any));
-    } finally {
-      setPicking(false);
+  const requireNative = useCallback(() => {
+    if (Platform.OS !== 'android' || !SppFileImport.isAvailable()) {
+      setPickError(t('upload.pickNativeMissing' as any));
+      return false;
     }
-  }, [t, applyNativeResult]);
-
-  /** Phone storage via OPEN_DOCUMENT + EXTRA_INITIAL_URI (not Downloads). */
-  const pickFromStorage = useCallback(async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setPickError(null);
-    setPicking(true);
-    setShowSources(false);
-    try {
-      if (Platform.OS !== 'android' || !SppFileImport.isAvailable()) {
-        setPickError(t('upload.pickNativeMissing' as any));
-        return;
-      }
-      const res = await SppFileImport.pickFromStorage({
-        multiple: true,
-        mimeType: '*/*',
-      });
-      await applyNativeResult(res as any);
-    } catch {
-      setPickError(t('upload.pickError' as any));
-    } finally {
-      setPicking(false);
-    }
-  }, [t, applyNativeResult]);
+    return true;
+  }, [t]);
 
   const openWhatsApp = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPickError(null);
-    setShowSources(false);
+    if (!requireNative()) return;
     try {
-      if (Platform.OS !== 'android' || !SppFileImport.isAvailable()) {
-        setPickError(t('upload.pickNativeMissing' as any));
-        return;
-      }
       const res = await SppFileImport.openWhatsApp();
       if (!res?.ok) {
         setPickError(t('upload.whatsappMissing' as any));
         return;
       }
+      setWaHint(true);
     } catch {
       setPickError(t('upload.pickError' as any));
     }
-  }, [t]);
+  }, [t, requireNative]);
 
-  const pickFiles = useCallback(() => {
+  const pickFromStorage = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPickError(null);
-    setShowSources(true);
-  }, []);
+    setPicking(true);
+    setShowAppList(false);
+    try {
+      if (!requireNative()) return;
+      const res = await SppFileImport.pickFromStorage({ multiple: true, mimeType: '*/*' });
+      await applyNativeResult(res as any);
+    } catch {
+      setPickError(t('upload.pickError' as any));
+    } finally {
+      setPicking(false);
+    }
+  }, [t, requireNative, applyNativeResult]);
+
+  const openAppList = useCallback(async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPickError(null);
+    if (!requireNative()) return;
+    setPicking(true);
+    try {
+      const list = await SppFileImport.listImportApps();
+      setAppList(Array.isArray(list) ? list : []);
+      setShowAppList(true);
+    } catch {
+      setPickError(t('upload.pickError' as any));
+    } finally {
+      setPicking(false);
+    }
+  }, [t, requireNative]);
+
+  const pickFromListedApp = useCallback(async (app: {
+    packageName: string;
+    activityName?: string | null;
+    kind: string;
+  }) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPickError(null);
+    setPicking(true);
+    try {
+      if (!requireNative()) return;
+      const res = await SppFileImport.pickFromApp(
+        app.packageName,
+        app.activityName ?? null,
+        app.kind,
+      );
+      await applyNativeResult(res as any);
+    } catch {
+      setPickError(t('upload.pickError' as any));
+    } finally {
+      setPicking(false);
+    }
+  }, [t, requireNative, applyNativeResult]);
+
+  // Keep alias used by retry buttons.
+  const pickFiles = openAppList;
 
   const removeFile = (name: string) => {
     Haptics.selectionAsync();
@@ -325,11 +356,75 @@ export default function UploadScreen() {
       />
 
       <View style={styles.buildBar} testID="upload-build-stamp">
-        <Text style={styles.buildStamp}>{UX_BUILD_STAMP}</Text>
-        <Text style={styles.apiHint} numberOfLines={1}>
-          API: {apiUrl('/upload/portfolio-analysis').replace('https://', '')}
+        <Text style={styles.buildStamp}>v1.0.29 · {UX_BUILD_STAMP}</Text>
+        <Text style={styles.apiHint} numberOfLines={2}>
+          package ai.spp.stitch · native {nativeOk ? `OK (${nativeId || 'ready'})` : 'MISSING — reinstall APK'}
         </Text>
       </View>
+
+      {!busy && !results.length && files.length === 0 && !previewReady ? (
+        <Animated.View entering={FadeInDown.duration(350)} style={{ marginTop: spacing.md }}>
+          <GlassCard padding={16} radiusToken="lg" edge="gold">
+            <Text style={styles.sourceSheetTitle}>{t('upload.source.title' as any)}</Text>
+            <Pressable style={styles.sourceRow} onPress={openWhatsApp} testID="upload-source-whatsapp">
+              <Feather name="message-circle" size={20} color={colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sourceRowTitle}>{t('upload.source.whatsapp' as any)}</Text>
+                <Text style={styles.sourceRowSub}>{t('upload.source.whatsappSub' as any)}</Text>
+              </View>
+            </Pressable>
+            <Pressable style={styles.sourceRow} onPress={openAppList} testID="upload-source-apps">
+              <Feather name="grid" size={20} color={colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sourceRowTitle}>{t('upload.source.apps' as any)}</Text>
+                <Text style={styles.sourceRowSub}>{t('upload.source.appsSub' as any)}</Text>
+              </View>
+            </Pressable>
+            <Pressable style={styles.sourceRow} onPress={pickFromStorage} testID="upload-source-storage">
+              <Feather name="folder" size={20} color={colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sourceRowTitle}>{t('upload.source.storage' as any)}</Text>
+                <Text style={styles.sourceRowSub}>{t('upload.source.storageSub' as any)}</Text>
+              </View>
+            </Pressable>
+            {waHint ? (
+              <Text style={styles.waHint}>{t('upload.whatsappHint' as any)}</Text>
+            ) : null}
+          </GlassCard>
+        </Animated.View>
+      ) : null}
+
+      {showAppList && !busy && !results.length ? (
+        <Animated.View entering={FadeInDown.duration(280)} style={{ marginTop: spacing.md }}>
+          <GlassCard padding={16} radiusToken="lg">
+            <Text style={styles.sourceSheetTitle}>{t('upload.source.appsTitle' as any)}</Text>
+            {appList.length === 0 ? (
+              <Text style={styles.failBody}>{t('upload.pickError' as any)}</Text>
+            ) : (
+              appList.slice(0, 30).map((app) => (
+                <Pressable
+                  key={`${app.packageName}:${app.activityName || ''}:${app.kind}`}
+                  style={styles.sourceRow}
+                  onPress={() => pickFromListedApp(app)}
+                >
+                  <Feather
+                    name={app.kind === 'whatsapp' ? 'message-circle' : app.kind === 'storage' ? 'folder' : 'box'}
+                    size={18}
+                    color={colors.gold}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sourceRowTitle}>{app.label}</Text>
+                    <Text style={styles.sourceRowSub}>{app.packageName}</Text>
+                  </View>
+                </Pressable>
+              ))
+            )}
+            <Pressable style={styles.sourceCancel} onPress={() => setShowAppList(false)}>
+              <Text style={styles.secondaryText}>{t('upload.source.cancel' as any)}</Text>
+            </Pressable>
+          </GlassCard>
+        </Animated.View>
+      ) : null}
 
       {analysisSource ? (
         <View style={[styles.sourceBadge, analysisSource === 'render' ? styles.sourceRender : styles.sourceFallback]}>
@@ -449,59 +544,6 @@ export default function UploadScreen() {
         </Animated.View>
       ) : null}
 
-      {!busy && !results.length && files.length === 0 && !previewReady && !picking ? (
-        <Animated.View entering={FadeInDown.duration(600).delay(80)} style={styles.dropZone}>
-          <Pressable onPress={pickFiles} style={styles.dropInner} testID="upload-pick-btn">
-            <Feather name="upload-cloud" size={36} color={colors.gold} />
-            <Text style={styles.dropTitle}>{t('upload.magicTitle')}</Text>
-            <Text style={styles.pickHint}>{t('upload.pickHint' as any)}</Text>
-            <Text style={styles.shareHint}>{t('upload.shareHint' as any)}</Text>
-            <View style={styles.chips}>
-              {(['pdf', 'excel', 'image', 'contract', 'invoice', 'receipt', 'whatsapp'] as const).map((k) => (
-                <View key={k} style={styles.chip}>
-                  <Text style={styles.chipText}>{t(`upload.type.${k}`)}</Text>
-                </View>
-              ))}
-            </View>
-          </Pressable>
-        </Animated.View>
-      ) : null}
-
-      {showSources && !busy && !results.length ? (
-        <Animated.View entering={FadeInDown.duration(280)} style={{ marginTop: spacing.md }}>
-          <GlassCard padding={16} radiusToken="lg" edge="gold">
-            <Text style={styles.sourceSheetTitle}>{t('upload.source.title' as any)}</Text>
-            <Pressable style={styles.sourceRow} onPress={openWhatsApp} testID="upload-source-whatsapp">
-              <Feather name="message-circle" size={18} color={colors.gold} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sourceRowTitle}>{t('upload.source.whatsapp' as any)}</Text>
-                <Text style={styles.sourceRowSub}>{t('upload.source.whatsappSub' as any)}</Text>
-              </View>
-              <Feather name="chevron-left" size={18} color={colors.textMuted} />
-            </Pressable>
-            <Pressable style={styles.sourceRow} onPress={pickFromApps} testID="upload-source-apps">
-              <Feather name="grid" size={18} color={colors.gold} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sourceRowTitle}>{t('upload.source.apps' as any)}</Text>
-                <Text style={styles.sourceRowSub}>{t('upload.source.appsSub' as any)}</Text>
-              </View>
-              <Feather name="chevron-left" size={18} color={colors.textMuted} />
-            </Pressable>
-            <Pressable style={styles.sourceRow} onPress={pickFromStorage} testID="upload-source-storage">
-              <Feather name="folder" size={18} color={colors.gold} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.sourceRowTitle}>{t('upload.source.storage' as any)}</Text>
-                <Text style={styles.sourceRowSub}>{t('upload.source.storageSub' as any)}</Text>
-              </View>
-              <Feather name="chevron-left" size={18} color={colors.textMuted} />
-            </Pressable>
-            <Pressable style={styles.sourceCancel} onPress={() => setShowSources(false)}>
-              <Text style={styles.secondaryText}>{t('upload.source.cancel' as any)}</Text>
-            </Pressable>
-          </GlassCard>
-        </Animated.View>
-      ) : null}
-
       {busy || results.length > 0 ? (
         <UploadMagic step={step} done={results.length > 0} />
       ) : null}
@@ -603,6 +645,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
+  },
+  waHint: {
+    marginTop: spacing.sm,
+    color: colors.gold,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: spacing.sm },
   chip: {

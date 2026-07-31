@@ -1,6 +1,7 @@
 package expo.modules.sppfileimport
 
 import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,12 +14,10 @@ import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONArray
-import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
-private const val REQ_APPS = 51901
-private const val REQ_STORAGE = 51902
+private const val REQ_PICK = 51910
 
 class SppFileImportModule : Module() {
   private val context: Context
@@ -30,9 +29,9 @@ class SppFileImportModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("SppFileImport")
 
-    Function("isNativeReady") {
-      true
-    }
+    Function("isNativeReady") { true }
+
+    Function("nativeBuildId") { "spp-file-import-1.0.29" }
 
     AsyncFunction("openWhatsApp") { promise: Promise ->
       try {
@@ -41,7 +40,7 @@ class SppFileImportModule : Module() {
           val launch = pm.getLaunchIntentForPackage(pkg)
           if (launch != null) {
             launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            context.startActivity(launch)
+            appContext.throwingActivity.startActivity(launch)
             promise.resolve(mapOf("ok" to true, "package" to pkg))
             return@AsyncFunction
           }
@@ -52,23 +51,131 @@ class SppFileImportModule : Module() {
       }
     }
 
-    AsyncFunction("pickFromApps") { multiple: Boolean, mimeType: String, title: String, promise: Promise ->
-      startPick(
-        requestCode = REQ_APPS,
-        promise = promise,
-        intent = buildAppsChooser(multiple, mimeType, title),
-      )
+    /** In-app app list (WhatsApp packages forced to top even if not GET_CONTENT handlers). */
+    AsyncFunction("listImportApps") { promise: Promise ->
+      try {
+        val pm = context.packageManager
+        val probe = Intent(Intent.ACTION_GET_CONTENT).apply {
+          addCategory(Intent.CATEGORY_OPENABLE)
+          type = "*/*"
+        }
+        val flags = if (Build.VERSION.SDK_INT >= 23) {
+          PackageManager.MATCH_DEFAULT_ONLY
+        } else {
+          0
+        }
+        val resolved = pm.queryIntentActivities(probe, flags)
+        val seen = LinkedHashSet<String>()
+        val apps = mutableListOf<Map<String, Any?>>()
+
+        fun addApp(pkg: String, activity: String?, label: String, kind: String) {
+          val key = "$pkg/${activity ?: ""}"
+          if (!seen.add(key)) return
+          apps.add(
+            mapOf(
+              "packageName" to pkg,
+              "activityName" to activity,
+              "label" to label,
+              "kind" to kind,
+            ),
+          )
+        }
+
+        // Force WhatsApp rows first (open app → Share to SPP).
+        for (pkg in listOf("com.whatsapp", "com.whatsapp.w4b")) {
+          try {
+            pm.getPackageInfo(pkg, 0)
+            val label = try {
+              val ai = pm.getApplicationInfo(pkg, 0)
+              pm.getApplicationLabel(ai).toString()
+            } catch (_: Exception) {
+              if (pkg.endsWith("w4b")) "WhatsApp Business" else "WhatsApp"
+            }
+            addApp(pkg, null, label, "whatsapp")
+          } catch (_: PackageManager.NameNotFoundException) {
+          }
+        }
+
+        // Phone storage / DocumentsUI explicitly
+        addApp(
+          "com.android.documentsui",
+          null,
+          "Files / Storage",
+          "storage",
+        )
+        addApp(
+          "com.google.android.documentsui",
+          null,
+          "Files",
+          "storage",
+        )
+
+        for (ri in resolved) {
+          val pkg = ri.activityInfo.packageName
+          val act = ri.activityInfo.name
+          if (pkg.contains("whatsapp")) continue
+          val label = ri.loadLabel(pm)?.toString() ?: pkg
+          addApp(pkg, act, label, "content")
+        }
+
+        promise.resolve(apps)
+      } catch (e: Exception) {
+        promise.reject("E_LIST", e.message, e)
+      }
+    }
+
+    AsyncFunction("pickFromApp") { packageName: String, activityName: String?, kind: String, promise: Promise ->
+      when (kind) {
+        "whatsapp" -> {
+          try {
+            val launch = context.packageManager.getLaunchIntentForPackage(packageName)
+            if (launch == null) {
+              promise.resolve(mapOf("canceled" to true, "assets" to null, "openedWhatsApp" to false))
+              return@AsyncFunction
+            }
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            appContext.throwingActivity.startActivity(launch)
+            // No file yet — JS will takePendingShare after Share → SPP.
+            promise.resolve(mapOf("canceled" to true, "assets" to null, "openedWhatsApp" to true))
+          } catch (e: Exception) {
+            promise.reject("E_WA", e.message, e)
+          }
+        }
+        "storage" -> {
+          startPick(promise, buildStorageIntent(true, "*/*"))
+        }
+        else -> {
+          val intent = Intent(Intent.ACTION_GET_CONTENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            if (!activityName.isNullOrBlank()) {
+              component = ComponentName(packageName, activityName)
+            } else {
+              setPackage(packageName)
+            }
+          }
+          startPick(promise, intent)
+        }
+      }
     }
 
     AsyncFunction("pickFromStorage") { multiple: Boolean, mimeType: String, promise: Promise ->
-      startPick(
-        requestCode = REQ_STORAGE,
-        promise = promise,
-        intent = buildStorageIntent(multiple, mimeType),
-      )
+      startPick(promise, buildStorageIntent(multiple, mimeType))
     }
 
-    /** Drain files written by MainActivity when user Shared → SPP from WhatsApp/Files. */
+    AsyncFunction("pickFromApps") { multiple: Boolean, mimeType: String, title: String, promise: Promise ->
+      // Kept for compatibility — prefer listImportApps + pickFromApp.
+      val getContent = Intent(Intent.ACTION_GET_CONTENT).apply {
+        addCategory(Intent.CATEGORY_OPENABLE)
+        type = mimeType.ifBlank { "*/*" }
+        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      }
+      startPick(promise, Intent.createChooser(getContent, title.ifBlank { "Import" }))
+    }
+
     AsyncFunction("takePendingShare") { promise: Promise ->
       try {
         val pending = File(context.cacheDir, "spp-pending-share.json")
@@ -133,33 +240,20 @@ class SppFileImportModule : Module() {
     }
   }
 
-  private fun startPick(requestCode: Int, promise: Promise, intent: Intent) {
+  private fun startPick(promise: Promise, intent: Intent) {
     if (pendingPromise != null) {
       promise.reject("E_BUSY", "A file pick is already in progress", null)
       return
     }
     pendingPromise = promise
-    pendingRequest = requestCode
+    pendingRequest = REQ_PICK
     try {
-      appContext.throwingActivity.startActivityForResult(intent, requestCode)
+      appContext.throwingActivity.startActivityForResult(intent, REQ_PICK)
     } catch (e: Exception) {
       pendingPromise = null
       pendingRequest = 0
       promise.reject("E_START", e.message, e)
     }
-  }
-
-  private fun buildAppsChooser(multiple: Boolean, mimeType: String, title: String): Intent {
-    val type = mimeType.ifBlank { "*/*" }
-    // GET_CONTENT shows installed apps that can return a file (Drive, Files, Gallery…).
-    val getContent = Intent(Intent.ACTION_GET_CONTENT).apply {
-      addCategory(Intent.CATEGORY_OPENABLE)
-      this.type = type
-      putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple)
-      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-      putExtra(Intent.EXTRA_LOCAL_ONLY, false)
-    }
-    return Intent.createChooser(getContent, title.ifBlank { "Import file" })
   }
 
   private fun buildStorageIntent(multiple: Boolean, mimeType: String): Intent {
@@ -172,7 +266,6 @@ class SppFileImportModule : Module() {
       putExtra("android.content.extra.SHOW_ADVANCED", true)
       putExtra("android.provider.extra.SHOW_ADVANCED", true)
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-        // Build a real document URI so DocumentsUI opens at phone storage root.
         val rootUri = DocumentsContract.buildDocumentUri(
           "com.android.externalstorage.documents",
           "primary:",

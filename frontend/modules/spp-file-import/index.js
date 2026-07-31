@@ -4,53 +4,58 @@ const { requireOptionalNativeModule } = require('expo-modules-core');
 
 function getNative() {
   try {
-    return requireOptionalNativeModule('SppFileImport');
-  } catch {
-    return null;
-  }
+    const mod = requireOptionalNativeModule('SppFileImport');
+    if (mod) return mod;
+  } catch (_) {}
+  try {
+    // Fallback path used by some Expo / New Arch builds.
+    const { NativeModulesProxy } = require('expo-modules-core');
+    if (NativeModulesProxy?.SppFileImport) return NativeModulesProxy.SppFileImport;
+  } catch (_) {}
+  return null;
 }
 
 function isAvailable() {
   const n = getNative();
-  if (!n) return false;
+  return !!(n && (typeof n.isNativeReady === 'function' ? n.isNativeReady() : n.pickFromStorage));
+}
+
+function nativeBuildId() {
+  const n = getNative();
   try {
-    // Prefer explicit readiness check when present.
-    if (typeof n.isNativeReady === 'function') return !!n.isNativeReady();
-    return typeof n.pickFromApps === 'function';
-  } catch {
-    return false;
-  }
+    if (n && typeof n.nativeBuildId === 'function') return String(n.nativeBuildId());
+  } catch (_) {}
+  return null;
 }
 
 async function openWhatsApp() {
   const Native = getNative();
-  if (!Native?.openWhatsApp) {
-    throw new Error('SppFileImport native module is not available');
-  }
+  if (!Native?.openWhatsApp) throw new Error('SppFileImport missing');
   return Native.openWhatsApp();
+}
+
+async function listImportApps() {
+  const Native = getNative();
+  if (!Native?.listImportApps) throw new Error('SppFileImport missing');
+  return Native.listImportApps();
+}
+
+async function pickFromApp(packageName, activityName, kind) {
+  const Native = getNative();
+  if (!Native?.pickFromApp) throw new Error('SppFileImport missing');
+  return Native.pickFromApp(packageName || '', activityName || null, kind || 'content');
 }
 
 async function pickFromApps(options = {}) {
   const Native = getNative();
-  if (!Native?.pickFromApps) {
-    throw new Error('SppFileImport native module is not available');
-  }
-  return Native.pickFromApps(
-    !!options.multiple,
-    options.mimeType || '*/*',
-    options.title || 'Import file',
-  );
+  if (!Native?.pickFromApps) throw new Error('SppFileImport missing');
+  return Native.pickFromApps(!!options.multiple, options.mimeType || '*/*', options.title || 'Import');
 }
 
 async function pickFromStorage(options = {}) {
   const Native = getNative();
-  if (!Native?.pickFromStorage) {
-    throw new Error('SppFileImport native module is not available');
-  }
-  return Native.pickFromStorage(
-    !!options.multiple,
-    options.mimeType || '*/*',
-  );
+  if (!Native?.pickFromStorage) throw new Error('SppFileImport missing');
+  return Native.pickFromStorage(!!options.multiple, options.mimeType || '*/*');
 }
 
 async function takePendingShare() {
@@ -61,8 +66,11 @@ async function takePendingShare() {
 
 module.exports = {
   openWhatsApp,
+  listImportApps,
+  pickFromApp,
   pickFromApps,
   pickFromStorage,
   takePendingShare,
   isAvailable,
+  nativeBuildId,
 };

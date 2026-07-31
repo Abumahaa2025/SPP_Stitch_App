@@ -52,11 +52,11 @@ export const opsFixEn = {
 
   'upload.source.whatsappSub': 'Opens WhatsApp. Then Share the file to SPP Stitch — it imports automatically.',
 
-  'upload.source.apps': 'Apps & Drive',
+  'upload.source.apps': 'List of apps on this phone',
 
-  'upload.source.appsSub': 'Real Android app chooser (not Downloads-only).',
+  'upload.source.appsSub': 'Shows WhatsApp first, then Drive / Files / other apps.',
 
-  'upload.source.appsTitle': 'Choose app to import from',
+  'upload.source.appsTitle': 'Choose an app',
 
   'upload.source.storage': 'Phone file manager',
 
@@ -145,11 +145,11 @@ export const opsFixAr = {
 
   'upload.source.whatsappSub': 'يفتح واتساب. ثم شارك الملف إلى SPP Stitch — يُستورد تلقائياً.',
 
-  'upload.source.apps': 'التطبيقات وDrive',
+  'upload.source.apps': 'قائمة تطبيقات الجوال',
 
-  'upload.source.appsSub': 'قائمة تطبيقات أندرويد الحقيقية (ليست التنزيلات فقط).',
+  'upload.source.appsSub': 'واتساب أولاً ثم Drive والملفات وبقية التطبيقات.',
 
-  'upload.source.appsTitle': 'اختر تطبيقاً للاستيراد منه',
+  'upload.source.appsTitle': 'اختر تطبيقاً',
 
   'upload.source.storage': 'مدير ملفات الجوال',
 
