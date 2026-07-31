@@ -12,20 +12,22 @@ config.cacheStores = [
   new FileStore({ root: path.join(root, 'cache') }),
 ];
 
-// Harden `@/` resolution for release bundling (CI Gradle + Hermes).
+// Explicit `@/` → project root (matches tsconfig paths).
 const upstreamResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
+  let target = moduleName;
   if (typeof moduleName === 'string' && moduleName.startsWith('@/')) {
-    const abs = path.resolve(projectRoot, moduleName.slice(2));
-    return context.resolveRequest(context, abs, platform);
+    target = path.resolve(projectRoot, moduleName.slice(2));
   }
-  if (upstreamResolveRequest) {
-    return upstreamResolveRequest(context, moduleName, platform);
+
+  if (typeof upstreamResolveRequest === 'function') {
+    return upstreamResolveRequest(context, target, platform);
   }
-  return context.resolveRequest(context, moduleName, platform);
+
+  // Metro default resolver (do not call context.resolveRequest — that is us).
+  return require('metro-resolver').resolve(context, target, platform);
 };
 
-// Reduce the number of workers to decrease resource usage
 config.maxWorkers = 2;
 
 module.exports = config;
