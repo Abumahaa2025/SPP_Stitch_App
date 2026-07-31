@@ -1,40 +1,68 @@
 'use strict';
 
-const { requireNativeModule } = require('expo-modules-core');
+const { requireOptionalNativeModule } = require('expo-modules-core');
 
-let Native = null;
-try {
-  Native = requireNativeModule('SppFileImport');
-} catch {
-  Native = null;
+function getNative() {
+  try {
+    return requireOptionalNativeModule('SppFileImport');
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Opens Android app chooser (WhatsApp preferred first) via ACTION_GET_CONTENT.
- * Falls back to null when native module is unavailable.
- */
+function isAvailable() {
+  const n = getNative();
+  if (!n) return false;
+  try {
+    // Prefer explicit readiness check when present.
+    if (typeof n.isNativeReady === 'function') return !!n.isNativeReady();
+    return typeof n.pickFromApps === 'function';
+  } catch {
+    return false;
+  }
+}
+
+async function openWhatsApp() {
+  const Native = getNative();
+  if (!Native?.openWhatsApp) {
+    throw new Error('SppFileImport native module is not available');
+  }
+  return Native.openWhatsApp();
+}
+
 async function pickFromApps(options = {}) {
-  if (!Native?.pickFromApps) return null;
-  return Native.pickFromApps({
-    multiple: !!options.multiple,
-    mimeType: options.mimeType || '*/*',
-    title: options.title || 'Import file',
-  });
+  const Native = getNative();
+  if (!Native?.pickFromApps) {
+    throw new Error('SppFileImport native module is not available');
+  }
+  return Native.pickFromApps(
+    !!options.multiple,
+    options.mimeType || '*/*',
+    options.title || 'Import file',
+  );
 }
 
-/**
- * Opens DocumentsUI starting at phone storage (not Downloads).
- */
 async function pickFromStorage(options = {}) {
-  if (!Native?.pickFromStorage) return null;
-  return Native.pickFromStorage({
-    multiple: !!options.multiple,
-    mimeType: options.mimeType || '*/*',
-  });
+  const Native = getNative();
+  if (!Native?.pickFromStorage) {
+    throw new Error('SppFileImport native module is not available');
+  }
+  return Native.pickFromStorage(
+    !!options.multiple,
+    options.mimeType || '*/*',
+  );
+}
+
+async function takePendingShare() {
+  const Native = getNative();
+  if (!Native?.takePendingShare) return null;
+  return Native.takePendingShare();
 }
 
 module.exports = {
+  openWhatsApp,
   pickFromApps,
   pickFromStorage,
-  isAvailable: () => !!Native,
+  takePendingShare,
+  isAvailable,
 };

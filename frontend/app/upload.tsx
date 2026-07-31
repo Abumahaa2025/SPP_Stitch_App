@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Platform, ActivityIndicator, Linking,
+  View, Text, StyleSheet, Pressable, Platform, ActivityIndicator, AppState,
 } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useRouter, useFocusEffect } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 import * as SppFileImport from 'spp-file-import';
@@ -33,7 +32,6 @@ import { storage } from '@/src/utils/storage';
 import { UX_BUILD_STAMP } from '@/src/constants/build';
 import { apiUrl } from '@/src/constants/backend';
 import {
-  UPLOAD_DOCUMENT_TYPES,
   consumeSharedFiles,
   onSharedFilesStashed,
   type IncomingPickedFile,
@@ -90,21 +88,6 @@ export default function UploadScreen() {
     }
   }, []);
 
-  // Files shared from the system Share sheet (Files / WhatsApp / Drive…).
-  const pullShared = useCallback(async () => {
-    const shared = await consumeSharedFiles();
-    if (!shared.length) return;
-    await ingestFiles(shared);
-  }, [ingestFiles]);
-
-  useFocusEffect(
-    useCallback(() => {
-      pullShared();
-    }, [pullShared]),
-  );
-
-  useEffect(() => onSharedFilesStashed(() => { pullShared(); }), [pullShared]);
-
   const applyNativeResult = useCallback(async (res: {
     canceled: boolean;
     assets: Array<{ name: string; uri: string; mimeType?: string; size?: number }> | null;
@@ -118,95 +101,104 @@ export default function UploadScreen() {
     })));
   }, [ingestFiles]);
 
-  /** Opens Android chooser with WhatsApp preferred at the top. */
+  // Drain files shared from WhatsApp/Files → SPP (MainActivity writes pending JSON).
+  const pullShared = useCallback(async () => {
+    const shared = await consumeSharedFiles();
+    if (shared.length) {
+      await ingestFiles(shared);
+      return;
+    }
+    if (Platform.OS === 'android' && SppFileImport.isAvailable()) {
+      try {
+        const pending = await SppFileImport.takePendingShare();
+        await applyNativeResult(pending as any);
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [ingestFiles, applyNativeResult]);
+
+  useFocusEffect(
+    useCallback(() => {
+      pullShared();
+    }, [pullShared]),
+  );
+
+  useEffect(() => onSharedFilesStashed(() => { pullShared(); }), [pullShared]);
+
+  // Returning from WhatsApp Share → SPP lands here; drain pending files.
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (s) => {
+      if (s === 'active') pullShared();
+    });
+    return () => sub.remove();
+  }, [pullShared]);
+
+  /** Opens Android GET_CONTENT chooser (real app list). No Downloads-only fallback. */
   const pickFromApps = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPickError(null);
     setPicking(true);
     setShowSources(false);
     try {
-      if (Platform.OS === 'android' && SppFileImport.isAvailable()) {
-        const res = await SppFileImport.pickFromApps({
-          multiple: true,
-          mimeType: '*/*',
-          title: t('upload.source.appsTitle' as any),
-        });
-        await applyNativeResult(res as any);
+      if (Platform.OS !== 'android' || !SppFileImport.isAvailable()) {
+        setPickError(t('upload.pickNativeMissing' as any));
         return;
       }
-      const res = await DocumentPicker.getDocumentAsync({
+      const res = await SppFileImport.pickFromApps({
         multiple: true,
-        copyToCacheDirectory: true,
-        type: '*/*',
+        mimeType: '*/*',
+        title: t('upload.source.appsTitle' as any),
       });
-      if (res.canceled || !res.assets?.length) return;
-      await ingestFiles(res.assets.map((a) => ({
-        name: a.name,
-        mimeType: a.mimeType ?? undefined,
-        size: a.size ?? undefined,
-        uri: a.uri,
-      })));
+      await applyNativeResult(res as any);
     } catch {
       setPickError(t('upload.pickError' as any));
     } finally {
       setPicking(false);
     }
-  }, [t, applyNativeResult, ingestFiles]);
+  }, [t, applyNativeResult]);
 
-  /** Phone storage manager — starts at internal storage (not Downloads). */
+  /** Phone storage via OPEN_DOCUMENT + EXTRA_INITIAL_URI (not Downloads). */
   const pickFromStorage = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setPickError(null);
     setPicking(true);
     setShowSources(false);
     try {
-      if (Platform.OS === 'android' && SppFileImport.isAvailable()) {
-        const res = await SppFileImport.pickFromStorage({
-          multiple: true,
-          mimeType: '*/*',
-        });
-        await applyNativeResult(res as any);
+      if (Platform.OS !== 'android' || !SppFileImport.isAvailable()) {
+        setPickError(t('upload.pickNativeMissing' as any));
         return;
       }
-      const res = await DocumentPicker.getDocumentAsync({
+      const res = await SppFileImport.pickFromStorage({
         multiple: true,
-        copyToCacheDirectory: true,
-        type: Platform.OS === 'android' ? UPLOAD_DOCUMENT_TYPES : [
-          'application/pdf',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.ms-excel',
-          'image/*',
-          'text/csv',
-        ],
+        mimeType: '*/*',
       });
-      if (res.canceled || !res.assets?.length) return;
-      await ingestFiles(res.assets.map((a) => ({
-        name: a.name,
-        mimeType: a.mimeType ?? undefined,
-        size: a.size ?? undefined,
-        uri: a.uri,
-      })));
+      await applyNativeResult(res as any);
     } catch {
       setPickError(t('upload.pickError' as any));
     } finally {
       setPicking(false);
     }
-  }, [t, applyNativeResult, ingestFiles]);
+  }, [t, applyNativeResult]);
 
   const openWhatsApp = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setPickError(null);
     setShowSources(false);
     try {
-      const can = await Linking.canOpenURL('whatsapp://send');
-      if (can) {
-        await Linking.openURL('whatsapp://send');
+      if (Platform.OS !== 'android' || !SppFileImport.isAvailable()) {
+        setPickError(t('upload.pickNativeMissing' as any));
+        return;
+      }
+      const res = await SppFileImport.openWhatsApp();
+      if (!res?.ok) {
+        setPickError(t('upload.whatsappMissing' as any));
         return;
       }
     } catch {
-      /* fall through */
+      setPickError(t('upload.pickError' as any));
     }
-    await pickFromApps();
-  }, [pickFromApps]);
+  }, [t]);
 
   const pickFiles = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);

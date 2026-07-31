@@ -15,6 +15,8 @@ export type SppPickOptions = {
   title?: string;
 };
 
-export declare function pickFromApps(options?: SppPickOptions): Promise<SppPickResult | null>;
-export declare function pickFromStorage(options?: SppPickOptions): Promise<SppPickResult | null>;
 export declare function isAvailable(): boolean;
+export declare function openWhatsApp(): Promise<{ ok: boolean; package?: string; reason?: string }>;
+export declare function pickFromApps(options?: SppPickOptions): Promise<SppPickResult>;
+export declare function pickFromStorage(options?: SppPickOptions): Promise<SppPickResult>;
+export declare function takePendingShare(): Promise<SppPickResult | null>;

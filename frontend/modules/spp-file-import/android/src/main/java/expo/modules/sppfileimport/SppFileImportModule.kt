@@ -1,7 +1,6 @@
 package expo.modules.sppfileimport
 
 import android.app.Activity
-import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,24 +12,13 @@ import expo.modules.kotlin.Promise
 import expo.modules.kotlin.exception.Exceptions
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
-import expo.modules.kotlin.records.Field
-import expo.modules.kotlin.records.Record
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
 private const val REQ_APPS = 51901
 private const val REQ_STORAGE = 51902
-
-class PickOptions : Record {
-  @Field
-  var multiple: Boolean = true
-
-  @Field
-  var mimeType: String = "*/*"
-
-  @Field
-  var title: String = "Import file"
-}
 
 class SppFileImportModule : Module() {
   private val context: Context
@@ -42,62 +30,74 @@ class SppFileImportModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("SppFileImport")
 
-    AsyncFunction("pickFromApps") { options: PickOptions, promise: Promise ->
-      if (pendingPromise != null) {
-        promise.reject("E_BUSY", "A file pick is already in progress", null)
-        return@AsyncFunction
-      }
-      pendingPromise = promise
-      pendingRequest = REQ_APPS
+    Function("isNativeReady") {
+      true
+    }
 
-      val getContent = Intent(Intent.ACTION_GET_CONTENT).apply {
-        addCategory(Intent.CATEGORY_OPENABLE)
-        type = options.mimeType.ifBlank { "*/*" }
-        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, options.multiple)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-      }
-
-      val chooser = Intent.createChooser(getContent, options.title).apply {
-        // Put WhatsApp / WhatsApp Business at the top of the chooser.
-        val initial = preferredWhatsAppIntents(options.mimeType)
-        if (initial.isNotEmpty()) {
-          putExtra(Intent.EXTRA_INITIAL_INTENTS, initial.toTypedArray())
-        }
-      }
-
+    AsyncFunction("openWhatsApp") { promise: Promise ->
       try {
-        appContext.throwingActivity.startActivityForResult(chooser, REQ_APPS)
+        val pm = context.packageManager
+        for (pkg in listOf("com.whatsapp", "com.whatsapp.w4b")) {
+          val launch = pm.getLaunchIntentForPackage(pkg)
+          if (launch != null) {
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(launch)
+            promise.resolve(mapOf("ok" to true, "package" to pkg))
+            return@AsyncFunction
+          }
+        }
+        promise.resolve(mapOf("ok" to false, "reason" to "not_installed"))
       } catch (e: Exception) {
-        pendingPromise = null
-        promise.reject("E_START", e.message, e)
+        promise.reject("E_WA", e.message, e)
       }
     }
 
-    AsyncFunction("pickFromStorage") { options: PickOptions, promise: Promise ->
-      if (pendingPromise != null) {
-        promise.reject("E_BUSY", "A file pick is already in progress", null)
-        return@AsyncFunction
-      }
-      pendingPromise = promise
-      pendingRequest = REQ_STORAGE
+    AsyncFunction("pickFromApps") { multiple: Boolean, mimeType: String, title: String, promise: Promise ->
+      startPick(
+        requestCode = REQ_APPS,
+        promise = promise,
+        intent = buildAppsChooser(multiple, mimeType, title),
+      )
+    }
 
-      val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-        addCategory(Intent.CATEGORY_OPENABLE)
-        type = options.mimeType.ifBlank { "*/*" }
-        putExtra(Intent.EXTRA_ALLOW_MULTIPLE, options.multiple)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        // Start at internal storage root instead of Downloads.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-          val root = Uri.parse("content://com.android.externalstorage.documents/document/primary:")
-          putExtra(DocumentsContract.EXTRA_INITIAL_URI, root)
-        }
-      }
+    AsyncFunction("pickFromStorage") { multiple: Boolean, mimeType: String, promise: Promise ->
+      startPick(
+        requestCode = REQ_STORAGE,
+        promise = promise,
+        intent = buildStorageIntent(multiple, mimeType),
+      )
+    }
 
+    /** Drain files written by MainActivity when user Shared → SPP from WhatsApp/Files. */
+    AsyncFunction("takePendingShare") { promise: Promise ->
       try {
-        appContext.throwingActivity.startActivityForResult(intent, REQ_STORAGE)
+        val pending = File(context.cacheDir, "spp-pending-share.json")
+        if (!pending.exists()) {
+          promise.resolve(mapOf("canceled" to true, "assets" to null))
+          return@AsyncFunction
+        }
+        val raw = pending.readText()
+        pending.delete()
+        val arr = JSONArray(raw)
+        val assets = mutableListOf<Map<String, Any?>>()
+        for (i in 0 until arr.length()) {
+          val o = arr.getJSONObject(i)
+          assets.add(
+            mapOf(
+              "name" to o.optString("name", "shared-file"),
+              "uri" to o.optString("uri"),
+              "mimeType" to o.optString("mimeType", "application/octet-stream"),
+              "size" to o.optLong("size", 0L),
+            ),
+          )
+        }
+        if (assets.isEmpty()) {
+          promise.resolve(mapOf("canceled" to true, "assets" to null))
+        } else {
+          promise.resolve(mapOf("canceled" to false, "assets" to assets))
+        }
       } catch (e: Exception) {
-        pendingPromise = null
-        promise.reject("E_START", e.message, e)
+        promise.reject("E_PENDING", e.message, e)
       }
     }
 
@@ -108,12 +108,7 @@ class SppFileImportModule : Module() {
       pendingRequest = 0
 
       if (resultCode != Activity.RESULT_OK || data == null) {
-        promise.resolve(
-          mapOf(
-            "canceled" to true,
-            "assets" to null,
-          ),
-        )
+        promise.resolve(mapOf("canceled" to true, "assets" to null))
         return@OnActivityResult
       }
 
@@ -122,14 +117,10 @@ class SppFileImportModule : Module() {
         val clip = data.clipData
         if (clip != null) {
           for (i in 0 until clip.itemCount) {
-            clip.getItemAt(i)?.uri?.let { uri ->
-              toAsset(uri)?.let { assets.add(it) }
-            }
+            clip.getItemAt(i)?.uri?.let { uri -> toAsset(uri)?.let { assets.add(it) } }
           }
         } else {
-          data.data?.let { uri ->
-            toAsset(uri)?.let { assets.add(it) }
-          }
+          data.data?.let { uri -> toAsset(uri)?.let { assets.add(it) } }
         }
         if (assets.isEmpty()) {
           promise.resolve(mapOf("canceled" to true, "assets" to null))
@@ -142,35 +133,53 @@ class SppFileImportModule : Module() {
     }
   }
 
-  private fun preferredWhatsAppIntents(mimeType: String): List<Intent> {
-    val pm = context.packageManager
-    val packages = listOf("com.whatsapp", "com.whatsapp.w4b")
-    val out = mutableListOf<Intent>()
-    for (pkg in packages) {
-      try {
-        pm.getPackageInfo(pkg, 0)
-      } catch (_: PackageManager.NameNotFoundException) {
-        continue
-      }
-      // Prefer GET_CONTENT targeted at WhatsApp so it appears first in the chooser.
-      val targeted = Intent(Intent.ACTION_GET_CONTENT).apply {
-        addCategory(Intent.CATEGORY_OPENABLE)
-        type = mimeType.ifBlank { "*/*" }
-        setPackage(pkg)
-        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-      }
-      val resolved = pm.queryIntentActivities(targeted, 0)
-      if (resolved.isNotEmpty()) {
-        val ri = resolved[0]
-        targeted.component = ComponentName(ri.activityInfo.packageName, ri.activityInfo.name)
-        out.add(targeted)
-      } else {
-        // Fallback: open WhatsApp itself (user can share/export a file).
-        val launch = pm.getLaunchIntentForPackage(pkg)
-        if (launch != null) out.add(launch)
+  private fun startPick(requestCode: Int, promise: Promise, intent: Intent) {
+    if (pendingPromise != null) {
+      promise.reject("E_BUSY", "A file pick is already in progress", null)
+      return
+    }
+    pendingPromise = promise
+    pendingRequest = requestCode
+    try {
+      appContext.throwingActivity.startActivityForResult(intent, requestCode)
+    } catch (e: Exception) {
+      pendingPromise = null
+      pendingRequest = 0
+      promise.reject("E_START", e.message, e)
+    }
+  }
+
+  private fun buildAppsChooser(multiple: Boolean, mimeType: String, title: String): Intent {
+    val type = mimeType.ifBlank { "*/*" }
+    // GET_CONTENT shows installed apps that can return a file (Drive, Files, Gallery…).
+    val getContent = Intent(Intent.ACTION_GET_CONTENT).apply {
+      addCategory(Intent.CATEGORY_OPENABLE)
+      this.type = type
+      putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple)
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      putExtra(Intent.EXTRA_LOCAL_ONLY, false)
+    }
+    return Intent.createChooser(getContent, title.ifBlank { "Import file" })
+  }
+
+  private fun buildStorageIntent(multiple: Boolean, mimeType: String): Intent {
+    val type = mimeType.ifBlank { "*/*" }
+    return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+      addCategory(Intent.CATEGORY_OPENABLE)
+      this.type = type
+      putExtra(Intent.EXTRA_ALLOW_MULTIPLE, multiple)
+      addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      putExtra("android.content.extra.SHOW_ADVANCED", true)
+      putExtra("android.provider.extra.SHOW_ADVANCED", true)
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        // Build a real document URI so DocumentsUI opens at phone storage root.
+        val rootUri = DocumentsContract.buildDocumentUri(
+          "com.android.externalstorage.documents",
+          "primary:",
+        )
+        putExtra(DocumentsContract.EXTRA_INITIAL_URI, rootUri)
       }
     }
-    return out
   }
 
   private fun toAsset(uri: Uri): Map<String, Any?>? {
@@ -212,7 +221,7 @@ class SppFileImportModule : Module() {
 
     return mapOf(
       "name" to name,
-      "uri" to Uri.fromFile(dest).toString(),
+      "uri" to dest.toURI().toString(),
       "mimeType" to (mime ?: "application/octet-stream"),
       "size" to (size ?: dest.length()),
     )

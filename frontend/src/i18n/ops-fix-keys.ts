@@ -34,6 +34,12 @@ export const opsFixEn = {
 
   'upload.pickError': 'Could not open files. Check storage permission and try again.',
 
+  'upload.pickNativeMissing': 'Native file import is missing in this build. Reinstall the latest APK.',
+
+  'upload.whatsappMissing': 'WhatsApp is not installed on this phone.',
+
+  'upload.whatsappHint': 'In WhatsApp: open the file → Share → SPP Stitch. Then return here.',
+
   'upload.picking': 'Opening files…',
 
   'upload.pickHint': 'Choose where to import from — WhatsApp, apps, or phone storage.',
@@ -44,17 +50,17 @@ export const opsFixEn = {
 
   'upload.source.whatsapp': 'WhatsApp',
 
-  'upload.source.whatsappSub': 'Open WhatsApp, then Share the file to SPP Stitch.',
+  'upload.source.whatsappSub': 'Opens WhatsApp. Then Share the file to SPP Stitch — it imports automatically.',
 
-  'upload.source.apps': 'Apps (WhatsApp first)',
+  'upload.source.apps': 'Apps & Drive',
 
-  'upload.source.appsSub': 'System app list — WhatsApp appears at the top.',
+  'upload.source.appsSub': 'Real Android app chooser (not Downloads-only).',
 
   'upload.source.appsTitle': 'Choose app to import from',
 
   'upload.source.storage': 'Phone file manager',
 
-  'upload.source.storageSub': 'Browse phone storage, Drive, USB — not Downloads only.',
+  'upload.source.storageSub': 'Opens phone storage root (sidebar: Phone / Drive / USB).',
 
   'upload.source.cancel': 'Cancel',
 
@@ -121,6 +127,12 @@ export const opsFixAr = {
 
   'upload.pickError': 'تعذّر فتح الملفات. تحقق من صلاحية التخزين وحاول مرة أخرى.',
 
+  'upload.pickNativeMissing': 'وحدة الاستيراد الأصلية غير موجودة في هذا البناء. ثبّت أحدث APK.',
+
+  'upload.whatsappMissing': 'واتساب غير مثبت على هذا الجوال.',
+
+  'upload.whatsappHint': 'من واتساب: افتح الملف ← مشاركة ← SPP Stitch ثم ارجع هنا.',
+
   'upload.picking': 'جاري فتح الملفات…',
 
   'upload.pickHint': 'اختر مصدر الاستيراد — واتساب أو التطبيقات أو تخزين الجوال.',
@@ -131,17 +143,17 @@ export const opsFixAr = {
 
   'upload.source.whatsapp': 'واتساب',
 
-  'upload.source.whatsappSub': 'افتح واتساب ثم شارك الملف إلى SPP Stitch.',
+  'upload.source.whatsappSub': 'يفتح واتساب. ثم شارك الملف إلى SPP Stitch — يُستورد تلقائياً.',
 
-  'upload.source.apps': 'التطبيقات (واتساب أولاً)',
+  'upload.source.apps': 'التطبيقات وDrive',
 
-  'upload.source.appsSub': 'قائمة تطبيقات النظام — واتساب في الأعلى.',
+  'upload.source.appsSub': 'قائمة تطبيقات أندرويد الحقيقية (ليست التنزيلات فقط).',
 
   'upload.source.appsTitle': 'اختر تطبيقاً للاستيراد منه',
 
   'upload.source.storage': 'مدير ملفات الجوال',
 
-  'upload.source.storageSub': 'تصفح تخزين الجوال وDrive وUSB — ليس التنزيلات فقط.',
+  'upload.source.storageSub': 'يفتح جذر تخزين الجوال (القائمة: الهاتف / Drive / USB).',
 
   'upload.source.cancel': 'إلغاء',
 

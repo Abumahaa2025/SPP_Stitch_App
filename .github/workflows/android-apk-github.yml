@@ -102,15 +102,24 @@ jobs:
         run: |
           MANIFEST=android/app/src/main/AndroidManifest.xml
           GRADLE=android/app/build.gradle
+          MAIN=android/app/src/main/java/ai/spp/stitch/MainActivity.kt
           test -f "$MANIFEST"
           test -f "$GRADLE"
           grep -q 'android:name=".MainActivity"' "$MANIFEST"
           grep -q 'ai.spp.stitch' "$GRADLE"
+          grep -q 'android.intent.action.SEND' "$MANIFEST"
+          grep -q 'spp-file-import' android/settings.gradle \
+            || grep -q 'spp-file-import' android/settings.gradle.kts \
+            || { echo "::error::spp-file-import not autolinked"; exit 1; }
+          if [ -f "$MAIN" ]; then
+            grep -q 'sppHandleIncomingShare' "$MAIN" \
+              || { echo "::error::MainActivity missing share ingest"; exit 1; }
+          fi
           if grep -qi 'emergent' "$MANIFEST"; then
             echo "::error::AndroidManifest mentions Emergent"
             exit 1
           fi
-          echo "Native identity OK - MainActivity + ai.spp.stitch"
+          echo "Native identity OK - MainActivity + ai.spp.stitch + spp-file-import"
 
       - name: Assemble Release APK (embeds JS bundle)
         working-directory: frontend/android
