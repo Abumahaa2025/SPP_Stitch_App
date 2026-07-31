@@ -3,7 +3,7 @@
     "name": "SPP Stitch",
     "slug": "spp-stitch-transfer",
     "owner": "abumahaa2025",
-    "version": "1.0.25",
+    "version": "1.0.26",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "spp",
@@ -15,6 +15,7 @@
     },
     "android": {
       "package": "ai.spp.stitch",
+      "versionCode": 26,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -52,34 +53,7 @@
           "iCloudContainerEnvironment": "Production"
         }
       ],
-      [
-        "expo-share-intent",
-        {
-          "disableIOS": true,
-          "androidIntentFilters": [
-            "*/*",
-            "application/*",
-            "application/pdf",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "text/*",
-            "text/csv",
-            "image/*"
-          ],
-          "androidMultiIntentFilters": [
-            "*/*",
-            "application/*",
-            "application/pdf",
-            "application/vnd.ms-excel",
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            "text/*",
-            "image/*"
-          ],
-          "androidMainActivityAttributes": {
-            "android:launchMode": "singleTask"
-          }
-        }
-      ]
+      "./plugins/withAndroidShareImport.js"
     ],
     "experiments": {
       "typedRoutes": true

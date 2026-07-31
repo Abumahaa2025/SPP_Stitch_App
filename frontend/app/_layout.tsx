@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { LogBox, Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { ShareIntentProvider } from "expo-share-intent";
+import * as Linking from "expo-linking";
 
 import { useIconFonts } from "@/src/hooks/use-icon-fonts";
 import { setLang } from "@/src/i18n";
@@ -13,9 +13,7 @@ import { storage } from "@/src/utils/storage";
 import { SplashIntro } from "@/src/components/SplashIntro";
 import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
 import { WorkspaceChrome } from "@/src/components/WorkspaceChrome";
-import { ShareIntentBridge } from "@/src/components/ShareIntentBridge";
 import { isPathAllowedForPersona, personaHomeRoute } from "@/src/utils/role-scope";
-import { hasPendingSharedFiles } from "@/src/utils/upload-pick";
 
 LogBox.ignoreAllLogs(true);
 
@@ -101,7 +99,20 @@ export default function RootLayout() {
       const onboarded = await storage.getItem<boolean>('spp.onboarded', false);
       const persona = await storage.getItem<string>('spp.betaPersona', '');
 
-      const pendingShare = await hasPendingSharedFiles();
+      // Share sheet opens MainActivity with ACTION_SEND — land on Upload
+      // so the user can confirm/import (picker still available).
+      let openedFromShare = false;
+      if (Platform.OS === 'android') {
+        try {
+          const initial = await Linking.getInitialURL();
+          // Some OEMs pass null URL for SEND; still prefer Upload when
+          // the process was started via share (best-effort flag).
+          openedFromShare = !!(initial && /send|content:|file:/i.test(initial));
+        } catch {
+          openedFromShare = false;
+        }
+      }
+
       const isDeepLink =
         pathname.startsWith('/portal/') ||
         pathname.startsWith('/roles/accept') ||
@@ -117,8 +128,7 @@ export default function RootLayout() {
         target = '/maintenance';
       } else if (persona === 'tenant') {
         target = '/notifications';
-      } else if (pendingShare) {
-        // Files shared from Files/WhatsApp/etc. → land on import.
+      } else if (openedFromShare) {
         target = '/upload';
       }
 
@@ -161,27 +171,24 @@ export default function RootLayout() {
   if ((!loaded && !error) || !langReady) return null;
 
   return (
-    <ShareIntentProvider options={{ resetOnBackground: false, disabled: Platform.OS === 'web' }}>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaProvider>
-          <WorkspaceProvider>
-            <View style={{ flex: 1, backgroundColor: '#050A12' }}>
-              <ShareIntentBridge />
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  animation: 'fade_from_bottom',
-                  animationDuration: 280,
-                  gestureEnabled: true,
-                  contentStyle: { backgroundColor: '#050A12' },
-                }}
-              />
-              <WorkspaceChrome />
-              {introMounted ? <SplashIntro visible={!introDone} /> : null}
-            </View>
-          </WorkspaceProvider>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </ShareIntentProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <WorkspaceProvider>
+          <View style={{ flex: 1, backgroundColor: '#050A12' }}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: 'fade_from_bottom',
+                animationDuration: 280,
+                gestureEnabled: true,
+                contentStyle: { backgroundColor: '#050A12' },
+              }}
+            />
+            <WorkspaceChrome />
+            {introMounted ? <SplashIntro visible={!introDone} /> : null}
+          </View>
+        </WorkspaceProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -38,7 +38,7 @@ export const opsFixEn = {
 
   'upload.pickHint': 'Opens your phone file manager — use the menu (☰) to browse Downloads, Phone storage, Drive, or USB.',
 
-  'upload.shareHint': 'Or open any file in Files / WhatsApp / Drive → Share → SPP Stitch.',
+  'upload.shareHint': 'Tip: from Files, tap Share → SPP Stitch to open Import, then choose the file.',
 
   'upload.fileSize': 'Size',
 
@@ -107,7 +107,7 @@ export const opsFixAr = {
 
   'upload.pickHint': 'يفتح مدير ملفات الجوال — من القائمة (☰) اختر التنزيلات أو التخزين أو Drive أو USB.',
 
-  'upload.shareHint': 'أو من تطبيق الملفات / واتساب / Drive: مشاركة ← SPP Stitch.',
+  'upload.shareHint': 'نصيحة: من الملفات اضغط مشاركة ← SPP Stitch لفتح الاستيراد، ثم اختر الملف.',
 
   'upload.fileSize': 'الحجم',
 
