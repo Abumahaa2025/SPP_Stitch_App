@@ -14,6 +14,7 @@ import { SplashIntro } from "@/src/components/SplashIntro";
 import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
 import { WorkspaceChrome } from "@/src/components/WorkspaceChrome";
 import { isPathAllowedForPersona, personaHomeRoute } from "@/src/utils/role-scope";
+import { resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
 
 LogBox.ignoreAllLogs(true);
 
@@ -99,30 +100,38 @@ export default function RootLayout() {
       const onboarded = await storage.getItem<boolean>('spp.onboarded', false);
       const persona = await storage.getItem<string>('spp.betaPersona', '');
 
+      let initialUrl: string | null = null;
+      try {
+        initialUrl = await Linking.getInitialURL();
+      } catch {
+        initialUrl = null;
+      }
+
       // Share sheet opens MainActivity with ACTION_SEND — land on Upload
-      // so the user can confirm/import (picker still available).
       let openedFromShare = false;
       if (Platform.OS === 'android') {
-        try {
-          const initial = await Linking.getInitialURL();
-          // Some OEMs pass null URL for SEND; still prefer Upload when
-          // the process was started via share (best-effort flag).
-          openedFromShare = !!(initial && /send|content:|file:/i.test(initial));
-        } catch {
-          openedFromShare = false;
-        }
+        openedFromShare = !!(initialUrl && /send|content:|file:/i.test(initialUrl));
       }
+
+      const portalFromUrl = initialUrl ? resolvePortalInAppFromUrl(initialUrl) : null;
 
       const isDeepLink =
         pathname.startsWith('/portal/') ||
         pathname.startsWith('/roles/accept') ||
         pathname === '/upload' ||
+        !!portalFromUrl ||
         ['/support', '/about', '/billing', '/privacy', '/terms'].includes(pathname);
 
+      if (portalFromUrl && !pathname.startsWith('/portal/')) {
+        router.replace(portalFromUrl as any);
+        setRouted(true);
+        return;
+      }
+
       let target = '/';
-      if (betaMode && !betaAuthed) {
+      if (betaMode && !betaAuthed && !isDeepLink) {
         target = '/beta-login';
-      } else if (!onboarded) {
+      } else if (!onboarded && !isDeepLink) {
         target = '/onboarding';
       } else if (persona === 'technician') {
         target = '/maintenance';
@@ -136,6 +145,16 @@ export default function RootLayout() {
       setRouted(true);
     })();
   }, [langReady, loaded, error, routed, pathname, router]);
+
+  // Runtime deep links (WhatsApp / browser → app)
+  useEffect(() => {
+    const onUrl = ({ url }: { url: string }) => {
+      const route = resolvePortalInAppFromUrl(url);
+      if (route) router.push(route as any);
+    };
+    const sub = Linking.addEventListener('url', onUrl);
+    return () => sub.remove();
+  }, [router]);
 
   // Spec §13 — continuous persona allowlist (tenant / technician).
   useEffect(() => {

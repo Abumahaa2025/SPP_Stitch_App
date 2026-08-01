@@ -1,5 +1,5 @@
 /**
- * Ensure PropertyOS tenant has a working portal link (spp:// + in-app route).
+ * Ensure PropertyOS tenant has a working HTTPS portal link + guest meta.
  */
 import type { PropertyOSState, TenantRecord } from '@/src/types/property-os';
 import { storage } from '@/src/utils/storage';
@@ -13,9 +13,9 @@ function uid(prefix: string) {
 
 function welcomeMessage(name: string, portalUrl: string, lang: 'ar' | 'en') {
   if (lang === 'ar') {
-    return `مرحبًا ${name} 👋\n\nتم تفعيل بوابة المستأجر في SPP.\n\nرابطك الخاص:\n${portalUrl}\n\nيمكنك من خلالها:\n• عرض عقدك\n• طلب صيانة\n• متابعة البلاغات\n• استلام التنبيهات`;
+    return `مرحبًا ${name} 👋\n\nتم تفعيل بوابة المستأجر في SPP.\n\nافتح رابطك:\n${portalUrl}\n\nمن خلاله يمكنك:\n• عرض وحدتك\n• طلب صيانة\n• متابعة البلاغات`;
   }
-  return `Welcome ${name} 👋\n\nYour SPP tenant portal is ready.\n\nYour link:\n${portalUrl}\n\nYou can:\n• View your contract\n• Request maintenance\n• Track tickets\n• Receive alerts`;
+  return `Welcome ${name} 👋\n\nYour SPP tenant portal is ready.\n\nOpen your link:\n${portalUrl}\n\nYou can:\n• View your unit\n• Request maintenance\n• Track tickets`;
 }
 
 export async function ensureTenantPortalLink(
@@ -30,11 +30,17 @@ export async function ensureTenantPortalLink(
   } catch {
     return null;
   }
-  const tenant = os.tenants.find((t) => t.id === osTenantId);
+  const tenant = os.tenants.find((x) => x.id === osTenantId);
   if (!tenant) return null;
 
+  const unit = os.units.find((u) => u.id === tenant.unitId);
   const token = tenant.portalToken || uid('tok').slice(-12);
-  const built = buildTenantPortalLink(tenant.id, token);
+  const meta = {
+    name: tenant.name,
+    unit: unit?.number,
+    property: os.property?.name,
+  };
+  const built = buildTenantPortalLink(tenant.id, token, meta);
   const message = welcomeMessage(tenant.name, built.url, lang);
   const updated: TenantRecord = {
     ...tenant,
@@ -46,7 +52,7 @@ export async function ensureTenantPortalLink(
 
   const next: PropertyOSState = {
     ...os,
-    tenants: os.tenants.map((t) => (t.id === updated.id ? updated : t)),
+    tenants: os.tenants.map((x) => (x.id === updated.id ? updated : x)),
   };
   await storage.setItem(OS_KEY, JSON.stringify(next));
   return { tenant: updated, shareUrl: built.url, inApp: built.inApp, message };

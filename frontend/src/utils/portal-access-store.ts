@@ -49,7 +49,7 @@ export async function addAgent(
   const s = await loadPortalAccess();
   const id = uid('agent');
   const token = uid('tok').slice(-12);
-  const built = buildAgentPortalLink(id, token);
+  const built = buildAgentPortalLink(id, token, { name: input.name });
   const agent: PropertyAgentRecord = {
     ...input,
     id,

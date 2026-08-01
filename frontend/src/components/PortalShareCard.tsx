@@ -24,11 +24,16 @@ export function PortalShareCard({ tenant, unitNumber, testID = 'portal-share' }:
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const token = tenant.portalToken || '';
-  const live = token ? buildTenantPortalLink(tenant.id, token) : null;
+  const live = token
+    ? buildTenantPortalLink(tenant.id, token, {
+        name: tenant.name,
+        unit: unitNumber,
+      })
+    : null;
   const shareUrl = live?.url || tenant.portalUrl;
   const inApp = live?.inApp || inAppTenantRoute(tenant.id, token);
-  const message = tenant.whatsAppMessage?.includes('spp.beta')
-    ? (tenant.whatsAppMessage.replace(/https?:\/\/spp\.beta\/[^\s]+/g, shareUrl))
+  const message = (tenant.whatsAppMessage || '').includes('spp.beta') || (tenant.whatsAppMessage || '').includes('spp://')
+    ? `مرحبًا ${tenant.name} 👋\n\nرابط بوابة المستأجر:\n${shareUrl}`
     : (tenant.whatsAppMessage || `${t('pos.portal.link')}: ${shareUrl}`);
   const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
 

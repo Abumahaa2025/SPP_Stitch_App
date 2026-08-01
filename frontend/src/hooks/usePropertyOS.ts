@@ -18,7 +18,7 @@ import {
   onTenantAdded,
 } from '@/src/utils/operational-flow-engine';
 import { notifyPropertySaved } from '@/src/utils/local-notifications';
-import { buildTenantPortalLink, buildTechPortalLink } from '@/src/utils/portal-links';
+import { buildTenantPortalLink, buildTechPortalLink, type PortalShareMeta } from '@/src/utils/portal-links';
 import { getLang } from '@/src/i18n';
 
 const KEY = 'spp.propertyOS';
@@ -40,12 +40,12 @@ function uid(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-export function buildTenantPortal(tenantId: string, token: string) {
-  return buildTenantPortalLink(tenantId, token);
+export function buildTenantPortal(tenantId: string, token: string, meta?: PortalShareMeta) {
+  return buildTenantPortalLink(tenantId, token, meta);
 }
 
-export function buildTechnicianPortal(token: string) {
-  return buildTechPortalLink(token).url;
+export function buildTechnicianPortal(token: string, meta?: PortalShareMeta) {
+  return buildTechPortalLink(token, undefined, meta).url;
 }
 
 export function buildWhatsAppWelcome(name: string, portalUrl: string, lang: 'ar' | 'en') {
@@ -171,7 +171,7 @@ export function usePropertyOS(notifEnabledCount = 0) {
   ) => {
     const id = uid('tenant');
     const token = uid('tok').slice(-12);
-    const portal = buildTenantPortal(id, token);
+    const portal = buildTenantPortal(id, token, { name: input.name });
     const tenant: TenantRecord = {
       ...input,
       id,

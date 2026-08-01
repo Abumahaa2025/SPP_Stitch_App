@@ -21,7 +21,7 @@ type Props = {
 export function AgentPortalShareCard({ agent, testID = 'agent-portal-share' }: Props) {
   const { t, isRTL } = useI18n();
   const router = useRouter();
-  const live = buildAgentPortalLink(agent.id, agent.portalToken);
+  const live = buildAgentPortalLink(agent.id, agent.portalToken, { name: agent.name });
   const shareUrl = live.url;
   const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
   const msg = `${t('opsv2.agent.title' as any)}: ${shareUrl}`;

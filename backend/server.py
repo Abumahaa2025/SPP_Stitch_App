@@ -8,8 +8,8 @@ Modular AI layer (currently GPT-5.2 via Emergent Universal Key) powering:
 - Unified Brain chat
 """
 
-from fastapi import FastAPI, APIRouter, HTTPException
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -2037,6 +2037,21 @@ async def ai_respond(req: AIRespondRequest):
 # App wiring
 # ---------------------------------------------------------------------------
 app.include_router(api_router)
+
+
+@app.get("/portal/open", response_class=HTMLResponse)
+async def portal_open_bridge(request: Request):
+    """HTTPS bridge for WhatsApp/SMS portal links — opens spp:// or shows web card."""
+    html_path = ROOT_DIR.parent / "docs" / "portal-open.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    # Fallback redirect to GitHub CDN copy with same query string
+    q = request.url.query
+    target = "https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html"
+    if q:
+        target = f"{target}?{q}"
+    return RedirectResponse(target, status_code=302)
+
 
 app.add_middleware(
     CORSMiddleware,

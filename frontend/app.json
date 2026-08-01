@@ -3,7 +3,7 @@
     "name": "SPP Stitch",
     "slug": "spp-stitch-transfer",
     "owner": "abumahaa2025",
-    "version": "1.0.34",
+    "version": "1.0.35",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "spp",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "ai.spp.stitch",
-      "versionCode": 34,
+      "versionCode": 35,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -27,6 +27,25 @@
         "WRITE_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES",
         "READ_MEDIA_VISUAL_USER_SELECTED"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": false,
+          "category": ["BROWSABLE", "DEFAULT"],
+          "data": [
+            {
+              "scheme": "https",
+              "host": "cdn.jsdelivr.net",
+              "pathPrefix": "/gh/Abumahaa2025/SPP_Stitch_App"
+            },
+            {
+              "scheme": "https",
+              "host": "spp-beta-api.onrender.com",
+              "pathPrefix": "/portal"
+            }
+          ]
+        }
       ]
     },
     "web": {

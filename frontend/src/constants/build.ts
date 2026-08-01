@@ -1,2 +1,2 @@
 /** Visible build stamp — must match the APK the user installed. */
-export const UX_BUILD_STAMP = 'beta-1.0.34-PORTAL-EDIT';
+export const UX_BUILD_STAMP = 'beta-1.0.35-PORTAL-HTTPS';

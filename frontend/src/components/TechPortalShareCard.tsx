@@ -21,7 +21,7 @@ type Props = {
 export function TechPortalShareCard({ tech, testID = 'tech-portal-share' }: Props) {
   const { t, isRTL } = useI18n();
   const router = useRouter();
-  const live = buildTechPortalLink(tech.portalToken, tech.id);
+  const live = buildTechPortalLink(tech.portalToken, tech.id, { name: tech.name });
   const shareUrl = live.url;
   const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
   const msg = `${t('op.tech.title')}: ${shareUrl}`;

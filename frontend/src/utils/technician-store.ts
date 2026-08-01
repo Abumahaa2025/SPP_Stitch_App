@@ -42,7 +42,7 @@ export async function addTechnician(input: {
   const list = await loadTechnicians();
   const id = uid('tech');
   const token = uid('tok').slice(-12);
-  const built = buildTechPortalLink(token, id);
+  const built = buildTechPortalLink(token, id, { name: input.name });
   const tech: TechnicianRecord = {
     ...input,
     id,

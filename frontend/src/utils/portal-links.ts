@@ -1,89 +1,170 @@
 /**
- * Portal deep links — in-app routes + shareable spp:// URLs.
- * Replaces dead https://spp.beta/... hosts that never open.
+ * Portal deep links — HTTPS bridge (WhatsApp-clickable) + in-app routes.
+ * Custom spp:// alone is often not tappable in WhatsApp/SMS.
  */
 import * as ExpoLinking from 'expo-linking';
 
-export function inAppTenantPortal(tenantId: string, token: string) {
-  return `/portal/tenant?id=${encodeURIComponent(tenantId)}&t=${encodeURIComponent(token)}`;
-}
+/** GitHub CDN HTML bridge — works right after push (no Render deploy wait). */
+export const PORTAL_BRIDGE_URL =
+  'https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html';
 
-export function inAppTechPortal(token: string, techId?: string) {
-  if (techId) {
-    return `/portal/tech?id=${encodeURIComponent(techId)}&t=${encodeURIComponent(token)}`;
-  }
-  return `/portal/tech?t=${encodeURIComponent(token)}`;
-}
+/** Same bridge on API host (when backend route is deployed). */
+export const PORTAL_BRIDGE_API_URL = 'https://spp-beta-api.onrender.com/portal/open';
 
-export function inAppAgentPortal(agentId: string, token: string) {
-  return `/portal/agent?id=${encodeURIComponent(agentId)}&t=${encodeURIComponent(token)}`;
-}
+export type PortalRole = 'tenant' | 'tech' | 'agent';
 
-export function buildTenantPortalLink(tenantId: string, token: string) {
-  const inApp = inAppTenantPortal(tenantId, token);
-  const url = ExpoLinking.createURL('/portal/tenant', {
-    queryParams: { id: tenantId, t: token },
+export type PortalShareMeta = {
+  name?: string;
+  unit?: string;
+  property?: string;
+};
+
+function qs(params: Record<string, string | undefined>) {
+  const sp = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v != null && String(v).trim() !== '') sp.set(k, String(v));
   });
-  return { url, qrData: url, token, inApp };
+  return sp.toString();
 }
 
-export function buildTechPortalLink(token: string, techId?: string) {
-  const inApp = inAppTechPortal(token, techId);
-  const queryParams: Record<string, string> = { t: token };
-  if (techId) queryParams.id = techId;
-  const url = ExpoLinking.createURL('/portal/tech', { queryParams });
-  return { url, qrData: url, token, inApp };
-}
-
-export function buildAgentPortalLink(agentId: string, token: string) {
-  const inApp = inAppAgentPortal(agentId, token);
-  const url = ExpoLinking.createURL('/portal/agent', {
-    queryParams: { id: agentId, t: token },
+export function inAppTenantPortal(tenantId: string, token: string, meta?: PortalShareMeta) {
+  const q = qs({
+    id: tenantId,
+    t: token,
+    n: meta?.name,
+    u: meta?.unit,
+    prop: meta?.property,
   });
-  return { url, qrData: url, token, inApp };
+  return `/portal/tenant?${q}`;
 }
 
-/** Prefer opening inside the app; never rely on https://spp.beta. */
+export function inAppTechPortal(token: string, techId?: string, meta?: PortalShareMeta) {
+  const q = qs({
+    id: techId,
+    t: token,
+    n: meta?.name,
+  });
+  return `/portal/tech?${q}`;
+}
+
+export function inAppAgentPortal(agentId: string, token: string, meta?: PortalShareMeta) {
+  const q = qs({ id: agentId, t: token, n: meta?.name });
+  return `/portal/agent?${q}`;
+}
+
+function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: PortalShareMeta) {
+  const q = qs({
+    role,
+    id: id || undefined,
+    t: token,
+    n: meta?.name,
+    u: meta?.unit,
+    prop: meta?.property,
+    v: '35',
+  });
+  // Prefer jsDelivr so links work immediately after git push.
+  return `${PORTAL_BRIDGE_URL}?${q}`;
+}
+
+export function buildTenantPortalLink(tenantId: string, token: string, meta?: PortalShareMeta) {
+  const inApp = inAppTenantPortal(tenantId, token, meta);
+  const url = buildHttpsBridge('tenant', tenantId, token, meta);
+  const deep = ExpoLinking.createURL('/portal/tenant', {
+    queryParams: {
+      id: tenantId,
+      t: token,
+      ...(meta?.name ? { n: meta.name } : {}),
+      ...(meta?.unit ? { u: meta.unit } : {}),
+      ...(meta?.property ? { prop: meta.property } : {}),
+    },
+  });
+  return { url, qrData: url, deep, token, inApp };
+}
+
+export function buildTechPortalLink(token: string, techId?: string, meta?: PortalShareMeta) {
+  const inApp = inAppTechPortal(token, techId, meta);
+  const url = buildHttpsBridge('tech', techId || '', token, meta);
+  const deep = ExpoLinking.createURL('/portal/tech', {
+    queryParams: {
+      t: token,
+      ...(techId ? { id: techId } : {}),
+      ...(meta?.name ? { n: meta.name } : {}),
+    },
+  });
+  return { url, qrData: url, deep, token, inApp };
+}
+
+export function buildAgentPortalLink(agentId: string, token: string, meta?: PortalShareMeta) {
+  const inApp = inAppAgentPortal(agentId, token, meta);
+  const url = buildHttpsBridge('agent', agentId, token, meta);
+  const deep = ExpoLinking.createURL('/portal/agent', {
+    queryParams: {
+      id: agentId,
+      t: token,
+      ...(meta?.name ? { n: meta.name } : {}),
+    },
+  });
+  return { url, qrData: url, deep, token, inApp };
+}
+
+/** Map any shared / deep URL to an in-app portal route. */
 export function resolvePortalInAppFromUrl(url: string): string | null {
   const raw = String(url || '').trim();
   if (!raw) return null;
-  if (raw.startsWith('/portal/')) return raw;
+  if (raw.startsWith('/portal/tenant') || raw.startsWith('/portal/tech') || raw.startsWith('/portal/agent')) {
+    return raw;
+  }
 
   try {
     const parsed = ExpoLinking.parse(raw);
     const path = `/${(parsed.path || '').replace(/^\//, '')}`;
     const q = parsed.queryParams || {};
+    const role = String(q.role || '');
     const id = String(q.id || '');
     const t = String(q.t || '');
+    const n = q.n ? String(q.n) : q.name ? String(q.name) : undefined;
+    const u = q.u ? String(q.u) : q.unit ? String(q.unit) : undefined;
+    const prop = q.prop ? String(q.prop) : undefined;
+    const meta = { name: n, unit: u, property: prop };
 
-    if (path.includes('portal/tenant') || path.endsWith('/tenant') || /\/tenant\//.test(raw)) {
+    if (path.includes('portal/open') || path.endsWith('portal-open.html') || path.includes('portal-open')) {
+      if (role === 'tech' && t) return inAppTechPortal(t, id || undefined, meta);
+      if (role === 'agent' && id && t) return inAppAgentPortal(id, t, meta);
+      if (t && id) return inAppTenantPortal(id, t, meta);
+    }
+
+    if (path.includes('portal/tenant') || /\/tenant(\/|\?|$)/.test(raw)) {
       const pathId = raw.match(/\/tenant\/([^/?#]+)/)?.[1];
       const tenantId = id || pathId || '';
-      if (tenantId && t) return inAppTenantPortal(tenantId, t);
+      if (tenantId && t) return inAppTenantPortal(tenantId, t, meta);
     }
-    if (path.includes('portal/tech') || path.endsWith('/tech') || /\/tech(\?|$)/.test(raw)) {
-      if (t) return inAppTechPortal(t, id || undefined);
+    if (path.includes('portal/tech') || /\/tech(\/|\?|$)/.test(raw)) {
+      if (t) return inAppTechPortal(t, id || undefined, meta);
     }
-    if (path.includes('portal/agent') || path.endsWith('/agent') || /\/agent\//.test(raw)) {
+    if (path.includes('portal/agent') || /\/agent(\/|\?|$)/.test(raw)) {
       const pathId = raw.match(/\/agent\/([^/?#]+)/)?.[1];
       const agentId = id || pathId || '';
-      if (agentId && t) return inAppAgentPortal(agentId, t);
+      if (agentId && t) return inAppAgentPortal(agentId, t, meta);
     }
   } catch { /* ignore */ }
 
-  // Legacy https://spp.beta/portal/tenant/ID?t=TOKEN
-  const legacyTenant = raw.match(/\/portal\/tenant\/([^/?#]+)\?[^#]*t=([^&#]+)/i);
-  if (legacyTenant) return inAppTenantPortal(decodeURIComponent(legacyTenant[1]), decodeURIComponent(legacyTenant[2]));
-  const legacyTech = raw.match(/\/portal\/tech(?:\?|&)(?:id=([^&#]+)&)?t=([^&#]+)/i)
-    || raw.match(/\/portal\/tech\?t=([^&#]+)/i);
-  if (legacyTech) {
-    if (legacyTech.length >= 3 && legacyTech[2]) {
-      return inAppTechPortal(decodeURIComponent(legacyTech[2]), legacyTech[1] ? decodeURIComponent(legacyTech[1]) : undefined);
+  // Query-only fallback for bridge URLs
+  try {
+    const u = new URL(raw);
+    const role = u.searchParams.get('role') || '';
+    const id = u.searchParams.get('id') || '';
+    const t = u.searchParams.get('t') || '';
+    const meta = {
+      name: u.searchParams.get('n') || u.searchParams.get('name') || undefined,
+      unit: u.searchParams.get('u') || u.searchParams.get('unit') || undefined,
+      property: u.searchParams.get('prop') || undefined,
+    };
+    if (t && (u.pathname.includes('portal') || u.hostname.includes('jsdelivr') || u.hostname.includes('onrender'))) {
+      if (role === 'tech') return inAppTechPortal(t, id || undefined, meta);
+      if (role === 'agent' && id) return inAppAgentPortal(id, t, meta);
+      if (id) return inAppTenantPortal(id, t, meta);
     }
-    if (legacyTech[1]) return inAppTechPortal(decodeURIComponent(legacyTech[1]));
-  }
-  const legacyAgent = raw.match(/\/portal\/agent\/([^/?#]+)\?[^#]*t=([^&#]+)/i);
-  if (legacyAgent) return inAppAgentPortal(decodeURIComponent(legacyAgent[1]), decodeURIComponent(legacyAgent[2]));
+  } catch { /* ignore */ }
 
   return null;
 }

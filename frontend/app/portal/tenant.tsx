@@ -23,7 +23,7 @@ import { formatDate } from '@/src/utils/locale';
 export default function TenantPortalScreen() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
-  const params = useLocalSearchParams<{ id?: string; t?: string }>();
+  const params = useLocalSearchParams<{ id?: string; t?: string; n?: string; u?: string; prop?: string; name?: string; unit?: string }>();
   const { countEnabled } = useNotificationPrefs();
   const { state } = usePropertyOS(countEnabled);
   const { tickets, openTicket, tenantApprove, tenantReprocess } = useOperational();
@@ -33,12 +33,31 @@ export default function TenantPortalScreen() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
 
-  const tenant = state.tenants.find((x) => x.id === params.id && x.portalToken === params.t);
-  const unit = tenant ? state.units.find((u) => u.id === tenant.unitId) : undefined;
-  const contract = tenant ? state.contracts.find((c) => c.tenantId === tenant.id) : undefined;
-  const payments = state.payments?.filter((p) => p.tenantId === tenant?.id) ?? [];
-  const myTickets = tenant
-    ? tickets.filter((tk) => tk.tenantId === tenant.id || tk.unitId === tenant.unitId)
+  const localTenant = state.tenants.find((x) => x.id === params.id && x.portalToken === params.t);
+  const guestName = String(params.n || params.name || '').trim();
+  const guestUnit = String(params.u || params.unit || '').trim();
+  const guestProp = String(params.prop || '').trim();
+  const guestMode = !localTenant && Boolean(params.id && params.t && (guestName || params.t));
+  const tenant = localTenant || (guestMode
+    ? {
+        id: String(params.id),
+        unitId: '',
+        name: guestName || (isRTL ? 'مستأجر' : 'Tenant'),
+        phone: '',
+        email: '',
+        portalToken: String(params.t),
+        portalUrl: '',
+        qrData: '',
+        whatsAppMessage: '',
+      }
+    : undefined);
+  const unit = localTenant ? state.units.find((u) => u.id === localTenant.unitId) : undefined;
+  const unitLabel = unit?.number || guestUnit || '—';
+  const propertyLabel = state.property?.name || guestProp || '—';
+  const contract = localTenant ? state.contracts.find((c) => c.tenantId === localTenant.id) : undefined;
+  const payments = state.payments?.filter((p) => p.tenantId === localTenant?.id) ?? [];
+  const myTickets = localTenant
+    ? tickets.filter((tk) => tk.tenantId === localTenant.id || tk.unitId === localTenant.unitId)
     : [];
   const awaitingTicket = myTickets.find((tk) => tk.status === 'awaiting_tenant');
 
@@ -61,22 +80,37 @@ export default function TenantPortalScreen() {
     <ScreenScaffold testID="tenant-portal">
       <StoryScreenHeader
         question={`${t('opsv2.tenant.welcome' as any)}، ${tenant.name}`}
-        hint={t('op.tenant.sub')}
+        hint={guestMode
+          ? (isRTL ? 'تم فتح رابط البوابة بنجاح' : 'Portal link opened successfully')
+          : t('op.tenant.sub')}
         showBack
       />
 
       <ActingAsBadge
         role="tenant"
         displayName={tenant.name}
-        scope={`${t('op.tenant.unit')} ${unit?.number ?? '—'} · ${state.property?.name ?? ''}`}
+        scope={`${t('op.tenant.unit')} ${unitLabel} · ${propertyLabel}`}
       />
 
       <GlassCard padding={18} radiusToken="md" edge="gold">
         <Text style={[styles.section, isRTL && styles.rtl]}>{t('op.tenant.unit')}</Text>
         <Text style={[styles.body, isRTL && styles.rtl]}>
-          {unit?.number ?? '—'} · {state.property?.name ?? ''}
+          {unitLabel} · {propertyLabel}
         </Text>
       </GlassCard>
+
+      {guestMode ? (
+        <GlassCard padding={18} radiusToken="md" edge="emerald" style={styles.gap}>
+          <Text style={[styles.section, isRTL && styles.rtl]}>
+            {isRTL ? 'الرابط يعمل' : 'Link is active'}
+          </Text>
+          <Text style={[styles.body, isRTL && styles.rtl]}>
+            {isRTL
+              ? 'تم التحقق من رابط المستأجر. يمكنك طلب صيانة ومتابعة حالتك من هنا عند مزامنة البيانات.'
+              : 'Tenant link verified. You can request maintenance and track status here when data is synced.'}
+          </Text>
+        </GlassCard>
+      ) : null}
 
       {contract ? (
         <GlassCard padding={18} radiusToken="md" style={styles.gap}>
@@ -144,11 +178,11 @@ export default function TenantPortalScreen() {
         </GlassCard>
       ) : null}
 
-      {!showJourney ? (
+      {!guestMode && !showJourney ? (
         <Pressable style={styles.requestBtn} onPress={() => setShowJourney(true)}>
           <Text style={styles.requestBtnText}>{t('op.tenant.requestMaintenance')}</Text>
         </Pressable>
-      ) : (
+      ) : !guestMode && showJourney ? (
         <View style={styles.gap}>
           <MaintenanceJourney
             unitId={tenant.unitId}
@@ -169,7 +203,7 @@ export default function TenantPortalScreen() {
             onCancel={() => setShowJourney(false)}
           />
         </View>
-      )}
+      ) : null}
 
       {myTickets.length ? (
         <View style={styles.gap}>

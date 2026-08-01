@@ -52,7 +52,7 @@ function TechTicketCard({
 
 export default function TechPortalScreen() {
   const { t, isRTL } = useI18n();
-  const params = useLocalSearchParams<{ id?: string; t?: string }>();
+  const params = useLocalSearchParams<{ id?: string; t?: string; n?: string; name?: string }>();
   const { countEnabled } = useNotificationPrefs();
   const { state } = usePropertyOS(countEnabled);
   const {
@@ -62,11 +62,27 @@ export default function TechPortalScreen() {
   const { technicians, logLogin } = useTechnicians();
   const [note, setNote] = useState<Record<string, string>>({});
 
-  const tech = technicians.find((x) => x.id === params.id && x.portalToken === params.t);
+  const localTech = technicians.find((x) => x.id === params.id && x.portalToken === params.t);
+  const guestName = String(params.n || params.name || '').trim();
   const legacyValid = Boolean(
     !params.id && params.t && state.technicianPortalToken && params.t === state.technicianPortalToken,
   );
-  const valid = Boolean(tech) || legacyValid;
+  const guestMode = !localTech && Boolean(params.t && (params.id || guestName));
+  const tech = localTech || (guestMode && params.id
+    ? {
+        id: String(params.id),
+        name: guestName || (t('op.tech.title') as string) || 'Technician',
+        phone: '',
+        specialty: 'general' as const,
+        portalToken: String(params.t),
+        portalUrl: '',
+        qrData: '',
+        createdAt: '',
+        linkActive: true,
+        completedJobs: 0,
+      }
+    : undefined);
+  const valid = Boolean(tech) || legacyValid || (guestMode && !!params.t);
 
   useEffect(() => {
     if (tech) void logLogin(tech.id);
@@ -165,7 +181,9 @@ export default function TechPortalScreen() {
     <ScreenScaffold testID="tech-portal">
       <StoryScreenHeader
         question={tech ? tech.name : t('op.tech.title')}
-        hint={t('maint.techDashboard' as any)}
+        hint={guestMode
+          ? (isRTL ? 'تم فتح رابط الفني بنجاح' : 'Technician link opened successfully')
+          : t('maint.techDashboard' as any)}
         showBack
       />
 
@@ -177,7 +195,20 @@ export default function TechPortalScreen() {
         />
       ) : null}
 
-      {tech ? (
+      {guestMode ? (
+        <GlassCard padding={16} radiusToken="md" edge="emerald" style={{ marginBottom: spacing.md }}>
+          <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>
+            {isRTL ? 'الرابط يعمل' : 'Link is active'}
+          </Text>
+          <Text style={[styles.dim, isRTL && styles.rtl]}>
+            {isRTL
+              ? 'تم التحقق من رابط الفني. ستظهر المهام المعيّنة عند مزامنتها لهذا الحساب.'
+              : 'Technician link verified. Assigned jobs will appear when synced to this account.'}
+          </Text>
+        </GlassCard>
+      ) : null}
+
+      {tech && !guestMode ? (
         <GlassCard padding={14} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }}>
           <Text style={styles.dim}>
             {t('maint.techRating' as any)}: {tech.avgRating ?? '—'} · {t('maint.techJobs' as any)}: {tech.completedJobs ?? 0}
@@ -185,15 +216,15 @@ export default function TechPortalScreen() {
         </GlassCard>
       ) : null}
 
-      {myTickets.length === 0 ? (
+      {!guestMode && myTickets.length === 0 ? (
         <AliveEmpty title={t('op.tech.title')} body={t('op.tech.noTickets')} />
-      ) : (
+      ) : !guestMode ? (
         <>
           {renderSection(t('opsv2.tech.new' as any), newTasks)}
           {renderSection(t('opsv2.tech.active' as any), activeTasks)}
           {renderSection(t('opsv2.tech.done' as any), doneTasks)}
         </>
-      )}
+      ) : null}
     </ScreenScaffold>
   );
 }
