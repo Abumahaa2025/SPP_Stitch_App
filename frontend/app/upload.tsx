@@ -356,7 +356,7 @@ export default function UploadScreen() {
       />
 
       <View style={styles.buildBar} testID="upload-build-stamp">
-        <Text style={styles.buildStamp}>v1.0.29 · {UX_BUILD_STAMP}</Text>
+        <Text style={styles.buildStamp}>v1.0.30 · {UX_BUILD_STAMP}</Text>
         <Text style={styles.apiHint} numberOfLines={2}>
           package ai.spp.stitch · native {nativeOk ? `OK (${nativeId || 'ready'})` : 'MISSING — reinstall APK'}
         </Text>

@@ -67,9 +67,9 @@ export default function OperationalBaseHome() {
         />
         <AliveEmpty
           title={ar ? 'لا ملف عقار بعد' : 'No property file yet'}
-          body={ar ? 'ارفع كشف إيجار واعتمده لبناء قاعدة التشغيل.' : 'Upload a rent statement and Apply to build ops.'}
-          actionLabel={ar ? 'رفع كشف' : 'Upload'}
-          onAction={() => router.push('/upload' as any)}
+          body={ar ? 'أدخل البيانات العقارية مرة واحدة لبناء قاعدة التشغيل، أو ارفع كشفاً واعتمده.' : 'Enter property data once to build ops, or upload and Apply a statement.'}
+          actionLabel={ar ? 'إدخال البيانات العقارية' : 'Enter property data'}
+          onAction={() => router.push('/setup/property-os?phase=property' as any)}
         />
       </ScreenScaffold>
     );

@@ -1,9 +1,10 @@
 /**
- * Official tenant registry — latest statement names + manual official edits.
+ * Official tenant registry — horizontal Excel-style sheet with side scroll.
+ * Tap name → expand inline (months + details) inside the same table — no separate mini page.
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, TextInput, Modal, Alert, Linking, Share,
+  View, Text, StyleSheet, Pressable, TextInput, Modal, Alert, Linking, Share, ScrollView,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -13,6 +14,7 @@ import { ScreenScaffold } from '@/src/components/ScreenScaffold';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
+import { buildTenantOperationalView } from '@/src/components/OperationalTenantCard';
 import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import {
@@ -25,11 +27,28 @@ import {
   syncCanonicalFromPropertyOS,
 } from '@/src/utils/canonical-tenant-store';
 import type { CanonicalTenant, CanonicalTenantState } from '@/src/types/canonical-tenant';
+import type { PaymentLedgerEntry, PropertyOSState } from '@/src/types/property-os';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
 function fmtMoney(n: number, ar: boolean) {
   return `${Number(n || 0).toLocaleString()} ${ar ? 'ر.س' : 'SAR'}`;
+}
+
+function monthsForTenant(os: PropertyOSState, t: CanonicalTenant): PaymentLedgerEntry[] {
+  const id = t.osTenantId;
+  if (!id) return [];
+  return (os.paymentLedger || [])
+    .filter((l) => l.tenantId === id)
+    .sort((a, b) => String(a.monthKey || '').localeCompare(String(b.monthKey || '')))
+    .slice(-8);
+}
+
+function statusCell(ar: boolean, rows: PaymentLedgerEntry[]) {
+  if (!rows.length) return '—';
+  const arrears = rows.reduce((s, r) => s + (Number(r.remaining) || 0), 0);
+  if (arrears > 0.009) return ar ? 'متأخر' : 'Late';
+  return ar ? 'ملتزم' : 'OK';
 }
 
 export default function OfficialTenantsScreen() {
@@ -40,11 +59,14 @@ export default function OfficialTenantsScreen() {
   const { state: os, reload } = usePropertyOS(countEnabled);
   const [reg, setReg] = useState<CanonicalTenantState>({ tenants: [], events: [] });
   const [query, setQuery] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [edit, setEdit] = useState<CanonicalTenant | null>(null);
+  const [noteTenant, setNoteTenant] = useState<CanonicalTenant | null>(null);
   const [draftName, setDraftName] = useState('');
   const [draftPhone, setDraftPhone] = useState('');
   const [draftRent, setDraftRent] = useState('');
   const [draftContract, setDraftContract] = useState('');
+  const [draftNote, setDraftNote] = useState('');
   const [showNew, setShowNew] = useState(false);
   const [newUnitId, setNewUnitId] = useState('');
 
@@ -52,8 +74,6 @@ export default function OfficialTenantsScreen() {
     await reload();
     let s = await loadCanonicalTenants();
     if (!s.tenants.length) {
-      // Seed from current OS after reload via storage-backed hook state on next focus;
-      // direct sync uses live os snapshot when available.
       const raw = await import('@/src/utils/storage').then((m) => m.storage.getItem<string>('spp.propertyOS', ''));
       if (raw) {
         try {
@@ -90,6 +110,11 @@ export default function OfficialTenantsScreen() {
     setDraftContract(t.contractNumber || '');
   };
 
+  const openNote = (t: CanonicalTenant) => {
+    setNoteTenant(t);
+    setDraftNote(t.notes || '');
+  };
+
   const saveEdit = async () => {
     if (!edit) return;
     const rent = Number(String(draftRent).replace(/,/g, ''));
@@ -100,6 +125,14 @@ export default function OfficialTenantsScreen() {
       contractNumber: draftContract.trim(),
     });
     setEdit(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await refresh();
+  };
+
+  const saveNote = async () => {
+    if (!noteTenant) return;
+    await updateCanonicalTenant(noteTenant.id, { notes: draftNote.trim() });
+    setNoteTenant(null);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await refresh();
   };
@@ -115,6 +148,7 @@ export default function OfficialTenantsScreen() {
           style: 'destructive',
           onPress: async () => {
             await vacateCanonicalTenant(t.id, ar ? 'إخلاء رسمي' : 'Official vacate');
+            setExpandedId(null);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             await refresh();
           },
@@ -183,11 +217,26 @@ export default function OfficialTenantsScreen() {
     await refresh();
   };
 
+  const startAdd = () => {
+    Haptics.selectionAsync();
+    setShowNew(true);
+    setDraftName('');
+    setDraftPhone('');
+    setDraftRent('');
+    setDraftContract('');
+    setNewUnitId(os.units.find((u) => u.status === 'vacant')?.id || os.units[0]?.id || '');
+  };
+
+  const toggleExpand = (t: CanonicalTenant) => {
+    Haptics.selectionAsync();
+    setExpandedId((cur) => (cur === t.id ? null : t.id));
+  };
+
   return (
     <ScreenScaffold testID="official-tenants">
       <StoryScreenHeader
         question={ar ? 'قاعدة المستأجرين الرسمية' : 'Official tenant registry'}
-        hint={ar ? 'الأسماء من آخر كشف — قابلة للتعديل الرسمي للتواصل الآلي' : 'Names from latest statement — editable for auto-contact'}
+        hint={ar ? 'جدول إكسل أفقي — مرّر جانبياً · اضغط الاسم لعرض الأشهر والتفاصيل داخل الجدول' : 'Horizontal Excel sheet — scroll sideways · tap name for months & details in-table'}
         showBack
       />
 
@@ -199,17 +248,7 @@ export default function OfficialTenantsScreen() {
           placeholderTextColor={colors.textSubtle}
           style={[styles.search, isRTL && styles.rtl]}
         />
-        <Pressable
-          style={styles.addBtn}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setShowNew(true);
-            setDraftName('');
-            setDraftPhone('');
-            setDraftRent('');
-            setNewUnitId(os.units.find((u) => u.status === 'vacant')?.id || os.units[0]?.id || '');
-          }}
-        >
+        <Pressable style={styles.addBtn} onPress={startAdd} testID="official-add-tenant">
           <Feather name="user-plus" size={16} color={colors.bg} />
         </Pressable>
       </View>
@@ -226,29 +265,120 @@ export default function OfficialTenantsScreen() {
           onAction={() => router.push('/upload' as any)}
         />
       ) : (
-        active.map((t) => (
-          <GlassCard key={t.id} padding={16} radiusToken="md" style={{ marginBottom: spacing.sm }} edge="gold">
-            <Pressable onPress={() => t.osTenantId && router.push(`/tenants/${t.osTenantId}` as any)}>
-              <Text style={[styles.name, isRTL && styles.rtl]}>{t.name}</Text>
-              <Text style={[styles.dim, isRTL && styles.rtl]}>
-                {ar ? 'وحدة' : 'Unit'} {t.unitNumber} · {fmtMoney(t.rentAmount, ar)}
-                {t.contractNumber ? ` · ${t.contractNumber}` : ''}
-              </Text>
-              <Text style={[styles.dim, isRTL && styles.rtl]}>{t.phone || (ar ? 'بدون جوال' : 'No phone')}</Text>
-              <Text style={[styles.badge, isRTL && styles.rtl]}>
-                {t.source === 'manual_official'
-                  ? (ar ? 'تعديل رسمي معتمد' : 'Manual official')
-                  : (ar ? 'من آخر كشف' : 'Latest statement')}
-              </Text>
-            </Pressable>
-            <View style={[styles.actions, isRTL && styles.rowRtl]}>
-              <Action icon="edit-2" label={ar ? 'تعديل' : 'Edit'} onPress={() => openEdit(t)} />
-              <Action icon="message-circle" label={ar ? 'تواصل' : 'Message'} onPress={() => messageTenant(t)} />
-              <Action icon="log-out" label={ar ? 'إخلاء' : 'Vacate'} onPress={() => doVacate(t)} />
-              <Action icon="shuffle" label={ar ? 'نقل' : 'Transfer'} onPress={() => doTransfer(t)} />
+        <GlassCard padding={0} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }} testID="official-excel-table">
+          <ScrollView horizontal showsHorizontalScrollIndicator nestedScrollEnabled>
+            <View style={styles.sheet}>
+              <View style={[styles.headerRow, isRTL && styles.rowRtl]}>
+                <Text style={[styles.th, styles.colName]}>{ar ? 'المستأجر' : 'Tenant'}</Text>
+                <Text style={[styles.th, styles.colUnit]}>{ar ? 'وحدة' : 'Unit'}</Text>
+                <Text style={[styles.th, styles.colRent]}>{ar ? 'إيجار' : 'Rent'}</Text>
+                <Text style={[styles.th, styles.colPhone]}>{ar ? 'جوال' : 'Phone'}</Text>
+                <Text style={[styles.th, styles.colContract]}>{ar ? 'عقد' : 'Contract'}</Text>
+                <Text style={[styles.th, styles.colStatus]}>{ar ? 'حالة' : 'Status'}</Text>
+                <Text style={[styles.th, styles.colPaid]}>{ar ? 'مدفوع' : 'Paid'}</Text>
+                <Text style={[styles.th, styles.colLate]}>{ar ? 'متأخر' : 'Late'}</Text>
+                <Text style={[styles.th, styles.colArrears]}>{ar ? 'متأخرات' : 'Arrears'}</Text>
+                <Text style={[styles.th, styles.colActions]}>{ar ? 'خيارات' : 'Actions'}</Text>
+              </View>
+
+              {active.map((t) => {
+                const months = monthsForTenant(os, t);
+                const open = expandedId === t.id;
+                const osTenant = t.osTenantId ? os.tenants.find((x) => x.id === t.osTenantId) : undefined;
+                const view = osTenant ? buildTenantOperationalView(osTenant, os, ar) : null;
+                return (
+                  <View key={t.id} style={styles.rowBlock} testID={`official-row-${t.id}`}>
+                    <View style={[styles.dataRow, isRTL && styles.rowRtl, open && styles.dataRowOpen]}>
+                      <Pressable style={[styles.colName, styles.nameCell]} onPress={() => toggleExpand(t)}>
+                        <Feather
+                          name={open ? 'chevron-down' : (isRTL ? 'chevron-left' : 'chevron-right')}
+                          size={14}
+                          color={colors.gold}
+                        />
+                        <Text style={[styles.tdStrong, isRTL && styles.rtl]} numberOfLines={2}>{t.name}</Text>
+                      </Pressable>
+                      <Text style={[styles.td, styles.colUnit]}>{t.unitNumber || '—'}</Text>
+                      <Text style={[styles.td, styles.colRent]}>{fmtMoney(t.rentAmount, ar)}</Text>
+                      <Text style={[styles.td, styles.colPhone]} numberOfLines={1}>{t.phone || '—'}</Text>
+                      <Text style={[styles.td, styles.colContract]} numberOfLines={1}>{t.contractNumber || '—'}</Text>
+                      <Text style={[styles.td, styles.colStatus]}>{statusCell(ar, months)}</Text>
+                      <Text style={[styles.td, styles.colPaid]}>{view ? String(view.paidMonths) : '—'}</Text>
+                      <Text style={[styles.td, styles.colLate]}>{view ? String(view.lateMonths) : '—'}</Text>
+                      <Text style={[styles.td, styles.colArrears]}>
+                        {view ? fmtMoney(view.arrearsTotal, ar) : '—'}
+                      </Text>
+                      <View style={[styles.colActions, styles.actionsCell, isRTL && styles.rowRtl]}>
+                        <Action icon="edit-2" label={ar ? 'تعديل' : 'Edit'} onPress={() => openEdit(t)} />
+                        <Action icon="plus-circle" label={ar ? 'إضافة' : 'Add'} onPress={startAdd} />
+                        <Action icon="file-text" label={ar ? 'ملاحظة' : 'Note'} onPress={() => openNote(t)} />
+                        <Action icon="message-circle" label={ar ? 'تواصل' : 'Msg'} onPress={() => messageTenant(t)} />
+                        <Action icon="log-out" label={ar ? 'إخلاء' : 'Vacate'} onPress={() => doVacate(t)} />
+                        <Action icon="shuffle" label={ar ? 'نقل' : 'Move'} onPress={() => doTransfer(t)} />
+                      </View>
+                    </View>
+
+                    {open ? (
+                      <View style={styles.expand} testID={`official-months-${t.id}`}>
+                        {/* Detail strip — still inside the sheet */}
+                        <View style={[styles.detailStrip, isRTL && styles.rowRtl]}>
+                          <Text style={styles.stripCell}>
+                            {ar ? 'عقار: ' : 'Property: '}{view?.propertyName || os.property?.name || '—'}
+                          </Text>
+                          <Text style={styles.stripCell}>
+                            {ar ? 'آخر دفعة: ' : 'Last pay: '}
+                            {view?.lastPaymentAmount != null && view.lastPaymentLabel
+                              ? `${fmtMoney(view.lastPaymentAmount, ar)} · ${view.lastPaymentLabel}`
+                              : '—'}
+                          </Text>
+                          <Text style={styles.stripCell}>
+                            {ar ? 'عقد: ' : 'Contract: '}
+                            {(view?.contractStart || '—')} → {(view?.contractEnd || '—')}
+                          </Text>
+                          <Text style={styles.stripCell}>
+                            {ar ? 'التزام: ' : 'Compliance: '}{view?.complianceLabel || statusCell(ar, months)}
+                          </Text>
+                          <Text style={styles.stripCell}>
+                            {ar ? 'ملاحظة: ' : 'Note: '}{t.notes?.trim() || '—'}
+                          </Text>
+                        </View>
+
+                        <Text style={[styles.expandTitle, isRTL && styles.rtl]}>
+                          {ar ? 'الأشهر (حتى 8) — مستحق | مدفوع | متبقي | حالة' : 'Months (up to 8) — due | paid | left | status'}
+                        </Text>
+                        {months.length === 0 ? (
+                          <Text style={[styles.dim, isRTL && styles.rtl]}>
+                            {ar ? 'لا صفوف شهرية في الدفتر لهذا المستأجر بعد.' : 'No monthly ledger rows for this tenant yet.'}
+                          </Text>
+                        ) : (
+                          <View>
+                            <View style={[styles.monthHead, isRTL && styles.rowRtl]}>
+                              <Text style={[styles.mh, styles.mMonth]}>{ar ? 'شهر' : 'Month'}</Text>
+                              <Text style={[styles.mh, styles.mNum]}>{ar ? 'مستحق' : 'Due'}</Text>
+                              <Text style={[styles.mh, styles.mNum]}>{ar ? 'مدفوع' : 'Paid'}</Text>
+                              <Text style={[styles.mh, styles.mNum]}>{ar ? 'متبقي' : 'Left'}</Text>
+                              <Text style={[styles.mh, styles.mStat]}>{ar ? 'حالة' : 'Status'}</Text>
+                            </View>
+                            {months.map((m) => (
+                              <View key={m.id} style={[styles.monthRow, isRTL && styles.rowRtl]}>
+                                <Text style={[styles.md, styles.mMonth]}>{m.monthLabel || m.monthKey}</Text>
+                                <Text style={[styles.md, styles.mNum]}>{fmtMoney(m.due, ar)}</Text>
+                                <Text style={[styles.md, styles.mNum]}>{fmtMoney(m.paid, ar)}</Text>
+                                <Text style={[styles.md, styles.mNum, (Number(m.remaining) || 0) > 0 && styles.hot]}>
+                                  {fmtMoney(m.remaining, ar)}
+                                </Text>
+                                <Text style={[styles.md, styles.mStat]}>{m.statusLabel || m.status || '—'}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        )}
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })}
             </View>
-          </GlassCard>
-        ))
+          </ScrollView>
+        </GlassCard>
       )}
 
       {vacated.length > 0 ? (
@@ -275,6 +405,25 @@ export default function OfficialTenantsScreen() {
                 <Text style={styles.primaryText}>{ar ? 'اعتماد' : 'Save official'}</Text>
               </Pressable>
               <Pressable style={styles.secondary} onPress={() => setEdit(null)}>
+                <Text style={styles.secondaryText}>{ar ? 'إلغاء' : 'Cancel'}</Text>
+              </Pressable>
+            </View>
+          </GlassCard>
+        </View>
+      </Modal>
+
+      <Modal visible={!!noteTenant} transparent animationType="fade" onRequestClose={() => setNoteTenant(null)}>
+        <View style={styles.modalWrap}>
+          <GlassCard padding={20} radiusToken="lg" edge="emerald">
+            <Text style={[styles.name, isRTL && styles.rtl]}>
+              {ar ? `ملاحظة — ${noteTenant?.name || ''}` : `Note — ${noteTenant?.name || ''}`}
+            </Text>
+            <Field ar={ar} label={ar ? 'الملاحظة' : 'Note'} value={draftNote} onChange={setDraftNote} />
+            <View style={[styles.actions, isRTL && styles.rowRtl]}>
+              <Pressable style={styles.primary} onPress={saveNote}>
+                <Text style={styles.primaryText}>{ar ? 'حفظ' : 'Save'}</Text>
+              </Pressable>
+              <Pressable style={styles.secondary} onPress={() => setNoteTenant(null)}>
                 <Text style={styles.secondaryText}>{ar ? 'إلغاء' : 'Cancel'}</Text>
               </Pressable>
             </View>
@@ -341,11 +490,26 @@ function Field({
 function Action({ icon, label, onPress }: { icon: keyof typeof Feather.glyphMap; label: string; onPress: () => void }) {
   return (
     <Pressable onPress={() => { Haptics.selectionAsync(); onPress(); }} style={styles.action}>
-      <Feather name={icon} size={13} color={colors.gold} />
+      <Feather name={icon} size={12} color={colors.gold} />
       <Text style={styles.actionText}>{label}</Text>
     </Pressable>
   );
 }
+
+const COL_NAME = 150;
+const COL_UNIT = 64;
+const COL_RENT = 100;
+const COL_PHONE = 110;
+const COL_CONTRACT = 100;
+const COL_STATUS = 72;
+const COL_PAID = 56;
+const COL_LATE = 56;
+const COL_ARREARS = 100;
+const COL_ACTIONS = 420;
+
+const SHEET_W =
+  COL_NAME + COL_UNIT + COL_RENT + COL_PHONE + COL_CONTRACT + COL_STATUS
+  + COL_PAID + COL_LATE + COL_ARREARS + COL_ACTIONS;
 
 const styles = StyleSheet.create({
   toolbar: { flexDirection: 'row', gap: 8, marginBottom: spacing.md, alignItems: 'center' },
@@ -366,18 +530,99 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   summaryLink: { marginBottom: spacing.md },
-  summaryLinkText: { color: colors.gold, fontWeight: typography.weight.semibold },
+  summaryLinkText: { color: colors.gold, fontWeight: typography.weight.semibold, fontSize: 13 },
+  sheet: { minWidth: SHEET_W },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    backgroundColor: 'rgba(212,175,55,0.10)',
+  },
+  th: {
+    color: colors.gold,
+    fontSize: 11,
+    fontWeight: typography.weight.semibold,
+    letterSpacing: 0.2,
+    paddingHorizontal: 4,
+  },
+  rowBlock: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  dataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    minHeight: 48,
+  },
+  dataRowOpen: { backgroundColor: 'rgba(255,255,255,0.04)' },
+  colName: { width: COL_NAME, paddingHorizontal: 4 },
+  colUnit: { width: COL_UNIT, paddingHorizontal: 4 },
+  colRent: { width: COL_RENT, paddingHorizontal: 4 },
+  colPhone: { width: COL_PHONE, paddingHorizontal: 4 },
+  colContract: { width: COL_CONTRACT, paddingHorizontal: 4 },
+  colStatus: { width: COL_STATUS, paddingHorizontal: 4 },
+  colPaid: { width: COL_PAID, paddingHorizontal: 4 },
+  colLate: { width: COL_LATE, paddingHorizontal: 4 },
+  colArrears: { width: COL_ARREARS, paddingHorizontal: 4 },
+  colActions: { width: COL_ACTIONS, paddingHorizontal: 4 },
+  nameCell: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  td: { color: colors.textDim, fontSize: 12 },
+  tdStrong: { color: colors.text, fontSize: 13, fontWeight: typography.weight.semibold, flexShrink: 1 },
+  actionsCell: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, alignItems: 'center' },
+  expand: {
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    paddingTop: 6,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    width: SHEET_W,
+  },
+  detailStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 10,
+    paddingBottom: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  stripCell: { color: colors.textDim, fontSize: 11, marginRight: 8 },
+  expandTitle: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginBottom: 8,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  monthHead: { flexDirection: 'row', marginBottom: 4 },
+  monthRow: {
+    flexDirection: 'row',
+    paddingVertical: 5,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  mh: { color: colors.textMuted, fontSize: 10, fontWeight: typography.weight.semibold },
+  md: { color: colors.textDim, fontSize: 11 },
+  mMonth: { width: 120 },
+  mNum: { width: 100 },
+  mStat: { width: 100 },
+  hot: { color: colors.warning },
   name: { color: colors.text, fontSize: 16, fontWeight: typography.weight.semibold },
   dim: { color: colors.textDim, fontSize: 12, marginTop: 4 },
-  badge: { color: colors.gold, fontSize: 11, marginTop: 6 },
   section: { color: colors.textMuted, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   action: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    paddingHorizontal: 10, paddingVertical: 8, borderRadius: radius.pill,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 8, paddingVertical: 6, borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
   },
-  actionText: { color: colors.text, fontSize: 11 },
+  actionText: { color: colors.text, fontSize: 10 },
   modalWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 20 },
   input: {
     marginTop: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radius.md,

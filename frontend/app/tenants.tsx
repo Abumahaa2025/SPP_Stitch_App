@@ -11,7 +11,6 @@ import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { GuidedSetup } from '@/src/components/GuidedSetup';
 import { SetupProgressBar } from '@/src/components/SetupProgressBar';
 import { PortalShareCard } from '@/src/components/PortalShareCard';
-import { OperationalTenantCard } from '@/src/components/OperationalTenantCard';
 import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { api, type TenantT, type PropertyT } from '@/src/api/client';
@@ -51,7 +50,9 @@ export default function Tenants() {
         testID="tenants-official-link"
       >
         <Text style={[styles.officialBannerText, isRTL && styles.rtl]}>
-          {isRTL ? 'قاعدة المستأجرين الرسمية (تعديل · إخلاء · نقل · تواصل) ←' : 'Official tenant registry (edit · vacate · transfer · contact) →'}
+          {isRTL
+            ? `جدول المستأجرين بنمط إكسل (${osState.tenants.length || '—'}) — تعديل · إضافة · ملاحظة ←`
+            : `Excel tenant table (${osState.tenants.length || '—'}) — edit · add · note →`}
         </Text>
       </Pressable>
       <Pressable
@@ -67,15 +68,21 @@ export default function Tenants() {
       {osState.tenants.length > 0 ? (
         <View style={{ marginBottom: spacing.lg, gap: spacing.md }}>
           <Text style={[styles.localBadge, isRTL && styles.rtl]}>{t('result.localData' as any)}</Text>
-          {osState.tenants.map((tn, i) => (
-            <OperationalTenantCard
-              key={tn.id}
-              tenant={tn}
-              state={osState}
-              delay={40 * i}
-              testID={`os-tenant-card-${tn.id}`}
-            />
-          ))}
+          <Pressable
+            onPress={() => { Haptics.selectionAsync(); router.push('/tenants/official' as any); }}
+            testID="tenants-excel-cta"
+          >
+            <GlassCard padding={16} radiusToken="md" edge="gold">
+              <Text style={[styles.excelCtaTitle, isRTL && styles.rtl]}>
+                {isRTL ? 'عرض كل البيانات في جدول واحد' : 'View all data in one table'}
+              </Text>
+              <Text style={[styles.excelCtaBody, isRTL && styles.rtl]}>
+                {isRTL
+                  ? 'جدول إكسل أفقي مع تمرير جانبي — اضغط الاسم لعرض الأشهر والتفاصيل داخل نفس الجدول.'
+                  : 'Horizontal Excel sheet with side scroll — tap a name for months & details inside the same table.'}
+              </Text>
+            </GlassCard>
+          </Pressable>
           <Pressable
             onPress={() => { Haptics.selectionAsync(); setShowPortals((v) => !v); }}
             style={styles.portalToggle}
@@ -176,6 +183,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.goldSoft,
   },
   officialBannerText: { color: colors.gold, fontSize: 13, fontWeight: typography.weight.semibold },
+  excelCtaTitle: { color: colors.text, fontSize: 15, fontWeight: typography.weight.semibold },
+  excelCtaBody: { color: colors.textDim, fontSize: 12, marginTop: 6, lineHeight: 18 },
   portalToggle: {
     paddingVertical: 10,
     alignItems: 'center',

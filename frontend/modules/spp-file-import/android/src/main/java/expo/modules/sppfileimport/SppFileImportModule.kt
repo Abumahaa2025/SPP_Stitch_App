@@ -31,7 +31,7 @@ class SppFileImportModule : Module() {
 
     Function("isNativeReady") { true }
 
-    Function("nativeBuildId") { "spp-file-import-1.0.29" }
+    Function("nativeBuildId") { "spp-file-import-1.0.30" }
 
     AsyncFunction("openWhatsApp") { promise: Promise ->
       try {

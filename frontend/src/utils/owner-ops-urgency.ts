@@ -2,15 +2,18 @@ import type { PropertyOSState } from '@/src/types/property-os';
 
 const SETUP = '/setup/property-os';
 
-/** Spec §5.5 — unready ops section opens short setup instead of empty screen. */
+/**
+ * Spec §5.5 — incomplete sections open targeted setup.
+ * Property data entry itself is only via the dedicated «إدخال البيانات العقارية» button
+ * (never redirect every ops tile to the welcome/start screen).
+ */
 export function resolveOwnerOpsRoute(key: string, state: PropertyOSState, fallback: string): string {
-  if (!state.property) return SETUP;
-  if (key === 'units' && state.units.length === 0) return SETUP;
-  if (key === 'tenants' && state.tenants.length === 0) return SETUP;
-  if (key === 'contracts' && state.contracts.length === 0) return SETUP;
-  if (key === 'payments' && !(state.paymentLedger?.length || state.tenants.length)) return SETUP;
-  if (key === 'imports' && !state.lastImportBatchId && state.units.length === 0) return SETUP;
-  if (key === 'wallet' && !state.property) return SETUP;
+  if (!state.property) return fallback;
+  if (key === 'units' && state.units.length === 0) return `${SETUP}?phase=units`;
+  if (key === 'tenants' && state.tenants.length === 0) return `${SETUP}?phase=tenants`;
+  if (key === 'contracts' && state.contracts.length === 0) return `${SETUP}?phase=contracts`;
+  if (key === 'payments' && !(state.paymentLedger?.length || state.tenants.length)) return fallback;
+  if (key === 'imports' && !state.lastImportBatchId && state.units.length === 0) return '/upload';
   return fallback;
 }
 
