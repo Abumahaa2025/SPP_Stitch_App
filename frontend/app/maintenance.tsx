@@ -22,11 +22,12 @@ import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useTechnicians } from '@/src/hooks/useTechnicians';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { api, type DecisionT, type PropertyT } from '@/src/api/client';
-import type { TechnicianSpecialty } from '@/src/types/technician';
+import type { TechnicianRecord, TechnicianSpecialty } from '@/src/types/technician';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import { formatDate } from '@/src/utils/locale';
 import { AgentPermissionGate } from '@/src/components/AgentPermissionGate';
+import { buildTechPortalLink } from '@/src/utils/portal-links';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -107,9 +108,13 @@ export default function Maintenance() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
-  const sendTechLink = (url: string, phone: string) => {
-    const msg = `${ar ? 'رابط فني SPP' : 'SPP technician link'}: ${url}`;
-    const digits = phone.replace(/\D/g, '');
+  const sendTechLink = (techOrUrl: TechnicianRecord | string, phone?: string) => {
+    const isTech = typeof techOrUrl === 'object' && techOrUrl;
+    const shareUrl = isTech
+      ? buildTechPortalLink(techOrUrl.portalToken, techOrUrl.id).url
+      : String(techOrUrl);
+    const digits = (isTech ? techOrUrl.phone : (phone || '')).replace(/\D/g, '');
+    const msg = `${ar ? 'رابط فني SPP' : 'SPP technician link'}: ${shareUrl}`;
     if (digits) {
       const wa = Platform.select({
         ios: `whatsapp://send?phone=${digits}&text=${encodeURIComponent(msg)}`,
@@ -174,7 +179,7 @@ export default function Maintenance() {
               <TechPortalShareCard tech={lastTech} />
               <Pressable
                 style={styles.sendLinkBtn}
-                onPress={() => sendTechLink(lastTech.portalUrl, lastTech.phone)}
+                onPress={() => sendTechLink(lastTech)}
               >
                 <Text style={styles.sendLinkText}>{ar ? 'إرسال الرابط عبر واتساب' : 'Send link via WhatsApp'}</Text>
               </Pressable>
@@ -184,7 +189,7 @@ export default function Maintenance() {
             <View style={{ marginTop: 12, gap: 8 }}>
               <Text style={[styles.sectionEyebrow, ar && styles.rtl]}>{ar ? 'الفنيون' : 'Technicians'}</Text>
               {technicians.slice().reverse().slice(0, 6).map((tech) => (
-                <Pressable key={tech.id} onPress={() => sendTechLink(tech.portalUrl, tech.phone)}>
+                <Pressable key={tech.id} onPress={() => sendTechLink(tech)}>
                   <Text style={[styles.techLine, ar && styles.rtl]}>
                     {tech.name} · {tech.phone} · {ar ? 'إرسال رابط' : 'Send link'}
                   </Text>

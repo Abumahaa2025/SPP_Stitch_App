@@ -1,5 +1,6 @@
 import { storage } from '@/src/utils/storage';
 import type { TechnicianRecord, TechnicianSpecialty } from '@/src/types/technician';
+import { buildTechPortalLink, inAppTechPortal } from '@/src/utils/portal-links';
 
 const KEY = 'spp.technicians';
 
@@ -8,10 +9,6 @@ const listeners = new Set<() => void>();
 
 function uid(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function portalBase() {
-  return 'https://spp.beta/portal';
 }
 
 export function subscribeTechnicians(fn: () => void) {
@@ -45,13 +42,13 @@ export async function addTechnician(input: {
   const list = await loadTechnicians();
   const id = uid('tech');
   const token = uid('tok').slice(-12);
-  const url = `${portalBase()}/tech?id=${id}&t=${token}`;
+  const built = buildTechPortalLink(token, id);
   const tech: TechnicianRecord = {
     ...input,
     id,
     portalToken: token,
-    portalUrl: url,
-    qrData: url,
+    portalUrl: built.url,
+    qrData: built.qrData,
     createdAt: new Date().toISOString(),
     linkActive: true,
     completedJobs: 0,
@@ -86,5 +83,5 @@ export async function recordTechLogin(id: string) {
 }
 
 export function inAppTechRouteFor(tech: TechnicianRecord) {
-  return `/portal/tech?id=${tech.id}&t=${tech.portalToken}`;
+  return inAppTechPortal(tech.portalToken, tech.id);
 }

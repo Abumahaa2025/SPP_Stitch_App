@@ -5,6 +5,7 @@ import type {
   PortalAccessState,
   PropertyAgentRecord,
 } from '@/src/types/portal-access';
+import { buildAgentPortalLink, inAppAgentPortal } from '@/src/utils/portal-links';
 
 const KEY = 'spp.portalAccess';
 
@@ -15,10 +16,6 @@ const listeners = new Set<() => void>();
 
 function uid(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
-}
-
-function portalBase() {
-  return 'https://spp.beta/portal';
 }
 
 export function subscribePortalAccess(fn: () => void) {
@@ -52,13 +49,13 @@ export async function addAgent(
   const s = await loadPortalAccess();
   const id = uid('agent');
   const token = uid('tok').slice(-12);
-  const url = `${portalBase()}/agent/${id}?t=${token}`;
+  const built = buildAgentPortalLink(id, token);
   const agent: PropertyAgentRecord = {
     ...input,
     id,
     portalToken: token,
-    portalUrl: url,
-    qrData: url,
+    portalUrl: built.url,
+    qrData: built.qrData,
     createdAt: new Date().toISOString(),
     linkActive: true,
   };
@@ -91,5 +88,5 @@ export async function toggleAgentLink(agentId: string, active: boolean) {
 }
 
 export function inAppAgentRoute(agentId: string, token: string) {
-  return `/portal/agent?id=${agentId}&t=${token}`;
+  return inAppAgentPortal(agentId, token);
 }

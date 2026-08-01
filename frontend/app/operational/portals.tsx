@@ -137,8 +137,14 @@ export default function PortalsManagementScreen() {
           >
             <Text style={styles.actionText}>{t('op.tech.title')}</Text>
           </Pressable>
-          <Pressable style={styles.actionBtn} onPress={() => Linking.openURL(techUrl).catch(() => {})}>
-            <Text style={[styles.actionText, { color: colors.gold }]}>{t('opsv2.portals.resend' as any)}</Text>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => {
+              Haptics.selectionAsync();
+              shareWhatsApp('', `${t('opsv2.portals.techLink' as any)}: ${techUrl}`);
+            }}
+          >
+            <Text style={[styles.actionText, { color: colors.gold }]}>{t('result.sendLink' as any)}</Text>
           </Pressable>
         </View>
       </GlassCard>

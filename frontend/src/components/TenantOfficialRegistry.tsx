@@ -4,7 +4,7 @@
  */
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, TextInput, Modal, Alert, Linking, Share, ScrollView,
+  View, Text, StyleSheet, Pressable, TextInput, Modal, Alert, Linking, Share, ScrollView, Platform,
 } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -27,6 +27,8 @@ import {
   syncCanonicalFromPropertyOS,
 } from '@/src/utils/canonical-tenant-store';
 import { buildPropertyExcelCsv, sharePropertyExcel } from '@/src/utils/property-excel-export';
+import { ensureTenantPortalLink } from '@/src/utils/ensure-tenant-portal';
+import { notifyTenantSaved } from '@/src/utils/local-notifications';
 import type { CanonicalTenant, CanonicalTenantState } from '@/src/types/canonical-tenant';
 import type { PaymentLedgerEntry, PropertyOSState } from '@/src/types/property-os';
 import { colors, spacing, typography, radius } from '@/src/theme';
@@ -155,8 +157,18 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
   const [draftRent, setDraftRent] = useState('');
   const [draftContract, setDraftContract] = useState('');
   const [draftNote, setDraftNote] = useState('');
+  const [draftEmail, setDraftEmail] = useState('');
+  const [draftNationalId, setDraftNationalId] = useState('');
+  const [draftExtra, setDraftExtra] = useState('');
+  const [moreFields, setMoreFields] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [newUnitId, setNewUnitId] = useState('');
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2800);
+  }, []);
 
   const refresh = useCallback(async () => {
     await reload();
@@ -230,6 +242,11 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
     setDraftPhone(t.phone);
     setDraftRent(String(t.rentAmount || ''));
     setDraftContract(t.contractNumber || '');
+    setDraftEmail(t.email || '');
+    setDraftNationalId(t.nationalId || '');
+    setDraftNote(t.notes || '');
+    setDraftExtra('');
+    setMoreFields(Boolean(t.email || t.nationalId || t.notes));
   };
 
   const openNote = (t: CanonicalTenant) => {
@@ -240,22 +257,34 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
   const saveEdit = async () => {
     if (!edit) return;
     const rent = Number(String(draftRent).replace(/,/g, ''));
+    const extra = draftExtra.trim();
+    const notes = [draftNote.trim(), extra ? `+ ${extra}` : ''].filter(Boolean).join('\n');
     await updateCanonicalTenant(edit.id, {
       name: draftName.trim(),
       phone: draftPhone.trim(),
       rentAmount: Number.isFinite(rent) ? rent : edit.rentAmount,
       contractNumber: draftContract.trim(),
+      email: draftEmail.trim(),
+      nationalId: draftNationalId.trim(),
+      notes,
     });
+    const name = draftName.trim() || edit.name;
     setEdit(null);
+    setMoreFields(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(ar ? `تم التعديل بنجاح — ${name}` : `Updated successfully — ${name}`);
+    void notifyTenantSaved(name, ar, 'edit');
     await refresh();
   };
 
   const saveNote = async () => {
     if (!noteTenant) return;
     await updateCanonicalTenant(noteTenant.id, { notes: draftNote.trim() });
+    const name = noteTenant.name;
     setNoteTenant(null);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(ar ? `تم حفظ الملاحظة — ${name}` : `Note saved — ${name}`);
+    void notifyTenantSaved(name, ar, 'note');
     await refresh();
   };
 
@@ -317,10 +346,39 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
     Linking.openURL(wa).catch(() => Share.share({ message: msg }));
   };
 
+  const sendPortalLink = async (t: CanonicalTenant) => {
+    const osId = t.osTenantId;
+    if (!osId) {
+      Alert.alert(ar ? 'لا يوجد مستأجر مرتبط' : 'No linked tenant record');
+      return;
+    }
+    Haptics.selectionAsync();
+    const ensured = await ensureTenantPortalLink(osId, ar ? 'ar' : 'en');
+    if (!ensured) {
+      Alert.alert(ar ? 'تعذر إنشاء الرابط' : 'Could not create portal link');
+      return;
+    }
+    await reload();
+    const phone = (t.phone || ensured.tenant.phone || '').replace(/\D/g, '');
+    const msg = ensured.message;
+    if (phone) {
+      const wa = Platform.select({
+        ios: `whatsapp://send?phone=${phone}&text=${encodeURIComponent(msg)}`,
+        default: `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`,
+      });
+      Linking.openURL(wa!).catch(() => Share.share({ message: msg }));
+    } else {
+      Share.share({ message: msg });
+    }
+    showToast(ar ? `تم تجهيز رابط ${t.name}` : `Link ready for ${t.name}`);
+  };
+
   const submitNew = async () => {
     const unit = os.units.find((u) => u.id === newUnitId) || os.units.find((u) => u.status === 'vacant') || os.units[0];
     if (!unit || !draftName.trim()) return;
     const rent = Number(String(draftRent).replace(/,/g, '')) || unit.rentAmount || 0;
+    const extra = draftExtra.trim();
+    const notes = [draftNote.trim(), extra ? `+ ${extra}` : ''].filter(Boolean).join('\n');
     await addNewOfficialTenant({
       name: draftName.trim(),
       phone: draftPhone.trim(),
@@ -330,12 +388,32 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
       contractNumber: draftContract.trim(),
       lang: ar ? 'ar' : 'en',
     });
+    // Persist optional notes on the newest matching canonical row after add
+    if (notes) {
+      const s = await loadCanonicalTenants();
+      const newest = s.tenants.find((x) => x.name === draftName.trim() && x.unitId === unit.id);
+      if (newest) {
+        await updateCanonicalTenant(newest.id, {
+          notes,
+          email: draftEmail.trim(),
+          nationalId: draftNationalId.trim(),
+        });
+      }
+    }
+    const name = draftName.trim();
     setShowNew(false);
+    setMoreFields(false);
     setDraftName('');
     setDraftPhone('');
     setDraftRent('');
     setDraftContract('');
+    setDraftNote('');
+    setDraftEmail('');
+    setDraftNationalId('');
+    setDraftExtra('');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    showToast(ar ? `تمت الإضافة بنجاح — ${name}` : `Added successfully — ${name}`);
+    void notifyTenantSaved(name, ar, 'add');
     await refresh();
   };
 
@@ -346,6 +424,11 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
     setDraftPhone('');
     setDraftRent('');
     setDraftContract('');
+    setDraftNote('');
+    setDraftEmail('');
+    setDraftNationalId('');
+    setDraftExtra('');
+    setMoreFields(false);
     setNewUnitId(os.units.find((u) => u.status === 'vacant')?.id || os.units[0]?.id || '');
   };
 
@@ -490,6 +573,7 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
                       </Text>
                       <View style={[styles.colActions, styles.actionsCell, isRTL && styles.rowRtl]}>
                         <Action icon="edit-2" label={ar ? 'تعديل' : 'Edit'} onPress={() => openEdit(t)} />
+                        <Action icon="send" label={ar ? 'رابط' : 'Link'} onPress={() => sendPortalLink(t)} />
                         <Action icon="plus-circle" label={ar ? 'إضافة' : 'Add'} onPress={startAdd} />
                         <Action icon="file-text" label={ar ? 'ملاحظة' : 'Note'} onPress={() => openNote(t)} />
                         <Action icon="message-circle" label={ar ? 'تواصل' : 'Msg'} onPress={() => messageTenant(t)} />
@@ -606,6 +690,7 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
             {searchHit ? (
               <View style={[styles.actions, isRTL && styles.rowRtl, { marginTop: 16 }]}>
                 <Action icon="edit-2" label={ar ? 'تعديل' : 'Edit'} onPress={() => { setSearchHit(null); openEdit(searchHit); }} />
+                <Action icon="send" label={ar ? 'رابط' : 'Link'} onPress={() => sendPortalLink(searchHit)} />
                 <Action icon="message-circle" label={ar ? 'تواصل' : 'Msg'} onPress={() => messageTenant(searchHit)} />
               </View>
             ) : null}
@@ -615,21 +700,46 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
 
       <Modal visible={!!edit} transparent animationType="fade" onRequestClose={() => setEdit(null)}>
         <View style={styles.modalWrap}>
+          <ScrollView contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}>
           <GlassCard padding={20} radiusToken="lg" edge="gold">
             <Text style={[styles.name, isRTL && styles.rtl]}>{ar ? 'تعديل رسمي' : 'Official edit'}</Text>
             <Field ar={ar} label={ar ? 'الاسم' : 'Name'} value={draftName} onChange={setDraftName} />
             <Field ar={ar} label={ar ? 'الجوال' : 'Phone'} value={draftPhone} onChange={setDraftPhone} />
             <Field ar={ar} label={ar ? 'الإيجار' : 'Rent'} value={draftRent} onChange={setDraftRent} keyboardType="numeric" />
             <Field ar={ar} label={ar ? 'رقم العقد' : 'Contract'} value={draftContract} onChange={setDraftContract} />
+
+            <Pressable
+              style={[styles.plusRow, isRTL && styles.rowRtl]}
+              onPress={() => { Haptics.selectionAsync(); setMoreFields((v) => !v); }}
+              testID="official-edit-plus"
+            >
+              <Feather name={moreFields ? 'minus-circle' : 'plus-circle'} size={18} color={colors.gold} />
+              <Text style={styles.plusText}>
+                {moreFields
+                  ? (ar ? 'إخفاء حقول إضافية' : 'Hide extra fields')
+                  : (ar ? 'إضافة ملاحظات وحقول أخرى' : 'Add notes & more fields')}
+              </Text>
+            </Pressable>
+
+            {moreFields ? (
+              <View>
+                <Field ar={ar} label={ar ? 'البريد' : 'Email'} value={draftEmail} onChange={setDraftEmail} />
+                <Field ar={ar} label={ar ? 'رقم الهوية' : 'National ID'} value={draftNationalId} onChange={setDraftNationalId} />
+                <Field ar={ar} label={ar ? 'ملاحظات' : 'Notes'} value={draftNote} onChange={setDraftNote} />
+                <Field ar={ar} label={ar ? 'ملاحظة إضافية (+)' : 'Extra note (+)'} value={draftExtra} onChange={setDraftExtra} />
+              </View>
+            ) : null}
+
             <View style={[styles.actions, isRTL && styles.rowRtl]}>
               <Pressable style={styles.primary} onPress={saveEdit}>
                 <Text style={styles.primaryText}>{ar ? 'اعتماد' : 'Save official'}</Text>
               </Pressable>
-              <Pressable style={styles.secondary} onPress={() => setEdit(null)}>
+              <Pressable style={styles.secondary} onPress={() => { setEdit(null); setMoreFields(false); }}>
                 <Text style={styles.secondaryText}>{ar ? 'إلغاء' : 'Cancel'}</Text>
               </Pressable>
             </View>
           </GlassCard>
+          </ScrollView>
         </View>
       </Modal>
 
@@ -654,12 +764,33 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
 
       <Modal visible={showNew} transparent animationType="fade" onRequestClose={() => setShowNew(false)}>
         <View style={styles.modalWrap}>
+          <ScrollView contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}>
           <GlassCard padding={20} radiusToken="lg" edge="emerald">
             <Text style={[styles.name, isRTL && styles.rtl]}>{ar ? 'مستأجر جديد رسمي' : 'New official tenant'}</Text>
             <Field ar={ar} label={ar ? 'الاسم' : 'Name'} value={draftName} onChange={setDraftName} />
             <Field ar={ar} label={ar ? 'الجوال' : 'Phone'} value={draftPhone} onChange={setDraftPhone} />
             <Field ar={ar} label={ar ? 'الإيجار' : 'Rent'} value={draftRent} onChange={setDraftRent} keyboardType="numeric" />
             <Field ar={ar} label={ar ? 'رقم العقد' : 'Contract'} value={draftContract} onChange={setDraftContract} />
+            <Pressable
+              style={[styles.plusRow, isRTL && styles.rowRtl]}
+              onPress={() => { Haptics.selectionAsync(); setMoreFields((v) => !v); }}
+              testID="official-new-plus"
+            >
+              <Feather name={moreFields ? 'minus-circle' : 'plus-circle'} size={18} color={colors.gold} />
+              <Text style={styles.plusText}>
+                {moreFields
+                  ? (ar ? 'إخفاء حقول إضافية' : 'Hide extra fields')
+                  : (ar ? 'إضافة ملاحظات وحقول أخرى' : 'Add notes & more fields')}
+              </Text>
+            </Pressable>
+            {moreFields ? (
+              <View>
+                <Field ar={ar} label={ar ? 'البريد' : 'Email'} value={draftEmail} onChange={setDraftEmail} />
+                <Field ar={ar} label={ar ? 'رقم الهوية' : 'National ID'} value={draftNationalId} onChange={setDraftNationalId} />
+                <Field ar={ar} label={ar ? 'ملاحظات' : 'Notes'} value={draftNote} onChange={setDraftNote} />
+                <Field ar={ar} label={ar ? 'ملاحظة إضافية (+)' : 'Extra note (+)'} value={draftExtra} onChange={setDraftExtra} />
+              </View>
+            ) : null}
             <Text style={[styles.dim, isRTL && styles.rtl, { marginTop: 8 }]}>
               {ar ? 'الوحدة:' : 'Unit:'} {os.units.find((u) => u.id === newUnitId)?.number || '—'}
             </Text>
@@ -678,13 +809,21 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
               <Pressable style={styles.primary} onPress={submitNew}>
                 <Text style={styles.primaryText}>{ar ? 'إضافة واعتماد' : 'Add & adopt'}</Text>
               </Pressable>
-              <Pressable style={styles.secondary} onPress={() => setShowNew(false)}>
+              <Pressable style={styles.secondary} onPress={() => { setShowNew(false); setMoreFields(false); }}>
                 <Text style={styles.secondaryText}>{ar ? 'إلغاء' : 'Cancel'}</Text>
               </Pressable>
             </View>
           </GlassCard>
+          </ScrollView>
         </View>
       </Modal>
+
+      {toast ? (
+        <View style={styles.toast} pointerEvents="none" testID="database-toast">
+          <Feather name="check-circle" size={16} color={colors.bg} />
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      ) : null}
     </ScreenScaffold>
   );
 }
@@ -728,7 +867,7 @@ const COL_STATUS = 72;
 const COL_PAID = 56;
 const COL_LATE = 56;
 const COL_ARREARS = 100;
-const COL_ACTIONS = 420;
+const COL_ACTIONS = 480;
 
 const SHEET_W =
   COL_NAME + COL_UNIT + COL_RENT + COL_PHONE + COL_CONTRACT + COL_STATUS
@@ -872,4 +1011,23 @@ const styles = StyleSheet.create({
   searchMiniTop: { flexDirection: 'row', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 8 },
   searchMiniBack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   searchMiniBackText: { color: colors.gold, fontWeight: typography.weight.semibold, fontSize: 15 },
+  plusRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, marginBottom: 4,
+  },
+  plusText: { color: colors.gold, fontSize: 13, fontWeight: typography.weight.semibold },
+  toast: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.emerald,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: radius.md,
+    zIndex: 50,
+  },
+  toastText: { color: colors.bg, flex: 1, fontSize: 13, fontWeight: typography.weight.semibold },
 });

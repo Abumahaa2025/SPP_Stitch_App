@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 
 import { GlassCard } from '@/src/components/GlassCard';
 import { inAppAgentRoute } from '@/src/utils/portal-access-store';
+import { buildAgentPortalLink } from '@/src/utils/portal-links';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import type { PropertyAgentRecord } from '@/src/types/portal-access';
@@ -20,8 +21,10 @@ type Props = {
 export function AgentPortalShareCard({ agent, testID = 'agent-portal-share' }: Props) {
   const { t, isRTL } = useI18n();
   const router = useRouter();
-  const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(agent.portalUrl)}`;
-  const msg = `${t('opsv2.agent.title' as any)}: ${agent.portalUrl}`;
+  const live = buildAgentPortalLink(agent.id, agent.portalToken);
+  const shareUrl = live.url;
+  const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
+  const msg = `${t('opsv2.agent.title' as any)}: ${shareUrl}`;
   const permKeys = (['contracts', 'maintenance', 'tenants', 'wallet', 'settings'] as const)
     .filter((p) => agent.permissions[p]);
 
@@ -46,7 +49,7 @@ export function AgentPortalShareCard({ agent, testID = 'agent-portal-share' }: P
         <Image source={{ uri: qrUri }} style={styles.qr} contentFit="contain" />
         <View style={styles.linkCol}>
           <Text style={[styles.label, isRTL && styles.rtl]}>{t('pos.portal.link')}</Text>
-          <Text style={styles.link} selectable numberOfLines={3}>{agent.portalUrl}</Text>
+          <Text style={styles.link} selectable numberOfLines={3}>{shareUrl}</Text>
         </View>
       </View>
       <View style={[styles.actions, isRTL && styles.rowRtl]}>

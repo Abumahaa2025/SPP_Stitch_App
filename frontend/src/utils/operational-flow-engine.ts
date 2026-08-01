@@ -9,11 +9,11 @@ import {
 } from '@/src/utils/operational-store';
 
 export function inAppTenantRoute(tenantId: string, token: string) {
-  return `/portal/tenant?id=${tenantId}&t=${token}`;
+  return `/portal/tenant?id=${encodeURIComponent(tenantId)}&t=${encodeURIComponent(token)}`;
 }
 
 export function inAppTechRoute(token: string) {
-  return `/portal/tech?t=${token}`;
+  return `/portal/tech?t=${encodeURIComponent(token)}`;
 }
 
 export async function onTenantAdded(tenant: TenantRecord, unitNumber?: string) {

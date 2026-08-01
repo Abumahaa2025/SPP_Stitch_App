@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 
 import { GlassCard } from '@/src/components/GlassCard';
 import { inAppTechRouteFor } from '@/src/utils/technician-store';
+import { buildTechPortalLink } from '@/src/utils/portal-links';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import type { TechnicianRecord } from '@/src/types/technician';
@@ -20,8 +21,10 @@ type Props = {
 export function TechPortalShareCard({ tech, testID = 'tech-portal-share' }: Props) {
   const { t, isRTL } = useI18n();
   const router = useRouter();
-  const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(tech.portalUrl)}`;
-  const msg = `${t('op.tech.title')}: ${tech.portalUrl}`;
+  const live = buildTechPortalLink(tech.portalToken, tech.id);
+  const shareUrl = live.url;
+  const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
+  const msg = `${t('op.tech.title')}: ${shareUrl}`;
 
   const shareWhatsApp = () => {
     Haptics.selectionAsync();
@@ -45,7 +48,7 @@ export function TechPortalShareCard({ tech, testID = 'tech-portal-share' }: Prop
         <Image source={{ uri: qrUri }} style={styles.qr} contentFit="contain" />
         <View style={styles.linkCol}>
           <Text style={[styles.label, isRTL && styles.rtl]}>{t('pos.portal.link')}</Text>
-          <Text style={styles.link} selectable numberOfLines={3}>{tech.portalUrl}</Text>
+          <Text style={styles.link} selectable numberOfLines={3}>{shareUrl}</Text>
         </View>
       </View>
       <View style={[styles.actions, isRTL && styles.rowRtl]}>

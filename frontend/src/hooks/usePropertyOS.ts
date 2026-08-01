@@ -18,6 +18,7 @@ import {
   onTenantAdded,
 } from '@/src/utils/operational-flow-engine';
 import { notifyPropertySaved } from '@/src/utils/local-notifications';
+import { buildTenantPortalLink, buildTechPortalLink } from '@/src/utils/portal-links';
 import { getLang } from '@/src/i18n';
 
 const KEY = 'spp.propertyOS';
@@ -39,17 +40,12 @@ function uid(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function portalBase() {
-  return 'https://spp.beta/portal';
-}
-
 export function buildTenantPortal(tenantId: string, token: string) {
-  const url = `${portalBase()}/tenant/${tenantId}?t=${token}`;
-  return { url, qrData: url, token };
+  return buildTenantPortalLink(tenantId, token);
 }
 
 export function buildTechnicianPortal(token: string) {
-  return `${portalBase()}/tech?t=${token}`;
+  return buildTechPortalLink(token).url;
 }
 
 export function buildWhatsAppWelcome(name: string, portalUrl: string, lang: 'ar' | 'en') {

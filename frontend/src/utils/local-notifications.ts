@@ -68,3 +68,21 @@ export async function notifyPropertySaved(propertyName: string, ar: boolean) {
     route: '/database',
   });
 }
+
+export async function notifyTenantSaved(name: string, ar: boolean, kind: 'edit' | 'add' | 'note' = 'edit') {
+  const title = kind === 'add'
+    ? (ar ? 'تمت الإضافة بنجاح' : 'Added successfully')
+    : kind === 'note'
+      ? (ar ? 'تم حفظ الملاحظة' : 'Note saved')
+      : (ar ? 'تم التعديل بنجاح' : 'Updated successfully');
+  const body = ar
+    ? `تم حفظ بيانات «${name}» في مركز البيانات.`
+    : `«${name}» was saved to the database center.`;
+  return pushLocalNotification({
+    id: `loc_tenant_${kind}_${Date.now().toString(36)}`,
+    title,
+    body,
+    priority: 'normal',
+    route: '/database',
+  });
+}
