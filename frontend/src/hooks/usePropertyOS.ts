@@ -17,6 +17,8 @@ import {
   onSetupCompleted,
   onTenantAdded,
 } from '@/src/utils/operational-flow-engine';
+import { notifyPropertySaved } from '@/src/utils/local-notifications';
+import { getLang } from '@/src/i18n';
 
 const KEY = 'spp.propertyOS';
 
@@ -152,6 +154,7 @@ export function usePropertyOS(notifEnabledCount = 0) {
       property,
       startedAt: state.startedAt ?? new Date().toISOString(),
     });
+    void notifyPropertySaved(property.name, getLang() === 'ar');
     return property;
   }, [persist, state]);
 

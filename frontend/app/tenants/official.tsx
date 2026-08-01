@@ -59,6 +59,7 @@ export default function OfficialTenantsScreen() {
   const { state: os, reload } = usePropertyOS(countEnabled);
   const [reg, setReg] = useState<CanonicalTenantState>({ tenants: [], events: [] });
   const [query, setQuery] = useState('');
+  const [searchHit, setSearchHit] = useState<CanonicalTenant | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [edit, setEdit] = useState<CanonicalTenant | null>(null);
   const [noteTenant, setNoteTenant] = useState<CanonicalTenant | null>(null);
@@ -72,17 +73,15 @@ export default function OfficialTenantsScreen() {
 
   const refresh = useCallback(async () => {
     await reload();
+    const raw = await import('@/src/utils/storage').then((m) => m.storage.getItem<string>('spp.propertyOS', ''));
     let s = await loadCanonicalTenants();
-    if (!s.tenants.length) {
-      const raw = await import('@/src/utils/storage').then((m) => m.storage.getItem<string>('spp.propertyOS', ''));
-      if (raw) {
-        try {
-          const osState = JSON.parse(raw);
-          if (osState?.tenants?.length) {
-            s = await syncCanonicalFromPropertyOS(osState, { lang: ar ? 'ar' : 'en' });
-          }
-        } catch { /* ignore */ }
-      }
+    if (raw) {
+      try {
+        const osState = JSON.parse(raw);
+        if (osState?.tenants?.length) {
+          s = await syncCanonicalFromPropertyOS(osState, { lang: ar ? 'ar' : 'en' });
+        }
+      } catch { /* ignore */ }
     }
     setReg(s);
   }, [reload, ar]);
@@ -95,10 +94,44 @@ export default function OfficialTenantsScreen() {
 
   const active = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return reg.tenants
-      .filter((t) => t.status === 'active')
-      .filter((t) => !q || [t.name, t.phone, t.unitNumber, t.contractNumber].join(' ').toLowerCase().includes(q));
-  }, [reg.tenants, query]);
+    const base = reg.tenants.length
+      ? reg.tenants.filter((t) => t.status === 'active')
+      : os.tenants.map((t) => {
+          const unit = os.units.find((u) => u.id === t.unitId);
+          const contract = os.contracts.find((c) => c.tenantId === t.id);
+          return {
+            id: t.id,
+            osTenantId: t.id,
+            unitId: t.unitId,
+            unitNumber: unit?.number || '—',
+            name: t.name,
+            phone: t.phone,
+            rentAmount: Number(contract?.rentAmount ?? unit?.rentAmount ?? 0),
+            contractNumber: contract?.number || '',
+            status: 'active' as const,
+            official: true,
+            source: 'import' as const,
+            notes: '',
+            updatedAt: '',
+          } satisfies CanonicalTenant;
+        });
+    return base.filter((t) => !q || [t.name, t.phone, t.unitNumber, t.contractNumber].join(' ').toLowerCase().includes(q));
+  }, [reg.tenants, os, query]);
+
+  const runSearch = (text?: string) => {
+    const q = (text ?? query).trim().toLowerCase();
+    if (!q) return;
+    const hit = active.find((t) =>
+      t.name.toLowerCase().includes(q)
+      || t.phone.replace(/\D/g, '').includes(q.replace(/\D/g, ''))
+      || (t.unitNumber || '').toLowerCase().includes(q));
+    if (hit) {
+      Haptics.selectionAsync();
+      setSearchHit(hit);
+    } else {
+      Alert.alert(ar ? 'لا نتائج' : 'No results', ar ? 'لم يُعثر على مستأجر بهذا البحث.' : 'No tenant matched this search.');
+    }
+  };
 
   const vacated = useMemo(() => reg.tenants.filter((t) => t.status !== 'active').slice(0, 40), [reg.tenants]);
 
@@ -244,10 +277,15 @@ export default function OfficialTenantsScreen() {
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder={ar ? 'بحث بالاسم / الجوال / الوحدة' : 'Search name / phone / unit'}
+          onSubmitEditing={() => runSearch()}
+          returnKeyType="search"
+          placeholder={ar ? 'بحث بالاسم / الجوال / الوحدة — Enter لصفحة مصغرة' : 'Search name / phone / unit — Enter for mini page'}
           placeholderTextColor={colors.textSubtle}
           style={[styles.search, isRTL && styles.rtl]}
         />
+        <Pressable style={styles.addBtn} onPress={() => runSearch()} testID="official-search-go">
+          <Feather name="search" size={16} color={colors.bg} />
+        </Pressable>
         <Pressable style={styles.addBtn} onPress={startAdd} testID="official-add-tenant">
           <Feather name="user-plus" size={16} color={colors.bg} />
         </Pressable>
@@ -391,6 +429,46 @@ export default function OfficialTenantsScreen() {
           ))}
         </GlassCard>
       ) : null}
+
+      <Modal visible={!!searchHit} animationType="slide" onRequestClose={() => setSearchHit(null)}>
+        <View style={styles.searchMini} testID="official-search-mini">
+          <View style={[styles.searchMiniTop, isRTL && styles.rowRtl]}>
+            <Pressable onPress={() => setSearchHit(null)} style={styles.searchMiniBack}>
+              <Feather name={isRTL ? 'chevron-right' : 'chevron-left'} size={22} color={colors.gold} />
+              <Text style={styles.searchMiniBackText}>{ar ? 'رجوع' : 'Back'}</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+            <Text style={[styles.name, isRTL && styles.rtl, { fontSize: 22 }]}>{searchHit?.name}</Text>
+            <GlassCard padding={14} radiusToken="md" edge="gold" style={{ marginTop: 12 }}>
+              <Text style={[styles.dim, isRTL && styles.rtl]}>{ar ? 'وحدة' : 'Unit'}: {searchHit?.unitNumber}</Text>
+              <Text style={[styles.dim, isRTL && styles.rtl]}>{ar ? 'جوال' : 'Phone'}: {searchHit?.phone || '—'}</Text>
+              <Text style={[styles.dim, isRTL && styles.rtl]}>{ar ? 'إيجار' : 'Rent'}: {fmtMoney(searchHit?.rentAmount || 0, ar)}</Text>
+              <Text style={[styles.dim, isRTL && styles.rtl]}>{ar ? 'عقد' : 'Contract'}: {searchHit?.contractNumber || '—'}</Text>
+            </GlassCard>
+            {searchHit ? (
+              <View style={{ marginTop: 12 }}>
+                <Text style={[styles.expandTitle, isRTL && styles.rtl]}>
+                  {ar ? 'الأشهر' : 'Months'}
+                </Text>
+                {monthsForTenant(os, searchHit).length === 0 ? (
+                  <Text style={[styles.dim, isRTL && styles.rtl]}>{ar ? 'لا أشهر' : 'No months'}</Text>
+                ) : monthsForTenant(os, searchHit).map((m) => (
+                  <Text key={m.id} style={[styles.dim, isRTL && styles.rtl, { marginTop: 6 }]}>
+                    {m.monthLabel || m.monthKey}: {fmtMoney(m.due, ar)} / {fmtMoney(m.paid, ar)} / {fmtMoney(m.remaining, ar)}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
+            {searchHit ? (
+              <View style={[styles.actions, isRTL && styles.rowRtl, { marginTop: 16 }]}>
+                <Action icon="edit-2" label={ar ? 'تعديل' : 'Edit'} onPress={() => { setSearchHit(null); openEdit(searchHit); }} />
+                <Action icon="message-circle" label={ar ? 'تواصل' : 'Msg'} onPress={() => messageTenant(searchHit)} />
+              </View>
+            ) : null}
+          </ScrollView>
+        </View>
+      </Modal>
 
       <Modal visible={!!edit} transparent animationType="fade" onRequestClose={() => setEdit(null)}>
         <View style={styles.modalWrap}>
@@ -635,4 +713,8 @@ const styles = StyleSheet.create({
   chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   chipOn: { borderColor: colors.goldEdge, backgroundColor: colors.goldSoft },
   chipText: { color: colors.text, fontSize: 12 },
+  searchMini: { flex: 1, backgroundColor: colors.bg },
+  searchMiniTop: { flexDirection: 'row', paddingTop: 52, paddingHorizontal: 16, paddingBottom: 8 },
+  searchMiniBack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  searchMiniBackText: { color: colors.gold, fontWeight: typography.weight.semibold, fontSize: 15 },
 });

@@ -15,7 +15,7 @@ import { AmbientBackground } from '@/src/components/AmbientBackground';
 import { BrandOrb, Wordmark } from '@/src/components/BrandOrb';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { HomeCommandCenter } from '@/src/components/HomeCommandCenter';
-import { HomeAccountRail } from '@/src/components/HomeAccountRail';
+import { HomeAccountRail, HOME_ACCOUNT_RAIL_WIDTH } from '@/src/components/HomeAccountRail';
 import { SetupProgressBar } from '@/src/components/SetupProgressBar';
 import { usePropertyOS, phaseRoute } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
@@ -125,6 +125,8 @@ export default function Home() {
           <Text style={styles.loadingText}>{t('home.loading')}</Text>
         </View>
       ) : (
+        <View style={styles.body}>
+        <HomeAccountRail />
         <AnimatedScroll
           testID="home-scroll"
           onScroll={onScroll}
@@ -134,7 +136,7 @@ export default function Home() {
             {
               paddingTop: insets.top + wsPad.paddingTop + spacing.md,
               paddingBottom: insets.bottom + wsPad.paddingBottom + spacing['2xl'],
-              paddingRight: wsPad.paddingRight + spacing.lg,
+              paddingRight: wsPad.paddingRight + spacing.lg + HOME_ACCOUNT_RAIL_WIDTH,
             },
           ]}
           showsVerticalScrollIndicator={false}
@@ -148,7 +150,6 @@ export default function Home() {
         >
           {!briefing && !loading ? (
             <>
-              <HomeAccountRail />
               <SetupProgressBar testID="home-setup-progress" />
               <AliveEmpty
                 title={t('alive.home.title')}
@@ -169,7 +170,6 @@ export default function Home() {
             </>
           ) : (
             <>
-              <HomeAccountRail />
               <SetupProgressBar testID="home-setup-progress-live" />
               <HomeCommandCenter
                 briefing={briefing}
@@ -184,6 +184,7 @@ export default function Home() {
             <Text style={styles.buildStamp} testID="ux-build-stamp">{UX_BUILD_STAMP}</Text>
           </Animated.View>
         </AnimatedScroll>
+        </View>
       )}
     </View>
   );
@@ -191,6 +192,7 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
+  body: { flex: 1 },
   loading: {
     flex: 1, alignItems: 'center', justifyContent: 'center', gap: 24,
   },

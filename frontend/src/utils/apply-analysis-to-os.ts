@@ -28,6 +28,7 @@ import { buildTenantPortal, buildWhatsAppWelcome } from '@/src/hooks/useProperty
 import { storage } from '@/src/utils/storage';
 import { syncCanonicalFromPropertyOS } from '@/src/utils/canonical-tenant-store';
 import { takePendingPropertyName } from '@/src/utils/pending-property-name';
+import { notifyPropertySaved } from '@/src/utils/local-notifications';
 
 const OS_KEY = 'spp.propertyOS';
 const REPORTS_KEY = 'spp.importedReports';
@@ -733,6 +734,7 @@ export async function persistApplyFromAnalysis(
   };
 
   await storage.setItem(OS_KEY, JSON.stringify(nextState));
+  void notifyPropertySaved(nextState.property?.name || '', lang === 'ar');
 
   // Official tenant DB: latest statement names become canonical (unless manualOfficial).
   try {

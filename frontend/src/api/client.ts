@@ -114,6 +114,8 @@ export type SensorT = {
 export type NotifT = {
   id: string; title: string; body: string; priority: string;
   at: string; read: boolean;
+  /** Optional deep link (local notifications). */
+  route?: string;
 };
 
 export type ChatMsg = {

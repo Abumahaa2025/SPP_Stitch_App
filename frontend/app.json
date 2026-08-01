@@ -3,7 +3,7 @@
     "name": "SPP Stitch",
     "slug": "spp-stitch-transfer",
     "owner": "abumahaa2025",
-    "version": "1.0.31",
+    "version": "1.0.32",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "spp",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "ai.spp.stitch",
-      "versionCode": 31,
+      "versionCode": 32,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",

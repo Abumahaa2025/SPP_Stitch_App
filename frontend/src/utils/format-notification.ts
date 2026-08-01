@@ -40,8 +40,8 @@ export function formatNotification(n: NotifT, t: TFn): FormattedNotification {
   return {
     headline: n.title?.trim() || t('notif.defaultHeadline'),
     recommendation: n.body?.trim() || t('notif.defaultRecommendation'),
-    actionLabelKey: actionKeys[kind],
-    actionRoute: actionRoutes[kind],
+    actionLabelKey: n.route ? 'notif.action.review' : actionKeys[kind],
+    actionRoute: n.route || actionRoutes[kind],
     kind,
   };
 }

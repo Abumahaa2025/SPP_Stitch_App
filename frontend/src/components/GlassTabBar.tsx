@@ -1,25 +1,17 @@
 import React, { useEffect, useState } from 'react';
 
-import { View, StyleSheet, Pressable, Platform, Text } from 'react-native';
-
+import { View, StyleSheet, Pressable, Platform, Text, Alert } from 'react-native';
 import { BlurView } from 'expo-blur';
-
 import { Feather } from '@expo/vector-icons';
-
 import * as Haptics from 'expo-haptics';
-
 import Animated, { FadeIn } from 'react-native-reanimated';
-
 import { useRouter, usePathname } from 'expo-router';
-
 import { colors, radius, spacing, typography } from '../theme';
-
 import { useI18n } from '../i18n';
 import { resolveActiveTab } from '@/src/utils/nav-active';
 import { tabPathForPersona } from '@/src/utils/role-scope';
 import { storage } from '@/src/utils/storage';
-
-
+import { notifyPropertySaved } from '@/src/utils/local-notifications';
 
 type Tab = {
 
@@ -53,7 +45,8 @@ export function GlassTabBar() {
 
   const pathname = usePathname() || '/';
 
-  const { t } = useI18n();
+  const { t, lang, isRTL } = useI18n();
+  const ar = lang === 'ar' || !!isRTL;
 
   const active = resolveActiveTab(pathname);
 
@@ -62,6 +55,35 @@ export function GlassTabBar() {
   useEffect(() => {
     storage.getItem<string>('spp.betaPersona', '').then((p) => setPersona(p || ''));
   }, [pathname]);
+
+  const onTabPress = async (tab: Tab) => {
+    Haptics.selectionAsync();
+    if (tab.key === 'operations') {
+      try {
+        const raw = await storage.getItem<string>('spp.propertyOS', '');
+        const os = raw ? JSON.parse(raw) : null;
+        const name = os?.property?.name?.trim();
+        if (name) {
+          await notifyPropertySaved(name, ar);
+          Alert.alert(
+            ar ? 'تم حفظ العقار' : 'Property saved',
+            ar
+              ? `تم حفظ «${name}». افتح مركز البيانات لعرض الجدول.`
+              : `«${name}» is saved. Open the database center for the table.`,
+            [
+              { text: ar ? 'لاحقاً' : 'Later', style: 'cancel', onPress: () => router.replace('/owner' as any) },
+              {
+                text: ar ? 'مركز البيانات' : 'Database center',
+                onPress: () => router.replace('/database' as any),
+              },
+            ],
+          );
+          return;
+        }
+      } catch { /* fall through to owner */ }
+    }
+    router.replace(tabPathForPersona(tab.key, tab.path, persona) as any);
+  };
 
 
 
@@ -91,13 +113,7 @@ export function GlassTabBar() {
 
                   testID={`tab-${tab.key}`}
 
-                  onPress={() => {
-
-                    Haptics.selectionAsync();
-
-                    router.replace(tabPathForPersona(tab.key, tab.path, persona) as any);
-
-                  }}
+                  onPress={() => { void onTabPress(tab); }}
 
                   style={[styles.item, isCenter && styles.itemCenter]}
 

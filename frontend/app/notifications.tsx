@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useFocusEffect } from 'expo-router';
 
 import { ScreenScaffold } from '@/src/components/ScreenScaffold';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
@@ -18,6 +19,7 @@ import { colors, radius, spacing, typography } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import { useAttentionPulse } from '@/src/hooks/useAttentionPulse';
 import { storage } from '@/src/utils/storage';
+import { loadLocalNotifications } from '@/src/utils/local-notifications';
 
 type Filter = 'all' | NotifCategory;
 
@@ -57,13 +59,23 @@ export default function Notifications() {
     setHidden(await loadHiddenIds());
   }, []);
 
-  useEffect(() => {
-    api.notifications().then((list) => {
-      setItems(list);
-      void acknowledge();
-    }).catch(() => {});
-    void refreshHidden();
-  }, [acknowledge, refreshHidden]);
+  useFocusEffect(
+    useCallback(() => {
+      void (async () => {
+        try {
+          const [remote, local] = await Promise.all([
+            api.notifications().catch(() => [] as NotifT[]),
+            loadLocalNotifications(),
+          ]);
+          const byId = new Map<string, NotifT>();
+          [...local, ...remote].forEach((n) => byId.set(n.id, n));
+          setItems([...byId.values()].sort((a, b) => String(b.at).localeCompare(String(a.at))));
+          void acknowledge();
+        } catch { /* ignore */ }
+      })();
+      void refreshHidden();
+    }, [acknowledge, refreshHidden]),
+  );
 
   const visible = useMemo(
     () => items.filter((n) => !hidden.has(n.id)),
