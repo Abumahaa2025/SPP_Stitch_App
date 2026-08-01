@@ -45,14 +45,14 @@ export default function Tenants() {
       <GuidedSetup flowId="tenant" defaultOpen={tenants.length === 0 && !osState.tenants.length} testID="tenants-guided" />
 
       <Pressable
-        onPress={() => { Haptics.selectionAsync(); router.push('/tenants/official' as any); }}
+        onPress={() => { Haptics.selectionAsync(); router.push('/database' as any); }}
         style={styles.officialBanner}
         testID="tenants-official-link"
       >
         <Text style={[styles.officialBannerText, isRTL && styles.rtl]}>
           {isRTL
-            ? `جدول المستأجرين بنمط إكسل (${osState.tenants.length || '—'}) — تعديل · إضافة · ملاحظة ←`
-            : `Excel tenant table (${osState.tenants.length || '—'}) — edit · add · note →`}
+            ? `مركز البيانات — جدول المستأجرين الرسمي (${osState.tenants.length || '—'}) ←`
+            : `Database center — official tenant table (${osState.tenants.length || '—'}) →`}
         </Text>
       </Pressable>
       <Pressable
@@ -69,7 +69,7 @@ export default function Tenants() {
         <View style={{ marginBottom: spacing.lg, gap: spacing.md }}>
           <Text style={[styles.localBadge, isRTL && styles.rtl]}>{t('result.localData' as any)}</Text>
           <Pressable
-            onPress={() => { Haptics.selectionAsync(); router.push('/tenants/official' as any); }}
+            onPress={() => { Haptics.selectionAsync(); router.push('/database' as any); }}
             testID="tenants-excel-cta"
           >
             <GlassCard padding={16} radiusToken="md" edge="gold">

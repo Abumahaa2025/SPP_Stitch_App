@@ -16,6 +16,7 @@ import { BrandOrb, Wordmark } from '@/src/components/BrandOrb';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { HomeCommandCenter } from '@/src/components/HomeCommandCenter';
 import { HomeAccountRail, HOME_ACCOUNT_RAIL_WIDTH } from '@/src/components/HomeAccountRail';
+import { HomeDataEntry } from '@/src/components/HomeDataEntry';
 import { SetupProgressBar } from '@/src/components/SetupProgressBar';
 import { usePropertyOS, phaseRoute } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
@@ -151,6 +152,7 @@ export default function Home() {
           {!briefing && !loading ? (
             <>
               <SetupProgressBar testID="home-setup-progress" />
+              <HomeDataEntry testID="home-data-entry" defaultOpen />
               <AliveEmpty
                 title={t('alive.home.title')}
                 body={t('alive.home.body')}
@@ -163,7 +165,7 @@ export default function Home() {
                 onAction={() => router.push(
                   (!osState.property
                     ? (nextPhase ? phaseRoute(nextPhase) : '/setup/property-os')
-                    : '/upload') as any,
+                    : '/database') as any,
                 )}
                 testID="home-alive-empty"
               />
@@ -171,6 +173,7 @@ export default function Home() {
           ) : (
             <>
               <SetupProgressBar testID="home-setup-progress-live" />
+              <HomeDataEntry testID="home-data-entry-live" defaultOpen={false} />
               <HomeCommandCenter
                 briefing={briefing}
                 notifications={notifications}

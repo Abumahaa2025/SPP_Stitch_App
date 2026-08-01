@@ -135,7 +135,7 @@ export default function TenantDetailScreen() {
         <Pressable
           testID="tenant-official"
           style={styles.actionBtn}
-          onPress={() => { Haptics.selectionAsync(); router.push('/tenants/official' as any); }}
+          onPress={() => { Haptics.selectionAsync(); router.push('/database' as any); }}
         >
           <Feather name="book" size={14} color={colors.emerald} />
           <Text style={styles.actionText}>{ar ? 'تعديل رسمي' : 'Official edit'}</Text>

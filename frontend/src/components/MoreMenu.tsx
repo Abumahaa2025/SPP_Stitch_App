@@ -30,7 +30,7 @@ const TOOL_ITEMS: MoreItem[] = [
   { key: 'portfolio', labelKey: 'more.portfolio', hintKey: 'more.portfolio.hint', icon: 'activity', route: '/portfolio', tone: 'gold' },
   { key: 'opsBase', labelKey: 'more.opsBase', hintKey: 'more.opsBase.hint', icon: 'database', route: '/operational/base', tone: 'emerald' },
   { key: 'monthly', labelKey: 'more.monthly', hintKey: 'more.monthly.hint', icon: 'calendar', route: '/operational/monthly-summary', tone: 'gold' },
-  { key: 'officialTenants', labelKey: 'more.officialTenants', hintKey: 'more.officialTenants.hint', icon: 'book', route: '/tenants/official', tone: 'emerald' },
+  { key: 'officialTenants', labelKey: 'more.officialTenants', hintKey: 'more.officialTenants.hint', icon: 'book', route: '/database', tone: 'emerald' },
   { key: 'tenants', labelKey: 'more.tenants', hintKey: 'more.tenants.hint', icon: 'users', route: '/tenants', tone: 'gold' },
   { key: 'maintenance', labelKey: 'more.maintenance', hintKey: 'more.maintenance.hint', icon: 'tool', route: '/maintenance', tone: 'emerald' },
   { key: 'roles', labelKey: 'more.roles', hintKey: 'more.roles.hint', icon: 'shield', route: '/roles', tone: 'gold' },
@@ -39,10 +39,9 @@ const TOOL_ITEMS: MoreItem[] = [
   { key: 'settings', labelKey: 'more.settings', hintKey: 'more.settings.hint', icon: 'settings', route: '/settings' },
 ];
 
-/** Kept accessible — not removed; setup/import paths stay reachable. */
+/** Setup paths stay reachable — import CTA moved to Home (Manual | Import). */
 const RARE_ITEMS: MoreItem[] = [
   { key: 'propertyOs', labelKey: 'more.propertyOs', hintKey: 'more.propertyOs.hint', icon: 'compass', route: '/setup/property-os', tone: 'gold' },
-  { key: 'upload', labelKey: 'nav.upload', hintKey: 'upload.sub', icon: 'upload-cloud', route: '/upload', tone: 'gold' },
 ];
 
 const ACCOUNT_ITEMS: MoreItem[] = [

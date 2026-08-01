@@ -174,7 +174,7 @@ export default function OperationalBaseHome() {
       {/* Quick links */}
       <View style={[styles.quick, isRTL && styles.rowRtl]}>
         <Quick label={ar ? 'ملخص الأشهر' : 'Monthly'} onPress={() => router.push('/operational/monthly-summary' as any)} />
-        <Quick label={ar ? 'مستأجرون رسميون' : 'Official'} onPress={() => router.push('/tenants/official' as any)} />
+        <Quick label={ar ? 'مركز البيانات' : 'Database'} onPress={() => router.push('/database' as any)} />
         <Quick label={ar ? 'المستأجرون' : 'Tenants'} onPress={() => router.push('/tenants' as any)} />
         <Quick label={ar ? 'العقود' : 'Contracts'} onPress={() => router.push('/contracts' as any)} />
         <Quick label={ar ? 'المدفوعات' : 'Payments'} onPress={() => router.push('/operational/payments' as any)} />
