@@ -15,8 +15,7 @@ import { AmbientBackground } from '@/src/components/AmbientBackground';
 import { BrandOrb, Wordmark } from '@/src/components/BrandOrb';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { HomeCommandCenter } from '@/src/components/HomeCommandCenter';
-import { HomeShortcuts } from '@/src/components/HomeShortcuts';
-import { HOME_SHORTCUTS } from '@/src/data/home-directory';
+import { HomeAccountRail } from '@/src/components/HomeAccountRail';
 import { SetupProgressBar } from '@/src/components/SetupProgressBar';
 import { usePropertyOS, phaseRoute } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
@@ -44,12 +43,6 @@ const EMPTY_BRIEFING: Briefing = {
 };
 
 const AnimatedScroll = Animated.ScrollView;
-
-/** Figma UX reorg — dashboard quick-access strip (RTL visual: upload → reports → maintenance → portfolio). */
-const QUICK_ACCESS_KEYS = ['upload', 'reports', 'maintenance', 'portfolio'] as const;
-const QUICK_ACCESS = QUICK_ACCESS_KEYS
-  .map((key) => HOME_SHORTCUTS.find((sc) => sc.key === key))
-  .filter((sc): sc is NonNullable<typeof sc> => Boolean(sc));
 
 export default function Home() {
   const insets = useSafeAreaInsets();
@@ -155,6 +148,7 @@ export default function Home() {
         >
           {!briefing && !loading ? (
             <>
+              <HomeAccountRail />
               <SetupProgressBar testID="home-setup-progress" />
               <AliveEmpty
                 title={t('alive.home.title')}
@@ -175,6 +169,7 @@ export default function Home() {
             </>
           ) : (
             <>
+              <HomeAccountRail />
               <SetupProgressBar testID="home-setup-progress-live" />
               <HomeCommandCenter
                 briefing={briefing}
@@ -182,15 +177,6 @@ export default function Home() {
               />
             </>
           )}
-
-          <View style={styles.quickAccess}>
-            <HomeShortcuts
-              items={QUICK_ACCESS}
-              compact
-              delay={260}
-              testID="home-quick-access"
-            />
-          </View>
 
           <Animated.View entering={FadeIn.duration(700).delay(900)} style={styles.footer}>
             <View style={styles.footerLine} />
@@ -214,9 +200,6 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: spacing.lg,
-  },
-  quickAccess: {
-    marginTop: spacing.xl,
   },
   footer: {
     marginTop: spacing['2xl'],

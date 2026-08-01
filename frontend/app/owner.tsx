@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { ScreenScaffold } from '@/src/components/ScreenScaffold';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
+import { AddPropertyDropdown } from '@/src/components/AddPropertyDropdown';
 import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { JourneyGuide } from '@/src/components/JourneyGuide';
 import { useOperational } from '@/src/hooks/useOperational';
@@ -27,8 +28,7 @@ type HubLink = {
 
 /**
  * Daily operations — Spec §3 / §5.5.
- * Figma UX reorg: promote Reports into this grid (still available under More).
- * Payments icon stays emerald (brand identity — not red).
+ * Agent links live on Home account rail; technicians live under Maintenance.
  */
 const LINKS: HubLink[] = [
   { key: 'properties', icon: 'home', labelKey: 'op.owner.properties', hintKey: 'op.owner.properties.hint', route: '/operational/base', tone: 'gold' },
@@ -42,7 +42,6 @@ const LINKS: HubLink[] = [
   { key: 'electricity', icon: 'zap', labelKey: 'op.owner.electricity', hintKey: 'op.owner.electricity.hint', route: '/sensors?utility=electricity', tone: 'gold' },
   { key: 'water', icon: 'droplet', labelKey: 'op.owner.water', hintKey: 'op.owner.water.hint', route: '/sensors?utility=water', tone: 'emerald' },
   { key: 'wallet', icon: 'credit-card', labelKey: 'op.owner.wallet', hintKey: 'op.owner.wallet.hint', route: '/wallet', tone: 'gold' },
-  { key: 'portals', icon: 'link', labelKey: 'opsv2.portals.title', hintKey: 'opsv2.portals.sub', route: '/operational/portals', tone: 'emerald' },
 ];
 
 function fmtEvent(t: (k: any) => string, key: string, params?: Record<string, string>) {
@@ -57,6 +56,7 @@ export default function Owner() {
   const { countEnabled } = useNotificationPrefs();
   const { state, nextPhase, isFullyReady } = usePropertyOS(countEnabled);
   const { recentEvents } = useOperational();
+  const [propMenuKey, setPropMenuKey] = useState(0);
 
   const payments = state.payments?.length ?? 0;
 
@@ -79,33 +79,9 @@ export default function Owner() {
         testID="owner-journey-guide"
       />
 
-      {!state.property ? (
-        <Animated.View entering={FadeInDown.duration(500)}>
-          <GlassCard padding={22} radiusToken="lg" edge="gold" testID="owner-property-data-entry">
-            <Text style={[styles.propName, isRTL && styles.rtl]}>
-              {isRTL ? 'إدخال البيانات العقارية' : 'Enter property data'}
-            </Text>
-            <Text style={[styles.propCity, isRTL && styles.rtl]}>
-              {isRTL
-                ? 'زر واحد فقط لإدخال بيانات العقار والوحدات والمستأجرين — ثم تُفتح أدوات التشغيل اليومي.'
-                : 'One button to enter property, units, and tenants — then daily ops tools unlock.'}
-            </Text>
-            <Pressable
-              testID="owner-enter-property-data"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                router.push('/setup/property-os?phase=property' as any);
-              }}
-              style={styles.dataEntryBtn}
-            >
-              <Feather name="home" size={16} color={colors.bg} />
-              <Text style={styles.dataEntryBtnText}>
-                {isRTL ? 'إدخال البيانات العقارية' : 'Enter property data'}
-              </Text>
-            </Pressable>
-          </GlassCard>
-        </Animated.View>
-      ) : (
+      <AddPropertyDropdown key={propMenuKey} defaultOpen={!state.property || propMenuKey > 0} testID="owner-add-property" />
+
+      {state.property ? (
         <>
           <Animated.View entering={FadeInDown.duration(500)}>
             <Pressable
@@ -142,19 +118,6 @@ export default function Owner() {
             </Pressable>
           </Animated.View>
 
-          <Pressable
-            testID="owner-edit-property-data"
-            onPress={() => {
-              Haptics.selectionAsync();
-              router.push('/setup/property-os?phase=property' as any);
-            }}
-            style={styles.dataEntryLink}
-          >
-            <Text style={[styles.dataEntryLinkText, isRTL && styles.rtl]}>
-              {isRTL ? 'تعديل البيانات العقارية ←' : 'Edit property data →'}
-            </Text>
-          </Pressable>
-
           <View style={styles.grid}>
             {LINKS.map((link, i) => {
               const urgent = ownerOpsUrgentCount(link.key, state);
@@ -164,6 +127,10 @@ export default function Owner() {
                     testID={`owner-${link.key}`}
                     onPress={() => {
                       Haptics.selectionAsync();
+                      if (link.key === 'properties') {
+                        setPropMenuKey((k) => k + 1);
+                        return;
+                      }
                       router.push(resolveOwnerOpsRoute(link.key, state, link.route) as any);
                     }}
                     style={({ pressed }) => [pressed && { opacity: 0.88 }]}
@@ -190,15 +157,6 @@ export default function Owner() {
             })}
           </View>
         </>
-      )}
-
-      {state.technicianPortalToken ? (
-        <Pressable
-          onPress={() => router.push(`/portal/tech?t=${state.technicianPortalToken}` as any)}
-          style={styles.techLink}
-        >
-          <Text style={styles.techLinkText}>{t('ops.technician')} →</Text>
-        </Pressable>
       ) : null}
 
       {recentEvents.length ? (
@@ -219,20 +177,6 @@ const styles = StyleSheet.create({
   propName: { color: colors.text, fontSize: typography.cardTitle, fontWeight: typography.weight.semibold },
   propCity: { color: colors.textMuted, fontSize: typography.small, marginTop: 4, lineHeight: 20 },
   opsHint: { color: colors.gold, fontSize: 11, marginTop: spacing.sm },
-  dataEntryBtn: {
-    marginTop: spacing.lg,
-    backgroundColor: colors.emerald,
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  dataEntryBtnText: { color: colors.bg, fontSize: 15, fontWeight: typography.weight.semibold },
-  dataEntryLink: { marginTop: spacing.md, paddingVertical: 6 },
-  dataEntryLinkText: { color: colors.gold, fontSize: 13, fontWeight: typography.weight.semibold },
   rtl: { writingDirection: 'rtl', textAlign: 'right' },
   rowRtl: { flexDirection: 'row-reverse' },
   kpiRow: { flexDirection: 'row', marginTop: spacing.lg, gap: 8 },
@@ -251,8 +195,6 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: colors.bg, fontSize: 10, fontWeight: typography.weight.semibold },
   tileHint: { color: colors.textMuted, fontSize: 11, lineHeight: 16, flexShrink: 1 },
-  techLink: { marginTop: spacing.md, paddingVertical: 8 },
-  techLinkText: { color: colors.emerald, fontSize: typography.small },
   events: { marginTop: spacing.xl },
   eventsTitle: {
     color: colors.textMuted, fontSize: 11, letterSpacing: 0.8,

@@ -14,6 +14,7 @@ import { KpiStrip } from '@/src/components/KpiStrip';
 import { GlassCard } from '@/src/components/GlassCard';
 import { GuidedSetup } from '@/src/components/GuidedSetup';
 import { SetupProgressBar } from '@/src/components/SetupProgressBar';
+import { AddPropertyDropdown } from '@/src/components/AddPropertyDropdown';
 import { api, type PropertyT } from '@/src/api/client';
 import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
@@ -65,6 +66,8 @@ export default function Portfolio() {
       <SetupProgressBar testID="portfolio-setup-progress" />
 
       <GuidedSetup flowId="property" defaultOpen={!hasLocal && !hasApi} testID="portfolio-guided" />
+
+      <AddPropertyDropdown defaultOpen={!hasLocal} testID="portfolio-add-property" />
 
       {loading ? (
         <ScreenLoading message={t('home.loading')} testID="portfolio-loading" />

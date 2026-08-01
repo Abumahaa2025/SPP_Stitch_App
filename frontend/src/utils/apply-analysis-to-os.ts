@@ -27,6 +27,7 @@ import type {
 import { buildTenantPortal, buildWhatsAppWelcome } from '@/src/hooks/usePropertyOS';
 import { storage } from '@/src/utils/storage';
 import { syncCanonicalFromPropertyOS } from '@/src/utils/canonical-tenant-store';
+import { takePendingPropertyName } from '@/src/utils/pending-property-name';
 
 const OS_KEY = 'spp.propertyOS';
 const REPORTS_KEY = 'spp.importedReports';
@@ -232,6 +233,8 @@ export function buildIncomingRecords(
   lang: 'ar' | 'en',
   /** Reuse existing property id on merge so units/tenants/contracts stay stable across Applies. */
   existingPropertyId?: string | null,
+  /** Owner-chosen property name (from «إضافة عقار» dropdown). */
+  propertyNameOverride?: string | null,
 ): IncomingRecords {
   const m = analysis.metrics;
   const brief = analysis.executive_brief;
@@ -244,7 +247,8 @@ export function buildIncomingRecords(
 
   const property: PropertyRecord = {
     id: propId,
-    name: lang === 'ar' ? 'العقار المستورد' : 'Imported property',
+    name: (propertyNameOverride || '').trim()
+      || (lang === 'ar' ? 'العقار المستورد' : 'Imported property'),
     type: 'mixed',
     city: '—',
     district: period || '—',
@@ -530,7 +534,11 @@ export async function persistApplyFromAnalysis(
     prevState = null;
   }
 
-  const incoming = buildIncomingRecords(analysis, lang, prevState?.property?.id);
+  const pendingName = await takePendingPropertyName();
+  const nameOverride = prevState?.property?.name?.trim()
+    || pendingName
+    || null;
+  const incoming = buildIncomingRecords(analysis, lang, prevState?.property?.id, nameOverride);
   const report = buildReport(analysis, lang);
   const changeLog: ImportChangeEntry[] = [];
 

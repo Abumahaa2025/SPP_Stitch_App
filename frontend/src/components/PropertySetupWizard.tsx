@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Linking, Platform,
 } from 'react-native';
@@ -34,6 +34,7 @@ import type {
   ContractRecord, GasType, MaintenanceResponsibility, PaymentMethod, PropertyType,
   RentPeriod, ServiceResponsibility, SetupPhaseId, UnitRecord, UnitStatus, UnitType,
 } from '@/src/types/property-os';
+import { peekPendingPropertyName, takePendingPropertyName } from '@/src/utils/pending-property-name';
 
 const PHASES: SetupPhaseId[] = [
   'property', 'units', 'tenants', 'contracts', 'alerts', 'smartEmployee',
@@ -115,6 +116,15 @@ export function PropertySetupWizard() {
   const [district, setDistrict] = useState(state.property?.district ?? '');
   const [buildings, setBuildings] = useState(String(state.property?.buildingCount ?? 1));
   const [unitCount, setUnitCount] = useState(String(state.property?.unitCount ?? 1));
+
+  useEffect(() => {
+    void (async () => {
+      const pending = await peekPendingPropertyName();
+      if (pending && !propName.trim()) setPropName(pending);
+      else if (pending && !state.property?.name) setPropName(pending);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [unitDraft, setUnitDraft] = useState(emptyUnitDraft);
 
@@ -220,6 +230,7 @@ export function PropertySetupWizard() {
         buildingCount: Math.max(0, Number(buildings) || 0),
         unitCount: Math.max(1, Number(unitCount) || 1),
       });
+      void takePendingPropertyName();
       finishPhase('property');
       return;
     }
