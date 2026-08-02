@@ -43,6 +43,12 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ session_id, text }),
     }),
+  /** Kowil smart employee — has server-side local fallback when LLM key missing. */
+  employeeChat: (session_id: string, text: string, lang: 'ar' | 'en' = 'ar') =>
+    req<{ reply: string; at: string; used_llm?: boolean }>('/ai/employee/chat', {
+      method: 'POST',
+      body: JSON.stringify({ session_id, text, lang }),
+    }),
   chatHistory: (sid: string) => req<ChatMsg[]>(`/chat/${sid}`),
   loadDemo: () => req<{ ok: boolean; mode: string }>('/demo/load', { method: 'POST' }),
   clearDemo: () => req<{ ok: boolean; mode: string }>('/demo/clear', { method: 'POST' }),

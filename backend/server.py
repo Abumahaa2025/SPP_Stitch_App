@@ -1571,19 +1571,32 @@ async def verdicts():
 
 @api_router.post("/chat")
 async def chat(req: ChatRequest):
-    """Non-streaming chat endpoint — Unified Brain."""
+    """Non-streaming chat endpoint — Unified Brain.
+
+    Falls back to a deterministic reply when Emergent key / package is missing
+    so beta clients never get a hard 500 on simple questions.
+    """
     now = _iso(datetime.now(timezone.utc))
     user_msg = {"id": str(uuid.uuid4()), "session_id": req.session_id, "role": "user", "text": req.text, "at": now}
+    reply: str
     try:
         from emergentintegrations.llm.chat import UserMessage  # type: ignore
         if not EMERGENT_LLM_KEY:
-            raise HTTPException(500, "AI key not configured")
+            raise RuntimeError("AI key not configured")
         chat_obj = get_llm_chat(session_id=req.session_id)
         reply = await chat_obj.send_message(UserMessage(text=req.text))
     except HTTPException:
         raise
     except ModuleNotFoundError:
-        reply = "I couldn't reach the Brain just now. Try again in a moment."
+        reply = (
+            "كويل جاهز محلياً. اسأل عن ملخص العقار أو المتأخرات من التطبيق — "
+            "محرك الردود على الجهاز يعمل بدون مفتاح سحابي."
+        )
+    except RuntimeError:
+        reply = (
+            "كويل يعمل بالوضع المحلي (لا يوجد مفتاح LLM سحابي). "
+            "من شاشة المساعد اسأل: ملخص العقار، كم مستأجر، من المتأخر؟"
+        )
     except Exception as e:
         msg = str(e).lower()
         if "budget" in msg or "quota" in msg:
@@ -1593,7 +1606,9 @@ async def chat(req: ChatRequest):
                 "and I'll be right back."
             )
         else:
-            reply = "I couldn't reach the Brain just now. Try again in a moment."
+            reply = (
+                "تعذر الوصول للدماغ السحابي الآن. استخدم ملخص العقار المحلي من شاشة المساعد."
+            )
     msg = {"id": str(uuid.uuid4()), "session_id": req.session_id, "role": "assistant", "text": reply, "at": now}
     if _use_memory_store():
         bucket = _memory_db.setdefault("chat_messages", [])

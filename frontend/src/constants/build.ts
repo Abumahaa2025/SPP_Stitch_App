@@ -1,2 +1,2 @@
 /** Visible build stamp — must match the APK the user installed. */
-export const UX_BUILD_STAMP = 'beta-1.0.35-PORTAL-HTTPS';
+export const UX_BUILD_STAMP = 'beta-1.0.36-KOWIL-LOCAL';

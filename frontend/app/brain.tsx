@@ -26,12 +26,14 @@ import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import {
   continueDailyOps, dailyOpsSuggestions, parseDailyOps, type OpsPending,
 } from '@/src/utils/daily-ops-engine';
+import { answerKowilLocal } from '@/src/utils/kowil-local-brain';
 import type { TenantRecord } from '@/src/types/property-os';
 
 const SESSION_ID = 'owner_1';
 
 export default function Brain() {
   const { t, lang } = useI18n();
+  const ar = lang === 'ar';
   const insets = useSafeAreaInsets();
   const keyboardInset = useKeyboardInset();
   const wsPad = useWorkspacePadding();
@@ -50,6 +52,7 @@ export default function Brain() {
   osRef.current = osState;
 
   const dailyMode = Boolean(osState.property && (osState.setupCompleted || osState.units.length > 0));
+  const chatLang: 'ar' | 'en' = ar ? 'ar' : 'en';
 
   useEffect(() => {
     api.chatHistory(SESSION_ID).then(setMessages).catch(() => {});
@@ -94,13 +97,13 @@ export default function Brain() {
     };
 
     if (pendingOps.current) {
-      const result = continueDailyOps(body, pendingOps.current, osRef.current, lang, mutations);
+      const result = continueDailyOps(body, pendingOps.current, osRef.current, chatLang, mutations);
       pendingOps.current = result.pending ?? null;
       pushAssistant(result.text, result.suggestions);
       return true;
     }
 
-    const parsed = parseDailyOps(body, osRef.current, lang, mutations);
+    const parsed = parseDailyOps(body, osRef.current, chatLang, mutations);
     if (!parsed) return false;
     pendingOps.current = parsed.pending ?? null;
     pushAssistant(parsed.text, parsed.suggestions);
@@ -119,22 +122,63 @@ export default function Brain() {
     scrollToEnd();
     setSending(true);
     try {
-      if (dailyMode && tryDailyOps(body)) {
+      // 1) Local ops intents (end contract, payment, tech link, …)
+      if (tryDailyOps(body)) {
         return;
       }
-      const r = await api.chatSend(SESSION_ID, body);
+
+      // 2) Local Kowil brain from Property OS — primary source on-device
+      const local = answerKowilLocal(body, osRef.current, chatLang);
+      const hasLocalOs = Boolean(
+        osRef.current.property
+        || osRef.current.tenants.length
+        || osRef.current.units.length
+        || (osRef.current.paymentLedger || []).length,
+      );
+
+      if (hasLocalOs) {
+        pendingOps.current = null;
+        pushAssistant(local.text, local.suggestions);
+        // Best-effort cloud employee (does not block / override local truth)
+        void api.employeeChat(SESSION_ID, body, chatLang).catch(() => {});
+        return;
+      }
+
+      // 3) No local property yet — try cloud employee, else local guidance
+      try {
+        const r = await api.employeeChat(SESSION_ID, body, chatLang);
+        pendingOps.current = null;
+        const reply = (r.reply || '').trim();
+        if (reply) {
+          pushAssistant(reply);
+          return;
+        }
+      } catch {
+        // fall through
+      }
+
       pendingOps.current = null;
-      pushAssistant(r.reply);
+      pushAssistant(local.text, local.suggestions);
     } catch {
-      pushAssistant(dailyMode ? t('brain.ops.fallback') : t('brain.error'));
+      const local = answerKowilLocal(body, osRef.current, chatLang);
+      pushAssistant(local.text, local.suggestions);
     } finally {
       setSending(false);
     }
   };
 
   const suggestions = dailyMode
-    ? dailyOpsSuggestions(osState, lang)
-    : [t('brain.q1'), t('brain.q2'), t('brain.q3'), t('brain.q4')];
+    ? [
+        ...dailyOpsSuggestions(osState, chatLang).slice(0, 2),
+        chatLang === 'ar' ? 'ملخص العقار' : 'Property summary',
+        chatLang === 'ar' ? 'من المتأخر؟' : 'Who is late?',
+      ]
+    : [
+        chatLang === 'ar' ? 'مرحبا' : 'Hello',
+        chatLang === 'ar' ? 'كيف أبدأ؟' : 'How do I start?',
+        t('brain.q1'),
+        t('brain.q2'),
+      ];
   const isEmpty = messages.length === 0;
   const inputBottom = insets.bottom + CHAT_INPUT_BOTTOM + Math.max(0, keyboardInset - insets.bottom);
 
