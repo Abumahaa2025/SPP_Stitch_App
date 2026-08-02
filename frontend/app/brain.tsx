@@ -14,6 +14,8 @@ import { AmbientBackground } from '@/src/components/AmbientBackground';
 import { GlassCard } from '@/src/components/GlassCard';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { BrandOrb } from '@/src/components/BrandOrb';
+import { SmartEmployeeDesk } from '@/src/components/SmartEmployeeDesk';
+import { PendingApprovalsPanel } from '@/src/components/PendingApprovalsPanel';
 import { api, type ChatMsg } from '@/src/api/client';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
@@ -209,20 +211,27 @@ export default function Brain() {
                   <BrandOrb size={72} />
                 </View>
                 <Animated.Text entering={FadeInDown.duration(700).delay(150)} style={styles.emptyTitle}>
-                  {t('page.q.chat')}
+                  {ar ? 'موظف العقار الذكي' : 'Smart property employee'}
                 </Animated.Text>
                 <Animated.Text entering={FadeInDown.duration(700).delay(250)} style={styles.emptyBody}>
-                  {dailyMode ? t('ops.mode.examples') : t('brain.empty.body')}
+                  {ar
+                    ? 'يتابع · يقترح · ينفّذ · يرسل · يتابع مرة أخرى — ليس أوامر صوتية فقط.'
+                    : 'Monitors · suggests · executes · sends · follows up — not voice commands only.'}
                 </Animated.Text>
                 {dailyMode ? (
                   <Animated.Text entering={FadeInDown.duration(700).delay(320)} style={styles.dailyBadge}>
-                    {t('ops.mode.active')}
+                    {ar ? 'وضع التشغيل اليومي فعّال' : 'Daily operations mode active'}
                   </Animated.Text>
                 ) : null}
               </Animated.View>
 
+              <SmartEmployeeDesk />
+              <PendingApprovalsPanel />
+
               <View style={styles.suggestBlock}>
-                <Text style={styles.suggestLabel}>{t('brain.suggest').toUpperCase()}</Text>
+                <Text style={styles.suggestLabel}>
+                  {(ar ? 'اسأل الموظف' : 'Ask the employee').toUpperCase()}
+                </Text>
                 {suggestions.map((s, i) => (
                   <Animated.View key={s} entering={FadeInDown.duration(500).delay(350 + i * 90)}>
                     <Pressable
@@ -243,11 +252,15 @@ export default function Brain() {
               </View>
             </>
           ) : (
-            <StoryScreenHeader
-              question={t('page.q.chat')}
-              hint={t('brain.sub')}
-              testID="brain-header"
-            />
+            <>
+              <StoryScreenHeader
+                question={ar ? 'موظف العقار الذكي' : 'Smart property employee'}
+                hint={ar ? 'يتابع ويقترح وينفّذ ويرسل' : 'Monitors, suggests, executes, and sends'}
+                testID="brain-header"
+              />
+              <SmartEmployeeDesk />
+              <PendingApprovalsPanel />
+            </>
           )}
 
           {messages.map((m, i) => (
@@ -306,7 +319,7 @@ export default function Brain() {
               testID="chat-input"
               value={text}
               onChangeText={setText}
-              placeholder={t('brain.placeholder')}
+              placeholder={ar ? 'اكتب للموظف…' : 'Message the employee…'}
               placeholderTextColor={colors.textSubtle}
               style={styles.input}
               onSubmitEditing={() => send()}

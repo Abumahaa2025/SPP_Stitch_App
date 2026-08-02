@@ -32,7 +32,7 @@ type Tab = {
 export const SPP_TABS: Tab[] = [
   { key: 'home', path: '/', icon: 'home', tKey: 'nav.os.home' },
   { key: 'operations', path: '/owner', icon: 'layers', tKey: 'nav.os.operations' },
-  { key: 'assistant', path: '/brain', icon: 'mic', tKey: 'nav.os.assistant', center: true },
+  { key: 'assistant', path: '/brain', icon: 'briefcase', tKey: 'nav.os.assistant', center: true },
   { key: 'notifications', path: '/notifications', icon: 'bell', tKey: 'nav.os.notifications' },
   { key: 'more', path: '/hub', icon: 'more-horizontal', tKey: 'nav.os.more' },
 ];
