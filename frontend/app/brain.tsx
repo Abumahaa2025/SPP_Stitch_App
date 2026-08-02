@@ -29,6 +29,7 @@ import {
   continueDailyOps, dailyOpsSuggestions, parseDailyOps, type OpsPending,
 } from '@/src/utils/daily-ops-engine';
 import { answerKowilLocal } from '@/src/utils/kowil-local-brain';
+import { loadSmartEmployee } from '@/src/utils/smart-employee-store';
 import type { TenantRecord } from '@/src/types/property-os';
 
 const SESSION_ID = 'owner_1';
@@ -129,19 +130,21 @@ export default function Brain() {
         return;
       }
 
-      // 2) Local Kowil brain from Property OS — primary source on-device
-      const local = answerKowilLocal(body, osRef.current, chatLang);
+      // 2) Local Kowil brain from Property OS + employee desk — primary on-device
+      const emp = await loadSmartEmployee().catch(() => null);
+      const local = answerKowilLocal(body, osRef.current, chatLang, emp);
       const hasLocalOs = Boolean(
         osRef.current.property
         || osRef.current.tenants.length
         || osRef.current.units.length
-        || (osRef.current.paymentLedger || []).length,
+        || (osRef.current.paymentLedger || []).length
+        || (emp?.tasks || []).length,
       );
 
       if (hasLocalOs) {
         pendingOps.current = null;
         pushAssistant(local.text, local.suggestions);
-        // Best-effort cloud employee (does not block / override local truth)
+        // Best-effort cloud employee only if somehow reachable (never overrides local)
         void api.employeeChat(SESSION_ID, body, chatLang).catch(() => {});
         return;
       }
@@ -162,7 +165,8 @@ export default function Brain() {
       pendingOps.current = null;
       pushAssistant(local.text, local.suggestions);
     } catch {
-      const local = answerKowilLocal(body, osRef.current, chatLang);
+      const emp = await loadSmartEmployee().catch(() => null);
+      const local = answerKowilLocal(body, osRef.current, chatLang, emp);
       pushAssistant(local.text, local.suggestions);
     } finally {
       setSending(false);
@@ -171,9 +175,10 @@ export default function Brain() {
 
   const suggestions = dailyMode
     ? [
-        ...dailyOpsSuggestions(osState, chatLang).slice(0, 2),
-        chatLang === 'ar' ? 'ملخص العقار' : 'Property summary',
+        chatLang === 'ar' ? 'ماذا أفعل اليوم؟' : 'What should I do today?',
+        ...dailyOpsSuggestions(osState, chatLang).slice(0, 1),
         chatLang === 'ar' ? 'من المتأخر؟' : 'Who is late?',
+        chatLang === 'ar' ? 'ملخص العقار' : 'Property summary',
       ]
     : [
         chatLang === 'ar' ? 'مرحبا' : 'Hello',

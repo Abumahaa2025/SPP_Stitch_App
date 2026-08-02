@@ -3,6 +3,7 @@
  * Guarantees every query gets a grounded reply (offline / no API key).
  */
 import type { PropertyOSState } from '@/src/types/property-os';
+import type { SmartEmployeeState } from '@/src/types/smart-employee';
 import { arrearsFromPropertyOS, isArrearsLedgerEntry } from '@/src/utils/ops-truth';
 
 export type KowilLocalReply = {
@@ -24,11 +25,35 @@ function greetings(lang: 'ar' | 'en'): KowilLocalReply {
 function help(lang: 'ar' | 'en'): KowilLocalReply {
   return {
     text: lang === 'ar'
-      ? 'يمكنني:\n• ملخص العقار والإشغال\n• عدد الوحدات والمستأجرين\n• المتأخرات ومن عليه مبلغ\n• فتح بلاغ صيانة / رابط فني\n• تقرير سريع\n\nجرّب: «ملخص العقار» أو «من المتأخر؟»'
-      : 'I can:\n• Property & occupancy summary\n• Units and tenant counts\n• Arrears and who owes\n• Open maintenance / tech link\n• Quick report\n\nTry: “property summary” or “who is late?”',
+      ? 'يمكنني:\n• مهام اليوم وتنفيذها من مكتب الموظف\n• ملخص العقار والإشغال\n• المتأخرات ومن عليه مبلغ\n• العقود المنتهية/القريبة\n• صيانة وتقرير سريع\n\nجرّب: «ماذا أفعل اليوم؟» أو «من المتأخر؟»'
+      : 'I can:\n• Today’s work from the employee desk\n• Property & occupancy summary\n• Arrears and who owes\n• Expired / renewing contracts\n• Maintenance and quick report\n\nTry: “what should I do today?” or “who is late?”',
     suggestions: lang === 'ar'
-      ? ['ملخص العقار', 'من المتأخر؟', 'كم وحدة؟']
-      : ['Property summary', 'Who is late?', 'How many units?'],
+      ? ['ماذا أفعل اليوم؟', 'من المتأخر؟', 'ملخص العقار']
+      : ['What should I do today?', 'Who is late?', 'Property summary'],
+  };
+}
+
+function todayWork(emp: SmartEmployeeState | undefined, lang: 'ar' | 'en'): KowilLocalReply {
+  const active = (emp?.tasks || []).filter((t) =>
+    t.status === 'suggested' || t.status === 'in_progress' || t.status === 'waiting_followup');
+  if (!active.length) {
+    return {
+      text: lang === 'ar'
+        ? (emp?.lastThoughtAr
+          || 'لا مهام عاجلة الآن. افتح مكتب الموظف الذكي وأعد التحليل بعد تحديث البيانات.')
+        : (emp?.lastThoughtEn
+          || 'No urgent tasks. Open the smart employee desk and re-analyze after updating data.'),
+      suggestions: lang === 'ar' ? ['ملخص العقار', 'من المتأخر؟'] : ['Property summary', 'Who is late?'],
+    };
+  }
+  const lines = active.slice(0, 6).map((t, i) => (lang === 'ar'
+    ? `${i + 1}. ${t.titleAr} — ${t.reasonAr}`
+    : `${i + 1}. ${t.titleEn} — ${t.reasonEn}`));
+  return {
+    text: lang === 'ar'
+      ? `خطة العمل الآن (${active.length}):\n${lines.join('\n')}\n\nنفّذ من تبويب «الموظف الذكي» (تشغيل / لاحقاً / تجاهل).`
+      : `Work plan now (${active.length}):\n${lines.join('\n')}\n\nExecute from the Smart Employee tab (Run / Later / Skip).`,
+    suggestions: lang === 'ar' ? ['من المتأخر؟', 'ملخص العقار'] : ['Who is late?', 'Property summary'],
   };
 }
 
@@ -134,6 +159,7 @@ export function answerKowilLocal(
   text: string,
   state: PropertyOSState,
   lang: 'ar' | 'en',
+  employee?: SmartEmployeeState | null,
 ): KowilLocalReply {
   const q = String(text || '').trim();
   if (!q) return help(lang);
@@ -143,6 +169,9 @@ export function answerKowilLocal(
   }
   if (/مساعد|كيف.*(استخدم|أبدأ|ابدأ)|help|what can you|ماذا تستطيع/i.test(q)) {
     return help(lang);
+  }
+  if (/ماذا أفعل|مهام اليوم|خطة العمل|what should i do|today.?work|my tasks|مهام الموظف|موظف ذكي/i.test(q)) {
+    return todayWork(employee || undefined, lang);
   }
   if (!state.property && state.units.length === 0 && state.tenants.length === 0) {
     if (/ابدأ|بدء|start|كيف/i.test(q)) return emptyProperty(lang);

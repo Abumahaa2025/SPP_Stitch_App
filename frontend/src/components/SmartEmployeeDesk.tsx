@@ -16,9 +16,14 @@ import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import {
   thinkSmartEmployee, completeTask, dismissTask, snoozeTask,
 } from '@/src/utils/smart-employee-agent';
+import {
+  enrichSmartEmployeeState,
+  isExternalEmployeeEnrichAvailable,
+} from '@/src/utils/smart-employee-enrich';
 import { loadSmartEmployee, saveSmartEmployee } from '@/src/utils/smart-employee-store';
 import { pushLocalNotification } from '@/src/utils/local-notifications';
 import type { EmployeeTask, SmartEmployeeState } from '@/src/types/smart-employee';
+import { arrearsFromPropertyOS } from '@/src/utils/ops-truth';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -44,7 +49,14 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
     if (raw) {
       try { osLive = JSON.parse(raw); } catch { /* ignore */ }
     }
-    const thought = thinkSmartEmployee({ os: osLive, openTickets, previous: prev });
+    let thought = thinkSmartEmployee({ os: osLive, openTickets, previous: prev });
+    const truth = arrearsFromPropertyOS(osLive);
+    thought = await enrichSmartEmployeeState(thought, {
+      propertyName: osLive.property?.name,
+      lateTenantCount: truth.lateTenantCount,
+      vacantCount: osLive.units.filter((u) => u.status === 'vacant').length,
+      openMaintCount: openTickets.length,
+    });
     await saveSmartEmployee(thought);
     setEmp(thought);
   }, [openTickets, reload]);
@@ -140,6 +152,15 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
         <Text style={[styles.thoughtBody, ar && styles.rtl]}>
           {ar ? (emp.lastThoughtAr || 'جاري التفكير…') : (emp.lastThoughtEn || 'Thinking…')}
         </Text>
+        <Text style={[styles.modeLine, ar && styles.rtl]}>
+          {ar
+            ? (isExternalEmployeeEnrichAvailable()
+              ? 'الوضع: محلي + إثراء خارجي جاهز'
+              : 'الوضع: موظف محلي قوي (بدون مفتاح خارجي)')
+            : (isExternalEmployeeEnrichAvailable()
+              ? 'Mode: local + external enrich ready'
+              : 'Mode: strong local employee (no external key)')}
+        </Text>
         <Pressable onPress={() => void refresh()} style={[styles.refresh, ar && styles.rowRtl]}>
           <Feather name="refresh-cw" size={12} color={colors.emerald} />
           <Text style={styles.refreshText}>{ar ? 'أعد التحليل الآن' : 'Re-analyze now'}</Text>
@@ -173,6 +194,14 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
             {task.status === 'waiting_followup' ? (
               <Text style={[styles.follow, ar && styles.rtl]}>
                 {ar ? '⏳ بانتظار المتابعة' : '⏳ Waiting follow-up'}
+                {task.followUpAt
+                  ? ` · ${new Date(task.followUpAt).toLocaleString(ar ? 'ar-SA' : undefined)}`
+                  : ''}
+              </Text>
+            ) : null}
+            {(task.attemptCount || 0) > 0 ? (
+              <Text style={[styles.attempt, ar && styles.rtl]}>
+                {ar ? `محاولات: ${task.attemptCount}` : `Attempts: ${task.attemptCount}`}
               </Text>
             ) : null}
             <View style={[styles.actions, ar && styles.rowRtl]}>
@@ -222,6 +251,7 @@ const styles = StyleSheet.create({
   thoughtHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   thoughtTitle: { color: colors.gold, fontSize: 15, fontWeight: typography.weight.semibold, flex: 1 },
   thoughtBody: { color: colors.text, fontSize: 14, lineHeight: 22 },
+  modeLine: { color: colors.textMuted, fontSize: 11, marginTop: 8 },
   refresh: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12 },
   refreshText: { color: colors.emerald, fontSize: 12, fontWeight: typography.weight.semibold },
   section: {
@@ -236,6 +266,7 @@ const styles = StyleSheet.create({
   cardTitle: { color: colors.text, fontSize: 14, fontWeight: typography.weight.semibold, flex: 1 },
   cardReason: { color: colors.textDim, fontSize: 12, marginTop: 6, lineHeight: 18 },
   follow: { color: colors.gold, fontSize: 11, marginTop: 6 },
+  attempt: { color: colors.textMuted, fontSize: 10, marginTop: 4 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, alignItems: 'center' },
   primary: {
     flexDirection: 'row', alignItems: 'center', gap: 6,

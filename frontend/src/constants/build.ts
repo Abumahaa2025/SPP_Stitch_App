@@ -1,2 +1,2 @@
 /** Visible build stamp — must match the APK the user installed. */
-export const UX_BUILD_STAMP = 'beta-1.0.37-SMART-EMP';
+export const UX_BUILD_STAMP = 'beta-1.0.38-EMP-STRONG';

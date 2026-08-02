@@ -3,11 +3,15 @@
 export type EmployeeTaskKind =
   | 'collect_arrears'
   | 'renew_contract'
+  | 'expired_contract'
   | 'fill_vacancy'
   | 'maintenance_follow'
   | 'send_portal_link'
+  | 'share_portal'
+  | 'data_gap'
   | 'daily_brief'
-  | 'follow_up';
+  | 'follow_up'
+  | 'escalate_collection';
 
 export type EmployeeTaskStatus =
   | 'suggested'
@@ -25,12 +29,26 @@ export type EmployeeTaskAction =
   | 'mark_done'
   | 'snooze';
 
+/** Soft on-device adaptation from owner actions (not ML). */
+export type EmployeePrefs = {
+  dismissCountByKind: Record<string, number>;
+  lastDismissedAtByKind: Record<string, string>;
+  /** Suppress low-urgency kinds until this ISO (per kind). */
+  quietUntilByKind: Record<string, string>;
+  /** Times owner executed WhatsApp successfully. */
+  whatsappWins: number;
+  /** Times owner opened routes instead. */
+  routeWins: number;
+};
+
 export type EmployeeTask = {
   id: string;
   kind: EmployeeTaskKind;
   status: EmployeeTaskStatus;
   /** Priority 1 = highest */
   priority: 1 | 2 | 3;
+  /** Higher = more urgent within same priority */
+  score?: number;
   titleAr: string;
   titleEn: string;
   reasonAr: string;
@@ -54,6 +72,9 @@ export type EmployeeTask = {
   followUpAt?: string;
   followUpNoteAr?: string;
   followUpNoteEn?: string;
+  /** How many times this work item was executed / followed */
+  attemptCount?: number;
+  source?: 'local' | 'enriched';
 };
 
 export type EmployeeActivity = {
@@ -67,7 +88,18 @@ export type EmployeeActivity = {
 export type SmartEmployeeState = {
   tasks: EmployeeTask[];
   activity: EmployeeActivity[];
+  prefs?: EmployeePrefs;
   lastThoughtAt?: string;
   lastThoughtAr?: string;
   lastThoughtEn?: string;
+  /** local | hybrid when external enrich is configured */
+  mode?: 'local' | 'hybrid';
+};
+
+export const EMPTY_EMPLOYEE_PREFS: EmployeePrefs = {
+  dismissCountByKind: {},
+  lastDismissedAtByKind: {},
+  quietUntilByKind: {},
+  whatsappWins: 0,
+  routeWins: 0,
 };
