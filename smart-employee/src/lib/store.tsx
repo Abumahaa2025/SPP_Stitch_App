@@ -8,10 +8,11 @@ import {
   type ReactNode,
 } from "react";
 import { seedState, uid } from "../data/seed";
+import { nextMaintStatus } from "../engines";
+import type { ImportedPropertyRow } from "../engines";
 import type {
   AppState,
   Contract,
-  MaintStatus,
   MaintenanceRequest,
   Property,
   Technician,
@@ -28,6 +29,7 @@ interface StoreApi {
   logout: () => void;
   resetDemo: () => void;
   addProperty: (p: Omit<Property, "id" | "status">) => void;
+  importProperties: (rows: ImportedPropertyRow[]) => void;
   cyclePropertyStatus: (id: string) => void;
   addContract: (c: Omit<Contract, "id" | "no">) => void;
   renewContract: (id: string) => void;
@@ -50,8 +52,6 @@ function loadState(): AppState {
     return seedState();
   }
 }
-
-const STATUS_ORDER: MaintStatus[] = ["جديد", "قيد التنفيذ", "مكتمل"];
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(() => loadState());
@@ -96,6 +96,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           properties: [{ id: uid("p"), status: "شاغرة", ...p }, ...s.properties],
         }));
         pushToast("تمت إضافة العقار بنجاح");
+      },
+      importProperties: (rows) => {
+        setState((s) => ({
+          ...s,
+          properties: [
+            ...rows.map((r) => ({ id: uid("p"), status: "شاغرة" as const, ...r })),
+            ...s.properties,
+          ],
+        }));
+        pushToast(`تم استيراد ${rows.length} عقار`);
       },
       cyclePropertyStatus: (id) => {
         const order: Property["status"][] = ["شاغرة", "مؤجرة", "تحت الصيانة"];
@@ -150,8 +160,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s,
           maintenance: s.maintenance.map((m) => {
             if (m.id !== id) return m;
-            const idx = STATUS_ORDER.indexOf(m.status);
-            const status = STATUS_ORDER[Math.min(idx + 1, STATUS_ORDER.length - 1)];
+            const status = nextMaintStatus(m.status);
             const tech =
               status !== "جديد" && m.tech === "—" && s.technicians[0]
                 ? s.technicians[0].name

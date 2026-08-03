@@ -7,6 +7,7 @@ import {
   Home,
   LogOut,
   Settings2,
+  Sparkles,
   Users,
   Wrench,
   Bell,
@@ -17,6 +18,7 @@ import "./AppShell.css";
 
 const links = [
   { to: "/", label: "الرئيسية", icon: Home, end: true },
+  { to: "/assistant", label: "المساعد", icon: Sparkles },
   { to: "/properties", label: "العقارات", icon: Building2 },
   { to: "/contracts", label: "العقود", icon: ClipboardList },
   { to: "/sensors", label: "الحساسات", icon: Cpu },
@@ -27,8 +29,8 @@ const links = [
 
 const mobileLinks = [
   { to: "/", label: "الرئيسية", icon: Home, end: true },
+  { to: "/assistant", label: "المساعد", icon: Sparkles },
   { to: "/properties", label: "العقارات", icon: Building2 },
-  { to: "/contracts", label: "العقود", icon: ClipboardList },
   { to: "/maintenance", label: "الصيانة", icon: Wrench },
   { to: "/more", label: "المزيد", icon: Ellipsis },
 ];

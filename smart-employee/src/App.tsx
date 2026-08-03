@@ -10,6 +10,7 @@ import { MaintenancePage } from "./pages/MaintenancePage";
 import { TenantsPage } from "./pages/TenantsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { MorePage } from "./pages/MorePage";
+import { AssistantPage } from "./pages/AssistantPage";
 
 function Protected() {
   const { state } = useStore();
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="/tenants" element={<TenantsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/more" element={<MorePage />} />
+        <Route path="/assistant" element={<AssistantPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

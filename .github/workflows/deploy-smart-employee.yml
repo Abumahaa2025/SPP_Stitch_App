@@ -1,0 +1,37 @@
+name: Deploy stitch-saudi-smart
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - "smart-employee/**"
+      - ".github/workflows/deploy-smart-employee.yml"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: smart-employee
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: smart-employee/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: Deploy to Vercel
+        if: ${{ secrets.VERCEL_TOKEN != '' }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: npx --yes vercel pull --yes --environment=production --token=$VERCEL_TOKEN && npx --yes vercel build --prod --token=$VERCEL_TOKEN && npx --yes vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+      - name: Upload static artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-employee-dist
+          path: smart-employee/dist

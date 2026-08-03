@@ -14,6 +14,12 @@ export function MorePage() {
       </div>
 
       <div className="cards-grid">
+        <Link to="/assistant" className="card property-card">
+          <div className="property-top">
+            <h3>المساعد</h3>
+          </div>
+          <p className="muted">قرارات المحرك والتوصيات</p>
+        </Link>
         <Link to="/tenants" className="card property-card">
           <div className="property-top">
             <h3>المستأجرون</h3>
@@ -27,6 +33,12 @@ export function MorePage() {
             <Cpu size={18} />
           </div>
           <p className="muted">القراءات والتنبيهات الميدانية</p>
+        </Link>
+        <Link to="/contracts" className="card property-card">
+          <div className="property-top">
+            <h3>العقود</h3>
+          </div>
+          <p className="muted">التجديد والانتهاء</p>
         </Link>
         <Link to="/settings" className="card property-card">
           <div className="property-top">
