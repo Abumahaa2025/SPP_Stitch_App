@@ -1,22 +1,42 @@
-# الموظف العقاري الذكي — stitch-saudi-smart
+# نشر stitch-saudi-smart (رابط ثابت + تحديث تلقائي للجوال)
 
-## النشر على Vercel (رابط ثابت يتحدث تلقائياً)
+## الهدف
+رابط واحد دائماً → أي تعديل بعد `git push` يصل للجوال فوراً بدون روابط تنزيل جديدة (PWA + Vercel).
 
-1. أنشئ مستودع GitHub باسم: `stitch-saudi-smart`
-2. ارفع محتويات هذا المجلد إلى `main`
-3. ادخل [vercel.com/new](https://vercel.com/new) واربط المستودع
-4. Framework: Vite · Build: `npm run build` · Output: `dist`
-5. بعد الربط: كل `git push` ينشر فوراً على **نفس الرابط**
-6. على الجوال: افتح الرابط → إضافة إلى الشاشة الرئيسية (PWA) — بدون روابط تنزيل جديدة
+## الخطوة 1 — إنشاء مستودع GitHub
+اسم المستودع المطلوب: **`stitch-saudi-smart`**
+
+من جهازك (لأن توكن الوكيل لا يملك إنشاء مستودعات):
+
+1. افتح: https://github.com/new
+2. Repository name: `stitch-saudi-smart`
+3. Public → Create repository
+4. ارفع محتويات مجلد `smart-employee` (أو ملف `stitch-saudi-smart.zip`)
+
+أو بالتوكن الشخصي:
+```bash
+cd smart-employee
+GH_TOKEN=YOUR_PAT ./scripts/publish-github.sh
+```
+
+## الخطوة 2 — ربط Vercel
+1. https://vercel.com/new
+2. Import `stitch-saudi-smart`
+3. Framework: Vite
+4. Build Command: `npm run build`
+5. Output Directory: `dist`
+6. Deploy
+
+النتيجة: رابط ثابت مثل `https://stitch-saudi-smart.vercel.app`
+
+## الخطوة 3 — الجوال بدون تنزيل جديد
+1. افتح رابط Vercel من الجوال
+2. إضافة إلى الشاشة الرئيسية (Add to Home Screen)
+3. التطبيق PWA بتحديث تلقائي — كل نشر جديد يظهر عند الفتح
 
 ## Bubble
+- ضع رابط Vercel داخل Bubble كـ Web/HTML element أو Open External Website
+- لأن الرابط ثابت، أي تحديث على Vercel يظهر داخل Bubble مباشرة
 
-يمكن تضمين رابط Vercel داخل Bubble عبر Web/HTML element أو OpenLink.
-التحديثات تصل للجوال تلقائياً لأن Bubble يفتح نفس الرابط الحي.
-
-## تشغيل محلي
-
-```bash
-npm install
-npm run dev
-```
+## ملاحظة
+تم دفع فرع `gh-pages` على مستودع SPP_Stitch_App الحالي؛ فعّل GitHub Pages يدوياً من Settings → Pages → Branch: gh-pages إن رغبت برابط github.io مؤقت.
