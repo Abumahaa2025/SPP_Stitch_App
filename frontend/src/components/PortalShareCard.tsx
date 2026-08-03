@@ -8,7 +8,7 @@ import { Linking } from 'react-native';
 
 import { GlassCard } from '@/src/components/GlassCard';
 import { inAppTenantRoute } from '@/src/utils/operational-flow-engine';
-import { buildTenantPortalLink } from '@/src/utils/portal-links';
+import { buildTenantPortalLink, upgradeLegacyPortalBridgeUrl } from '@/src/utils/portal-links';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import type { TenantRecord } from '@/src/types/property-os';
@@ -30,9 +30,9 @@ export function PortalShareCard({ tenant, unitNumber, testID = 'portal-share' }:
         unit: unitNumber,
       })
     : null;
-  const shareUrl = live?.url || tenant.portalUrl;
+  const shareUrl = live?.url || upgradeLegacyPortalBridgeUrl(tenant.portalUrl || '');
   const inApp = live?.inApp || inAppTenantRoute(tenant.id, token);
-  const message = (tenant.whatsAppMessage || '').includes('spp.beta') || (tenant.whatsAppMessage || '').includes('spp://')
+  const message = live || /jsdelivr|portal-open\.html|spp\.beta|spp:\/\//i.test(tenant.whatsAppMessage || '')
     ? `مرحبًا ${tenant.name} 👋\n\nرابط بوابة المستأجر:\n${shareUrl}`
     : (tenant.whatsAppMessage || `${t('pos.portal.link')}: ${shareUrl}`);
   const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;

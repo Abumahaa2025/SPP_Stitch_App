@@ -292,9 +292,8 @@ export function PropertyDataWorkbench({ testID = 'property-data-workbench' }: { 
         const prevT = state.tenants.find((t) => t.id === o.tenantId);
         const tenantId = o.tenantId || uid('tenant');
         const token = prevT?.portalToken || uid('tok').slice(-12);
-        const portal = prevT?.portalUrl
-          ? { token, url: prevT.portalUrl, qrData: prevT.qrData || prevT.portalUrl }
-          : buildTenantPortal(tenantId, token, { name: o.tenantName.trim() });
+        // Always rebuild HTTPS bridge so legacy jsDelivr text/plain links are upgraded.
+        const portal = buildTenantPortal(tenantId, token, { name: o.tenantName.trim() });
         tenantRecords.push({
           id: tenantId,
           name: o.tenantName.trim(),

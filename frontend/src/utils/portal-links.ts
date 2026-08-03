@@ -1,15 +1,22 @@
 /**
  * Portal deep links — HTTPS bridge (WhatsApp-clickable) + in-app routes.
  * Custom spp:// alone is often not tappable in WhatsApp/SMS.
+ *
+ * IMPORTANT: Never share jsDelivr/raw GitHub URLs for the HTML bridge.
+ * Those CDNs serve .html as text/plain (nosniff) so WhatsApp/mobile open a
+ * text document instead of a page. Always use the API HTMLResponse bridge.
  */
 import * as ExpoLinking from 'expo-linking';
 
-/** GitHub CDN HTML bridge — works right after push (no Render deploy wait). */
+/** Canonical HTTPS bridge — FastAPI returns text/html. */
+export const PORTAL_BRIDGE_API_URL = 'https://spp-beta-api.onrender.com/portal/open';
+
+/** @deprecated Legacy CDN that serves text/plain — kept only for detection/rewrite. */
 export const PORTAL_BRIDGE_URL =
   'https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html';
 
-/** Same bridge on API host (when backend route is deployed). */
-export const PORTAL_BRIDGE_API_URL = 'https://spp-beta-api.onrender.com/portal/open';
+/** Preferred public bridge URL (alias). */
+export const PORTAL_BRIDGE_PUBLIC_URL = PORTAL_BRIDGE_API_URL;
 
 export type PortalRole = 'tenant' | 'tech' | 'agent';
 
@@ -25,6 +32,41 @@ function qs(params: Record<string, string | undefined>) {
     if (v != null && String(v).trim() !== '') sp.set(k, String(v));
   });
   return sp.toString();
+}
+
+function isLegacyTextBridgeHost(hostname: string, pathname: string) {
+  const host = hostname.toLowerCase();
+  const path = pathname.toLowerCase();
+  return (
+    host.includes('jsdelivr.net') ||
+    host.includes('statically.io') ||
+    host.includes('githubusercontent.com') ||
+    host.includes('githack.com') ||
+    path.endsWith('portal-open.html')
+  );
+}
+
+/**
+ * Rewrite stored/shared bridge URLs that open as plain text onto the API HTML page.
+ * Preserves role/token/query so old WhatsApp drafts can be upgraded before resend.
+ */
+export function upgradeLegacyPortalBridgeUrl(url: string): string {
+  const raw = String(url || '').trim();
+  if (!raw) return raw;
+  try {
+    const u = new URL(raw);
+    const onApi =
+      u.hostname.toLowerCase().includes('onrender.com') &&
+      u.pathname.toLowerCase().includes('/portal/open');
+    if (onApi) return raw;
+    if (isLegacyTextBridgeHost(u.hostname, u.pathname) || u.searchParams.has('t') || u.searchParams.has('role')) {
+      const q = u.searchParams.toString();
+      return q ? `${PORTAL_BRIDGE_API_URL}?${q}` : PORTAL_BRIDGE_API_URL;
+    }
+  } catch {
+    /* ignore */
+  }
+  return raw;
 }
 
 export function inAppTenantPortal(tenantId: string, token: string, meta?: PortalShareMeta) {
@@ -60,10 +102,10 @@ function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: Po
     n: meta?.name,
     u: meta?.unit,
     prop: meta?.property,
-    v: '35',
+    v: '36',
   });
-  // Prefer jsDelivr so links work immediately after git push.
-  return `${PORTAL_BRIDGE_URL}?${q}`;
+  // Always API HTML bridge — never jsDelivr text/plain.
+  return `${PORTAL_BRIDGE_API_URL}?${q}`;
 }
 
 export function buildTenantPortalLink(tenantId: string, token: string, meta?: PortalShareMeta) {
@@ -159,7 +201,12 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
       unit: u.searchParams.get('u') || u.searchParams.get('unit') || undefined,
       property: u.searchParams.get('prop') || undefined,
     };
-    if (t && (u.pathname.includes('portal') || u.hostname.includes('jsdelivr') || u.hostname.includes('onrender'))) {
+    if (
+      t &&
+      (u.pathname.includes('portal') ||
+        isLegacyTextBridgeHost(u.hostname, u.pathname) ||
+        u.hostname.includes('onrender'))
+    ) {
       if (role === 'tech') return inAppTechPortal(t, id || undefined, meta);
       if (role === 'agent' && id) return inAppAgentPortal(id, t, meta);
       if (id) return inAppTenantPortal(id, t, meta);

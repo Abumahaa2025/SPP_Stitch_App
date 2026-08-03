@@ -25,6 +25,7 @@ import type {
   UnitRecord,
 } from '@/src/types/property-os';
 import { buildTenantPortal, buildWhatsAppWelcome } from '@/src/hooks/usePropertyOS';
+import { upgradeLegacyPortalBridgeUrl } from '@/src/utils/portal-links';
 import { storage } from '@/src/utils/storage';
 import { syncCanonicalFromPropertyOS } from '@/src/utils/canonical-tenant-store';
 import { takePendingPropertyName } from '@/src/utils/pending-property-name';
@@ -578,19 +579,20 @@ export async function persistApplyFromAnalysis(
         return {
           ...prev,
           portalToken: prev.portalToken || next.portalToken,
-          portalUrl: prev.portalUrl || next.portalUrl,
-          qrData: prev.qrData || next.qrData,
+          portalUrl: upgradeLegacyPortalBridgeUrl(prev.portalUrl || next.portalUrl || ''),
+          qrData: upgradeLegacyPortalBridgeUrl(prev.qrData || next.qrData || prev.portalUrl || next.portalUrl || ''),
           whatsAppMessage: prev.whatsAppMessage || next.whatsAppMessage,
         };
       }
+      const portalUrl = upgradeLegacyPortalBridgeUrl(prev.portalUrl || next.portalUrl || '');
       return {
         ...next,
         // Never wipe a known phone with an empty re-import value.
         phone: (next.phone || '').trim() || prev.phone,
         portalToken: prev.portalToken || next.portalToken,
-        portalUrl: prev.portalUrl || next.portalUrl,
-        qrData: prev.qrData || next.qrData,
-        whatsAppMessage: buildWhatsAppWelcome(next.name, prev.portalUrl || next.portalUrl, lang),
+        portalUrl,
+        qrData: upgradeLegacyPortalBridgeUrl(prev.qrData || next.qrData || portalUrl),
+        whatsAppMessage: buildWhatsAppWelcome(next.name, portalUrl, lang),
         manualOfficial: false,
       };
     },

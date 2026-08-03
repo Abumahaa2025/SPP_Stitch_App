@@ -9,7 +9,7 @@ Modular AI layer (currently GPT-5.2 via Emergent Universal Key) powering:
 """
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import StreamingResponse, HTMLResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -2248,18 +2248,82 @@ async def ai_respond(req: AIRespondRequest):
 app.include_router(api_router)
 
 
+def _portal_open_html() -> str:
+    """Load portal bridge HTML from backend-local paths (Render rootDir=backend).
+
+    Never fall back to jsDelivr — it serves .html as text/plain + nosniff, so
+    WhatsApp/mobile open a text document instead of a page.
+    """
+    candidates = [
+        ROOT_DIR / "static" / "portal-open.html",
+        ROOT_DIR / "docs" / "portal-open.html",
+        ROOT_DIR.parent / "docs" / "portal-open.html",
+    ]
+    for path in candidates:
+        try:
+            if path.exists():
+                return path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+    # Inline fallback — always valid text/html even if static files are missing.
+    return """<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>SPP — فتح البوابة</title>
+  <style>
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      font-family:Segoe UI,Tahoma,Arial,sans-serif;background:#050A12;color:#F3F4F6;padding:24px}
+    .card{max-width:420px;width:100%;border:1px solid rgba(212,175,55,.35);border-radius:16px;padding:22px;background:rgba(255,255,255,.04)}
+    h1{margin:0 0 8px;font-size:22px}.meta{color:#9CA3AF;font-size:14px;line-height:1.6}
+    a.btn{display:block;text-align:center;text-decoration:none;padding:14px;border-radius:12px;
+      font-weight:700;background:#10B981;color:#04110C;margin-top:16px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 id="title">بوابة SPP</h1>
+    <p class="meta" id="subtitle">اضغط لفتح بوابتك في تطبيق SPP</p>
+    <a class="btn" id="openApp" href="#">فتح في تطبيق SPP</a>
+  </div>
+  <script>
+  (function(){
+    var q=new URLSearchParams(location.search);
+    var role=(q.get('role')||'tenant').toLowerCase();
+    var id=q.get('id')||''; var t=q.get('t')||'';
+    var name=q.get('n')||q.get('name')||'';
+    var path=role==='tech'?('/portal/tech'+(id?('?id='+encodeURIComponent(id)+'&t='+encodeURIComponent(t)):('?t='+encodeURIComponent(t))))
+      :role==='agent'?('/portal/agent?id='+encodeURIComponent(id)+'&t='+encodeURIComponent(t))
+      :('/portal/tenant?id='+encodeURIComponent(id)+'&t='+encodeURIComponent(t));
+    if(name) path+=(path.indexOf('?')>=0?'&':'?')+'n='+encodeURIComponent(name);
+    var deep='spp:/'+path;
+    var intent='intent://'+path.replace(/^\\//,'')+'#Intent;scheme=spp;package=ai.spp.stitch;end';
+    var open=document.getElementById('openApp'); open.href=deep;
+    if(name) document.getElementById('subtitle').textContent='مرحباً، '+name;
+    var isAndroid=/Android/i.test(navigator.userAgent);
+    setTimeout(function(){ location.href=isAndroid?intent:deep; },300);
+  })();
+  </script>
+</body>
+</html>
+"""
+
+
 @app.get("/portal/open", response_class=HTMLResponse)
 async def portal_open_bridge(request: Request):
-    """HTTPS bridge for WhatsApp/SMS portal links — opens spp:// or shows web card."""
-    html_path = ROOT_DIR.parent / "docs" / "portal-open.html"
-    if html_path.exists():
-        return HTMLResponse(html_path.read_text(encoding="utf-8"))
-    # Fallback redirect to GitHub CDN copy with same query string
-    q = request.url.query
-    target = "https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html"
-    if q:
-        target = f"{target}?{q}"
-    return RedirectResponse(target, status_code=302)
+    """HTTPS bridge for WhatsApp/SMS portal links — always text/html page."""
+    html = _portal_open_html()
+    return HTMLResponse(
+        content=html,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline; filename=portal-open.html",
+        },
+    )
 
 
 app.add_middleware(
