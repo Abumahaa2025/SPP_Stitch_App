@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Branch with frontend/ Expo app'
+        description: 'Branch with frontend/ Expo app (repo default is main)'
         required: false
-        default: 'master'
+        default: 'main'
       note:
         description: 'Build note (optional)'
         required: false

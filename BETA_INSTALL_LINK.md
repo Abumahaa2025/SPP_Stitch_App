@@ -16,7 +16,7 @@ https://github.com/Abumahaa2025/SPP_Stitch_App/releases/download/v1.0.38/spp-sti
 
 ## كيف تصل التعديلات تلقائياً؟
 
-1. ادفع إلى `master` (مسارات `frontend/**`) → GitHub Action **EAS OTA Beta** ينشر التحديث.
+1. ادفع إلى `main` (مسارات `frontend/**`) → GitHub Action **EAS OTA Beta** ينشر التحديث.
 2. أو شغّل يدوياً: Actions → **EAS OTA Beta** → Run workflow.
 3. افتح التطبيق على الجوال → يفحص التحديث عند الإقلاع ويطبّقه بصمت.
 

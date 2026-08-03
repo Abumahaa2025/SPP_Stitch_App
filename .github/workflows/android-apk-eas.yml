@@ -1,15 +1,15 @@
 # Beta APK via EAS (same flow as before — needs EAS build quota / Starter plan).
 # Secrets: EXPO_TOKEN (expo.dev → Access Tokens)
-# Expo deploy branch: master
+# Expo deploy branch: main (repo default_branch)
 name: Beta APK — EAS Cloud
 
 on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Git branch (Expo uses master)'
+        description: 'Git branch (repo default is main)'
         required: false
-        default: 'master'
+        default: 'main'
       note:
         description: 'Build note (optional)'
         required: false
