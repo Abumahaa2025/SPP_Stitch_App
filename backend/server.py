@@ -75,6 +75,12 @@ from adapters.koil.action_executor import (
     execute_decision,
     find_decision as find_koil_decision,
 )
+from adapters.integrations import (
+    integration_status,
+    send_whatsapp_message,
+    fetch_ha_sensors,
+    ha_configured,
+)
 
 # In-memory portfolio for beta builds when Mongo is unavailable
 _memory_db: Dict[str, List[dict]] = {}
@@ -1559,6 +1565,45 @@ async def koil_executions(analysis_id: Optional[str] = None, limit: int = 50):
     return {"executions": rows, "count": len(rows)}
 
 
+@api_router.get("/integrations/status")
+async def integrations_status():
+    """Live connection status for Sheets/GAS, Green API, Home Assistant."""
+    return integration_status()
+
+
+@api_router.get("/integrations/sheets/status")
+async def integrations_sheets_status():
+    return integration_status()["services"]["sheets"]
+
+
+@api_router.get("/integrations/whatsapp/status")
+async def integrations_whatsapp_status():
+    return integration_status()["services"]["whatsapp"]
+
+
+class WhatsAppSendRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phone: str
+    message: str
+    dry_run: bool = False
+
+
+@api_router.post("/integrations/whatsapp/send")
+async def integrations_whatsapp_send(req: WhatsAppSendRequest):
+    """Send via Green API when configured; otherwise return wa.me deep link."""
+    result = send_whatsapp_message(req.phone, req.message, dry_run=req.dry_run)
+    status_code = 200 if result.get("ok") or result.get("deep_link") else 422
+    if status_code != 200:
+        raise HTTPException(status_code, result)
+    return result
+
+
+@api_router.get("/integrations/home-assistant/status")
+async def integrations_ha_status():
+    return integration_status()["services"]["home_assistant"]
+
+
 @api_router.get("/tenants")
 async def list_tenants():
     ctx = await _portfolio_live_context()
@@ -1578,6 +1623,11 @@ async def list_timeline():
 
 @api_router.get("/sensors")
 async def list_sensors():
+    """Prefer Home Assistant live states when configured; else mongo/seed."""
+    if ha_configured():
+        ha_rows = fetch_ha_sensors(limit=60)
+        if ha_rows:
+            return ha_rows
     return await _safe_mongo_find("sensors")
 
 

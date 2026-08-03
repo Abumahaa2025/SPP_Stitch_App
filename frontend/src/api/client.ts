@@ -77,6 +77,42 @@ export const api = {
     req<{ executions: KoilExecutionT[]; count: number }>(
       `/koil/executions${analysisId ? `?analysis_id=${encodeURIComponent(analysisId)}&limit=${limit}` : `?limit=${limit}`}`,
     ),
+  integrationsStatus: () => req<IntegrationsStatusResponse>('/integrations/status'),
+  whatsappSend: (phone: string, message: string, dryRun = false) =>
+    req<WhatsAppSendResponse>('/integrations/whatsapp/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone, message, dry_run: dryRun }),
+    }),
+};
+
+export type IntegrationServiceStatus = {
+  id: string;
+  configured: boolean;
+  status: 'active' | 'configured' | 'not_connected' | string;
+  label: string;
+  detail?: string;
+  reachable?: boolean;
+  sensor_count?: number;
+  fallback?: string;
+};
+
+export type IntegrationsStatusResponse = {
+  ok: boolean;
+  services: {
+    sheets: IntegrationServiceStatus;
+    whatsapp: IntegrationServiceStatus;
+    home_assistant: IntegrationServiceStatus;
+  };
+  list: IntegrationServiceStatus[];
+};
+
+export type WhatsAppSendResponse = {
+  ok: boolean;
+  channel: 'green_api' | 'wa_me' | 'none';
+  delivery_status: string;
+  deep_link?: string | null;
+  provider_id?: string;
+  error?: string;
 };
 
 export type KoilExecutionT = {

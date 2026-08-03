@@ -11,7 +11,7 @@ import { GlassCard } from '@/src/components/GlassCard';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import { useNotificationPrefs, useAccountPrefs } from '@/src/hooks/usePreferences';
-import { api, type OwnerT } from '@/src/api/client';
+import { api, type OwnerT, type IntegrationsStatusResponse } from '@/src/api/client';
 import { storage } from '@/src/utils/storage';
 
 export default function Profile() {
@@ -21,10 +21,12 @@ export default function Profile() {
   const { prefs } = useAccountPrefs();
   const [owner, setOwner] = useState<OwnerT | null>(null);
   const [storedName, setStoredName] = useState('');
+  const [integ, setInteg] = useState<IntegrationsStatusResponse | null>(null);
 
   useEffect(() => {
     api.owner().then(setOwner).catch(() => {});
     storage.getItem<string>('spp.ownerName', '').then((v) => setStoredName(v ?? ''));
+    api.integrationsStatus().then(setInteg).catch(() => setInteg(null));
   }, []);
 
   const displayName = owner?.name?.trim() || storedName.trim() || t('profile.emptyName');
@@ -34,6 +36,12 @@ export default function Profile() {
   const notImpl = (label: string) => {
     Haptics.selectionAsync();
     Alert.alert(label, t('common.phase4'), [{ text: t('common.done') }]);
+  };
+
+  const serviceStatus = (key: 'sheets' | 'whatsapp' | 'home_assistant'): 'phase4' | 'active' => {
+    const row = integ?.services?.[key];
+    if (row?.status === 'active' || row?.status === 'configured') return 'active';
+    return 'phase4';
   };
 
   const dir = isRTL ? 'rtl' : 'ltr';
@@ -136,13 +144,37 @@ export default function Profile() {
         <FieldRow icon="eye-off" label={t('profile.field.privacy')} value="Manage" onPress={() => router.push('/privacy')} testID="f-privacy" dir={dir} />
       </SectionCard>
 
-      {/* Connected services */}
+      {/* Connected services — status from GET /api/integrations/status */}
       <SectionCard delay={380} title={t('profile.section.services')}>
-        <ServiceRow icon="database" label={t('settings.services.sheets')} status="phase4" dir={dir} t={t} onPress={() => notImpl(t('settings.services.sheets'))} testID="p-sheets" />
+        <ServiceRow
+          icon="database"
+          label={t('settings.services.sheets')}
+          status={serviceStatus('sheets')}
+          dir={dir}
+          t={t}
+          onPress={() => { Haptics.selectionAsync(); router.push('/setup/sheets' as any); }}
+          testID="p-sheets"
+        />
         <Divider />
-        <ServiceRow icon="home" label={t('settings.services.homeAssistant')} status="phase4" dir={dir} t={t} onPress={() => notImpl(t('settings.services.homeAssistant'))} testID="p-ha" />
+        <ServiceRow
+          icon="home"
+          label={t('settings.services.homeAssistant')}
+          status={serviceStatus('home_assistant')}
+          dir={dir}
+          t={t}
+          onPress={() => { Haptics.selectionAsync(); router.push('/setup/homeAssistant' as any); }}
+          testID="p-ha"
+        />
         <Divider />
-        <ServiceRow icon="message-circle" label={t('settings.services.whatsapp')} status="phase4" dir={dir} t={t} onPress={() => notImpl(t('settings.services.whatsapp'))} testID="p-wa" />
+        <ServiceRow
+          icon="message-circle"
+          label={t('settings.services.whatsapp')}
+          status={serviceStatus('whatsapp')}
+          dir={dir}
+          t={t}
+          onPress={() => { Haptics.selectionAsync(); router.push('/setup/greenApi' as any); }}
+          testID="p-wa"
+        />
         <Divider />
         <ServiceRow icon="cpu" label={t('settings.services.openai')} status="active" dir={dir} t={t} onPress={() => Haptics.selectionAsync()} testID="p-oai" />
       </SectionCard>

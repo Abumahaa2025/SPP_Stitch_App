@@ -548,12 +548,18 @@ def build_local_apply_commit(analysis_id: str) -> Dict[str, Any]:
         for t in tenants_pk
         if (t.get("unit") or t.get("phone"))
     }
+    contract_by_unit = {
+        str(t.get("unit") or "").strip(): (t.get("contract") or "").strip()
+        for t in tenants_pk
+        if (t.get("unit") or t.get("contract"))
+    }
     rows = active or [
         {
             "tenant": t.get("tenant") or t.get("name"),
             "unit": t.get("unit"),
             "phone": t.get("phone"),
             "rent": t.get("rent"),
+            "contract": t.get("contract"),
         }
         for t in tenants_pk
     ]
@@ -582,6 +588,7 @@ def build_local_apply_commit(analysis_id: str) -> Dict[str, Any]:
         tid = f"ten_imp_{i + 1}"
         unit = str(row.get("unit") or i + 1)
         phone = (row.get("phone") or "").strip() or phone_by_unit.get(unit, "")
+        contract_no = (row.get("contract") or "").strip() or contract_by_unit.get(unit, "")
         tenants.append(
             {
                 "id": tid,
@@ -596,19 +603,20 @@ def build_local_apply_commit(analysis_id: str) -> Dict[str, Any]:
             }
         )
         property_row["tenant_ids"].append(tid)
-        if i < 10:
-            contracts.append(
-                {
-                    "id": f"ct_imp_{i + 1}",
-                    "tenant_id": tid,
-                    "property_id": prop_id,
-                    "start": "",
-                    "end": "",
-                    "monthly_rent": float(row.get("rent") or 0),
-                    "status": "active",
-                    "source": "lifecycle_active",
-                }
-            )
+        contracts.append(
+            {
+                "id": f"ct_imp_{i + 1}",
+                "tenant_id": tid,
+                "property_id": prop_id,
+                "start": "",
+                "end": "",
+                "monthly_rent": float(row.get("rent") or 0),
+                "status": "active",
+                "number": contract_no,
+                "contract": contract_no,
+                "source": "lifecycle_active",
+            }
+        )
     report = {
         "id": analysis_id,
         "kind": "monthly",
