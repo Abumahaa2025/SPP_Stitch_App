@@ -10,14 +10,14 @@ name: EAS OTA Beta
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
     paths:
       - 'frontend/**'
       - '.github/workflows/eas-ota-beta.yml'
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Git branch to publish from'
+        description: 'Git branch to publish from (Expo uses master)'
         required: false
         default: 'master'
       message:

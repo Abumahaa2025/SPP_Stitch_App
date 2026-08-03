@@ -4,7 +4,7 @@ name: Portal Pages
 
 on:
   push:
-    branches: [main, master]
+    branches: [master]
     paths:
       - 'docs/portal-open.html'
       - '.github/workflows/portal-pages.yml'

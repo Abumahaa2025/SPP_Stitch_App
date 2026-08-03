@@ -5,7 +5,7 @@
 ## المسار
 
 ```
-تعديل في frontend/**  →  push إلى main/master
+تعديل في frontend/**  →  push إلى master
         ↓
 GitHub Action: EAS OTA Beta
         ↓
@@ -22,7 +22,7 @@ GitHub Action: EAS OTA Beta
 - `frontend/src/utils/ota-updates.ts` — فحص/تحميل/إعادة تشغيل
 - `frontend/app/_layout.tsx` — استدعاء صامت عند الإقلاع
 - `frontend/eas.json` — قناة `beta` لملف `preview`
-- `.github/workflows/eas-ota-beta.yml` — نشر تلقائي
+- `.github/workflows/eas-ota-beta.yml` — نشر تلقائي من فرع **master**
 
 ## متى تحتاج APK جديد؟
 
