@@ -56,7 +56,7 @@ export function AddPropertyDropdown({ testID = 'add-property-dropdown', defaultO
     const n = await ensureNamedShell();
     if (!n) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/setup/property-os?phase=property' as any);
+    router.push('/setup/property-os' as any);
   };
 
   const goImport = async () => {
