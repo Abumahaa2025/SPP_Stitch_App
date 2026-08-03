@@ -1,22 +1,36 @@
 /**
  * Portal deep links — HTTPS bridge (WhatsApp-clickable) + in-app routes.
- * Custom spp:// alone is often not tappable in WhatsApp/SMS.
  *
- * IMPORTANT: Never share jsDelivr/raw GitHub URLs for the HTML bridge.
- * Those CDNs serve .html as text/plain (nosniff) so WhatsApp/mobile open a
- * text document instead of a page. Always use the API HTMLResponse bridge.
+ * Shared links MUST open a real HTML page (never API JSON 404 braces,
+ * never jsDelivr text/plain source). Strategy:
+ *   1) htmlpreview + raw GitHub HTML (works immediately, text/html shell)
+ *   2) GitHub Pages / API when those hosts are enabled later
  */
 import * as ExpoLinking from 'expo-linking';
 
-/** Canonical HTTPS bridge — FastAPI returns text/html. */
+/** Preferred HTML portal once GitHub Pages is enabled. */
+export const PORTAL_BRIDGE_PAGES_URL =
+  'https://abumahaa2025.github.io/SPP_Stitch_App/portal-open.html';
+
+/** FastAPI HTML bridge (after Render deploy). */
 export const PORTAL_BRIDGE_API_URL = 'https://spp-beta-api.onrender.com/portal/open';
 
-/** @deprecated Legacy CDN that serves text/plain — kept only for detection/rewrite. */
+/** Raw HTML on GitHub (source for htmlpreview). Keep in sync with docs/portal-open.html. */
+export const PORTAL_HTML_RAW_URL =
+  'https://raw.githubusercontent.com/Abumahaa2025/SPP_Stitch_App/cursor/cloud-agent-1785716502289-m3epx/docs/portal-open.html';
+
+/**
+ * Immediate WhatsApp-safe bridge: htmlpreview serves text/html and injects our portal.
+ * Portal params go in the hash so they survive htmlpreview's ?source URL.
+ */
+export const PORTAL_BRIDGE_PREVIEW_BASE = 'https://htmlpreview.github.io/?';
+
+/** @deprecated Legacy CDN that serves text/plain — detection/rewrite only. */
 export const PORTAL_BRIDGE_URL =
   'https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html';
 
-/** Preferred public bridge URL (alias). */
-export const PORTAL_BRIDGE_PUBLIC_URL = PORTAL_BRIDGE_API_URL;
+/** Active public bridge helper. */
+export const PORTAL_BRIDGE_PUBLIC_URL = PORTAL_BRIDGE_PAGES_URL;
 
 export type PortalRole = 'tenant' | 'tech' | 'agent';
 
@@ -24,6 +38,8 @@ export type PortalShareMeta = {
   name?: string;
   unit?: string;
   property?: string;
+  techName?: string;
+  techPhone?: string;
 };
 
 function qs(params: Record<string, string | undefined>) {
@@ -46,22 +62,40 @@ function isLegacyTextBridgeHost(hostname: string, pathname: string) {
   );
 }
 
+function isPortalBridgeHost(hostname: string, pathname: string) {
+  const host = hostname.toLowerCase();
+  return (
+    isLegacyTextBridgeHost(hostname, pathname) ||
+    host.includes('onrender.com') ||
+    host.includes('github.io') ||
+    host.includes('htmlpreview.github.io')
+  );
+}
+
+function buildPreviewBridgeUrl(query: string) {
+  // Hash carries portal params; search carries the raw HTML source for htmlpreview.
+  return `${PORTAL_BRIDGE_PREVIEW_BASE}${PORTAL_HTML_RAW_URL}#${query}`;
+}
+
 /**
- * Rewrite stored/shared bridge URLs that open as plain text onto the API HTML page.
- * Preserves role/token/query so old WhatsApp drafts can be upgraded before resend.
+ * Rewrite stored/shared bridge URLs that open as plain text / JSON 404
+ * onto a real HTML portal preview. Preserves query/hash token + tech fields.
  */
 export function upgradeLegacyPortalBridgeUrl(url: string): string {
   const raw = String(url || '').trim();
   if (!raw) return raw;
   try {
+    if (raw.includes('htmlpreview.github.io') && raw.includes('portal-open')) return raw;
     const u = new URL(raw);
-    const onApi =
-      u.hostname.toLowerCase().includes('onrender.com') &&
-      u.pathname.toLowerCase().includes('/portal/open');
-    if (onApi) return raw;
-    if (isLegacyTextBridgeHost(u.hostname, u.pathname) || u.searchParams.has('t') || u.searchParams.has('role')) {
-      const q = u.searchParams.toString();
-      return q ? `${PORTAL_BRIDGE_API_URL}?${q}` : PORTAL_BRIDGE_API_URL;
+    const onPages =
+      u.hostname.toLowerCase().includes('github.io') &&
+      u.pathname.toLowerCase().includes('portal-open');
+    if (onPages || isLegacyTextBridgeHost(u.hostname, u.pathname) ||
+      (u.hostname.includes('onrender.com') && u.pathname.includes('/portal/open')) ||
+      u.searchParams.has('t') ||
+      u.searchParams.has('role')) {
+      const q = u.searchParams.toString() || u.hash.replace(/^#/, '');
+      return q ? buildPreviewBridgeUrl(q) : buildPreviewBridgeUrl('role=tenant');
     }
   } catch {
     /* ignore */
@@ -76,6 +110,8 @@ export function inAppTenantPortal(tenantId: string, token: string, meta?: Portal
     n: meta?.name,
     u: meta?.unit,
     prop: meta?.property,
+    tn: meta?.techName,
+    tp: meta?.techPhone,
   });
   return `/portal/tenant?${q}`;
 }
@@ -102,10 +138,12 @@ function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: Po
     n: meta?.name,
     u: meta?.unit,
     prop: meta?.property,
-    v: '36',
+    tn: meta?.techName,
+    tp: meta?.techPhone,
+    v: '37',
   });
-  // Always API HTML bridge — never jsDelivr text/plain.
-  return `${PORTAL_BRIDGE_API_URL}?${q}`;
+  // htmlpreview = real HTML page now (no JSON symbols / no text document).
+  return buildPreviewBridgeUrl(q);
 }
 
 export function buildTenantPortalLink(tenantId: string, token: string, meta?: PortalShareMeta) {
@@ -118,6 +156,8 @@ export function buildTenantPortalLink(tenantId: string, token: string, meta?: Po
       ...(meta?.name ? { n: meta.name } : {}),
       ...(meta?.unit ? { u: meta.unit } : {}),
       ...(meta?.property ? { prop: meta.property } : {}),
+      ...(meta?.techName ? { tn: meta.techName } : {}),
+      ...(meta?.techPhone ? { tp: meta.techPhone } : {}),
     },
   });
   return { url, qrData: url, deep, token, inApp };
@@ -157,6 +197,34 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
     return raw;
   }
 
+  const metaFromQuery = (q: Record<string, unknown> | URLSearchParams) => {
+    const get = (k: string) => {
+      if (q instanceof URLSearchParams) return q.get(k) || undefined;
+      const v = (q as Record<string, unknown>)[k];
+      return v != null && String(v).trim() !== '' ? String(v) : undefined;
+    };
+    return {
+      name: get('n') || get('name'),
+      unit: get('u') || get('unit'),
+      property: get('prop'),
+      techName: get('tn') || get('techName'),
+      techPhone: get('tp') || get('techPhone'),
+    };
+  };
+
+  const parseCombined = (href: string) => {
+    try {
+      const u = new URL(href);
+      const hashQ = u.hash.replace(/^#/, '');
+      const sp = hashQ && hashQ.includes('=')
+        ? new URLSearchParams(hashQ)
+        : u.searchParams;
+      return { sp, host: u.hostname, path: u.pathname };
+    } catch {
+      return null;
+    }
+  };
+
   try {
     const parsed = ExpoLinking.parse(raw);
     const path = `/${(parsed.path || '').replace(/^\//, '')}`;
@@ -164,10 +232,7 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
     const role = String(q.role || '');
     const id = String(q.id || '');
     const t = String(q.t || '');
-    const n = q.n ? String(q.n) : q.name ? String(q.name) : undefined;
-    const u = q.u ? String(q.u) : q.unit ? String(q.unit) : undefined;
-    const prop = q.prop ? String(q.prop) : undefined;
-    const meta = { name: n, unit: u, property: prop };
+    const meta = metaFromQuery(q as Record<string, unknown>);
 
     if (path.includes('portal/open') || path.endsWith('portal-open.html') || path.includes('portal-open')) {
       if (role === 'tech' && t) return inAppTechPortal(t, id || undefined, meta);
@@ -190,28 +255,19 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
     }
   } catch { /* ignore */ }
 
-  // Query-only fallback for bridge URLs
-  try {
-    const u = new URL(raw);
-    const role = u.searchParams.get('role') || '';
-    const id = u.searchParams.get('id') || '';
-    const t = u.searchParams.get('t') || '';
-    const meta = {
-      name: u.searchParams.get('n') || u.searchParams.get('name') || undefined,
-      unit: u.searchParams.get('u') || u.searchParams.get('unit') || undefined,
-      property: u.searchParams.get('prop') || undefined,
-    };
-    if (
-      t &&
-      (u.pathname.includes('portal') ||
-        isLegacyTextBridgeHost(u.hostname, u.pathname) ||
-        u.hostname.includes('onrender'))
-    ) {
+  const combined = parseCombined(raw);
+  if (combined) {
+    const { sp, host, path } = combined;
+    const role = sp.get('role') || '';
+    const id = sp.get('id') || '';
+    const t = sp.get('t') || '';
+    const meta = metaFromQuery(sp);
+    if (t && (path.includes('portal') || isPortalBridgeHost(host, path) || raw.includes('portal-open'))) {
       if (role === 'tech') return inAppTechPortal(t, id || undefined, meta);
       if (role === 'agent' && id) return inAppAgentPortal(id, t, meta);
       if (id) return inAppTenantPortal(id, t, meta);
     }
-  } catch { /* ignore */ }
+  }
 
   return null;
 }

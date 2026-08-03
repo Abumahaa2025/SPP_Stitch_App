@@ -1,4 +1,4 @@
-﻿{
+{
   "expo": {
     "name": "SPP Stitch",
     "slug": "spp-stitch-transfer",
@@ -32,7 +32,10 @@
         {
           "action": "VIEW",
           "autoVerify": false,
-          "category": ["BROWSABLE", "DEFAULT"],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
           "data": [
             {
               "scheme": "https",
@@ -43,6 +46,16 @@
               "scheme": "https",
               "host": "spp-beta-api.onrender.com",
               "pathPrefix": "/portal"
+            },
+            {
+              "scheme": "https",
+              "host": "htmlpreview.github.io",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "abumahaa2025.github.io",
+              "pathPrefix": "/SPP_Stitch_App"
             }
           ]
         }
