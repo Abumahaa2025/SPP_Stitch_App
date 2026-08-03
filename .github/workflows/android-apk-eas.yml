@@ -1,10 +1,15 @@
 # Beta APK via EAS (same flow as before — needs EAS build quota / Starter plan).
 # Secrets: EXPO_TOKEN (expo.dev → Access Tokens)
+# Expo deploy branch: master
 name: Beta APK — EAS Cloud
 
 on:
   workflow_dispatch:
     inputs:
+      branch:
+        description: 'Git branch (Expo uses master)'
+        required: false
+        default: 'master'
       note:
         description: 'Build note (optional)'
         required: false
@@ -18,6 +23,8 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
 
       - uses: actions/setup-node@v4
         with:
@@ -59,5 +66,6 @@ jobs:
         run: |
           echo "## Beta APK (EAS)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Branch: \`${{ github.event.inputs.branch }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Note: ${{ github.event.inputs.note }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- APK: ${{ steps.eas.outputs.apk_url }}" >> "$GITHUB_STEP_SUMMARY"
