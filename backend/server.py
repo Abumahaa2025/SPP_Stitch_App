@@ -68,6 +68,13 @@ from adapters.ai_employee import (
 )
 # Gap 6 — LLM interpretation layer (controlled, environment-based)
 from adapters.llm import LLMRequest, LLMService
+from adapters.llm.provider import get_provider
+from adapters.llm.agent import decide_next_action
+from adapters.koil.action_executor import (
+    ActionExecutionError,
+    execute_decision,
+    find_decision as find_koil_decision,
+)
 
 # In-memory portfolio for beta builds when Mongo is unavailable
 _memory_db: Dict[str, List[dict]] = {}
@@ -768,6 +775,58 @@ async def _persist_decision_approval(record: Dict[str, Any]) -> tuple[Dict[str, 
         raise RuntimeError("approval_store_unavailable") from exc
 
 
+_KOIL_EXECUTIONS_COLLECTION = "koil_executions"
+
+
+async def _persist_koil_execution(record: Dict[str, Any]) -> Dict[str, Any]:
+    """Durably store one Koil execution record (the "what Koil actually did" audit trail).
+
+    Supports both Mongo and the in-memory store (used in beta/demo mode),
+    mirroring ``_persist_decision_approval`` / ``_persist_ai_state``.
+    """
+    record_id = record.get("_id")
+    if not record_id:
+        raise RuntimeError("execution_id_missing")
+
+    if _use_memory_store() or not _mongo_available:
+        store = _memory_db.setdefault(_KOIL_EXECUTIONS_COLLECTION, [])
+        if not isinstance(store, list):
+            store = []
+            _memory_db[_KOIL_EXECUTIONS_COLLECTION] = store
+        store.insert(0, dict(record))
+        _memory_db[_KOIL_EXECUTIONS_COLLECTION] = store[:200]
+        return record
+
+    try:
+        collection = _get_db()[_KOIL_EXECUTIONS_COLLECTION]
+        await collection.update_one(
+            {"_id": record_id},
+            {"$setOnInsert": record},
+            upsert=True,
+        )
+        stored = await collection.find_one({"_id": record_id})
+        return _strip_id(stored) if stored else record
+    except Exception as exc:
+        logger.warning("Koil execution persist failed (id=%s): %s", record_id, exc)
+        # Never let audit persistence break the action itself — the caller
+        # already has the record and can return it to the client.
+        return record
+
+
+async def _list_koil_executions(analysis_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    if _use_memory_store() or not _mongo_available:
+        store = _memory_db.get(_KOIL_EXECUTIONS_COLLECTION, [])
+        rows = [r for r in store if not analysis_id or r.get("analysis_id") == analysis_id]
+        return rows[:limit]
+    try:
+        query = {"analysis_id": analysis_id} if analysis_id else {}
+        cursor = _get_db()[_KOIL_EXECUTIONS_COLLECTION].find(query).sort("executed_at", -1).limit(limit)
+        return [_strip_id(doc) async for doc in cursor]
+    except Exception as exc:
+        logger.warning("Koil execution list failed: %s", exc)
+        return []
+
+
 async def _clear_ai_state() -> None:
     """Clear all persisted AI state. Used by /api/demo/clear so a fresh
     demo load doesn't leak the previous import's reasoning."""
@@ -1413,6 +1472,91 @@ async def approve_decision(req: DecisionApproveRequest):
         "idempotent_replay": idempotent_replay,
         "approval": stored,
     }
+
+
+class KoilActRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    analysis_id: Optional[str] = None
+    decision_id: Optional[str] = None
+    note: Optional[str] = None
+    dry_run: bool = False
+
+
+@api_router.post("/koil/act")
+async def koil_act(req: KoilActRequest):
+    """Koil actually acts on the property — not a read-only summary.
+
+    Two modes:
+      - ``decision_id`` given: execute that specific decision.
+      - ``decision_id`` omitted: Koil autonomously picks the single most
+        valuable unblocked decision (LLM-assisted when AI_ENABLED=true,
+        deterministic top-score otherwise) and executes it.
+
+    Execution drafts real, channel-ready content for every decision kind
+    (see ``adapters.koil.action_registry``) — a WhatsApp deep link when a
+    confirmed phone number exists, otherwise a task note — and (unless
+    ``dry_run``) writes a durable, auditable execution record.
+    """
+    ai_state = (
+        await _load_ai_state_by_analysis_id(req.analysis_id)
+        if req.analysis_id
+        else await _load_ai_state()
+    )
+    if not ai_state:
+        raise HTTPException(
+            404,
+            {"code": "analysis_not_found", "analysis_id": req.analysis_id},
+        )
+
+    agent_reason: Optional[str] = None
+    agent_source = "explicit"
+
+    if req.decision_id:
+        decision = find_koil_decision(ai_state, req.decision_id)
+        if not decision:
+            raise HTTPException(
+                404,
+                {
+                    "code": "decision_not_found",
+                    "analysis_id": ai_state.get("analysis_id"),
+                    "decision_id": req.decision_id,
+                },
+            )
+    else:
+        provider = get_provider()
+        pick = await decide_next_action(ai_state, provider)
+        decision = pick.get("decision")
+        agent_reason = pick.get("reason")
+        agent_source = pick.get("source", "deterministic")
+        if not decision:
+            return {
+                "ok": True,
+                "status": "no_open_decisions",
+                "message": "لا توجد قرارات مفتوحة لتنفيذها الآن.",
+            }
+
+    try:
+        record = execute_decision(ai_state, decision, executed_by="koil", note=req.note)
+    except ActionExecutionError as exc:
+        status_code = 422 if exc.code == "decision_data_incomplete" else 409
+        raise HTTPException(status_code, {"code": exc.code, "message": str(exc)}) from exc
+
+    payload = record.to_dict()
+    payload["agent_source"] = agent_source
+    payload["agent_reason"] = agent_reason
+
+    if not req.dry_run:
+        payload = await _persist_koil_execution(payload)
+
+    return {"ok": True, "status": "executed" if not req.dry_run else "drafted", "execution": payload}
+
+
+@api_router.get("/koil/executions")
+async def koil_executions(analysis_id: Optional[str] = None, limit: int = 50):
+    """Audit trail of everything Koil has actually executed."""
+    rows = await _list_koil_executions(analysis_id, limit=min(max(limit, 1), 200))
+    return {"executions": rows, "count": len(rows)}
 
 
 @api_router.get("/tenants")

@@ -178,11 +178,15 @@ export default function Brain() {
         chatLang === 'ar' ? 'ماذا أفعل اليوم؟' : 'What should I do today?',
         ...dailyOpsSuggestions(osState, chatLang).slice(0, 1),
         chatLang === 'ar' ? 'من المتأخر؟' : 'Who is late?',
+        chatLang === 'ar' ? 'موجز شهري' : 'Monthly summary',
+        chatLang === 'ar' ? 'فجوات البيانات' : 'Data gaps',
         chatLang === 'ar' ? 'ملخص العقار' : 'Property summary',
       ]
     : [
         chatLang === 'ar' ? 'مرحبا' : 'Hello',
         chatLang === 'ar' ? 'كيف أبدأ؟' : 'How do I start?',
+        chatLang === 'ar' ? 'موجز شهري' : 'Monthly summary',
+        chatLang === 'ar' ? 'أرسل تذكير للمتأخر' : 'Remind late tenants',
         t('brain.q1'),
         t('brain.q2'),
       ];

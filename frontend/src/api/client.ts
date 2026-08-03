@@ -58,7 +58,51 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   betaInfo: () => req<{ beta: boolean; gas_disabled: boolean }>('/beta/info'),
+  /**
+   * Koil actually acts on the property (not a read-only summary).
+   * Omit decisionId to let Koil autonomously pick the highest-value,
+   * unblocked decision itself. Pass dryRun to preview without logging.
+   */
+  koilAct: (opts?: { analysisId?: string; decisionId?: string; note?: string; dryRun?: boolean }) =>
+    req<KoilActResponse>('/koil/act', {
+      method: 'POST',
+      body: JSON.stringify({
+        analysis_id: opts?.analysisId ?? null,
+        decision_id: opts?.decisionId ?? null,
+        note: opts?.note ?? null,
+        dry_run: !!opts?.dryRun,
+      }),
+    }),
+  koilExecutions: (analysisId?: string, limit = 50) =>
+    req<{ executions: KoilExecutionT[]; count: number }>(
+      `/koil/executions${analysisId ? `?analysis_id=${encodeURIComponent(analysisId)}&limit=${limit}` : `?limit=${limit}`}`,
+    ),
 };
+
+export type KoilExecutionT = {
+  analysis_id: string;
+  decision_id: string;
+  decision_kind: string;
+  tenant: string;
+  unit: string;
+  channel: 'whatsapp' | 'note' | 'task';
+  message: string;
+  deep_link: string | null;
+  phone: string | null;
+  summary: string;
+  executed_by: string;
+  executed_at: string;
+  follow_up_at: string | null;
+  note: string | null;
+  status: string;
+  delivery_status: string;
+  agent_source?: 'llm' | 'deterministic' | 'explicit';
+  agent_reason?: string | null;
+};
+
+export type KoilActResponse =
+  | { ok: true; status: 'executed' | 'drafted'; execution: KoilExecutionT }
+  | { ok: true; status: 'no_open_decisions'; message: string };
 
 // Types
 export type DecisionT = {
