@@ -1,0 +1,88 @@
+# Publish JS/TS updates to installed beta APKs via EAS Update (OTA).
+# Same outcome as tafriz/Vercel live deploy: phone picks up changes without new APK links.
+#
+# Required secret: EXPO_TOKEN (expo.dev → Access Tokens)
+# Channel: beta (matches eas.json preview builds / installed beta APKs)
+#
+# Keep frontend/app.json expo.version unchanged for JS-only work so
+# runtimeVersion (appVersion policy) still matches the installed APK.
+name: EAS OTA Beta
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/eas-ota-beta.yml'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Git branch to publish from'
+        required: false
+        default: 'master'
+      message:
+        description: 'Update message'
+        required: false
+        default: 'SPP beta OTA'
+
+concurrency:
+  group: eas-ota-beta-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref }}
+
+      - name: Require EXPO_TOKEN
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing EXPO_TOKEN secret. Add it under Repo → Settings → Secrets."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: Publish EAS Update to channel beta
+        env:
+          EXPO_PUBLIC_BETA_MODE: 'true'
+          EXPO_PUBLIC_BACKEND_URL: https://spp-beta-api.onrender.com
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          MSG="${{ github.event.inputs.message }}"
+          if [ -z "$MSG" ]; then
+            MSG="SPP ${VERSION} OTA — ${GITHUB_SHA::7}"
+          fi
+          eas update \
+            --channel beta \
+            --message "$MSG" \
+            --non-interactive
+          echo "## EAS OTA published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Channel: \`beta\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Runtime (appVersion): \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Message: ${MSG}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Ref: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Installed beta APKs on channel **beta** will download this update on next launch (no new APK link)." >> "$GITHUB_STEP_SUMMARY"
