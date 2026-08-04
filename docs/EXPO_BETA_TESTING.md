@@ -29,6 +29,8 @@ Actions → **Expo OTA Update (beta)** → **Run workflow** → branch `main` �
 
 Direct link: https://github.com/Abumahaa2025/SPP_Stitch_App/actions/workflows/expo-ota-update.yml
 
+Verification note: pushing to `main` also triggers the same OTA workflow automatically.
+
 ```bash
 cd frontend
 export EXPO_TOKEN=your_token
