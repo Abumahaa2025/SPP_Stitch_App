@@ -11,7 +11,7 @@ on:
       branch:
         description: 'Branch with frontend/ Expo app'
         required: false
-        default: 'master'
+        default: 'main'
       note:
         description: 'Build note (optional)'
         required: false

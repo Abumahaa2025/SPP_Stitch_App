@@ -18,12 +18,19 @@ import {
   ticketsForUnit,
 } from '@/src/utils/maintenance-workflow';
 import { onMaintenanceOpened } from '@/src/utils/operational-flow-engine';
+import { onEjarApproved } from '@/src/utils/operational-flow-engine';
+import { onUtilityPaymentApproved } from '@/src/utils/operational-flow-engine';
+import { approveEjarEvent } from '@/src/utils/ejar-sync';
+import { approveUtilityPayment } from '@/src/utils/utilities-sync';
+import { pushLocalNotification } from '@/src/utils/local-notifications';
 import {
   loadOperational,
   removePendingAction,
   subscribeOperational,
   upsertTicket,
 } from '@/src/utils/operational-store';
+import { getLang } from '@/src/i18n';
+import { Linking, Platform, Share } from 'react-native';
 
 export function useOperational() {
   const [, bump] = useState(0);
@@ -209,14 +216,87 @@ export function useOperational() {
   }, [reload]);
 
   const approveAction = useCallback(async (id: string) => {
+    const action = state.pendingActions.find((a) => a.id === id);
+    if (action?.kind === 'approve_ejar_notice' && action.payload?.eventId) {
+      const result = await approveEjarEvent(action.payload.eventId);
+      const ar = getLang() === 'ar';
+      const msgs = result?.approval?.prepared_messages || {};
+      await onEjarApproved(action.payload.contractNumber || '—');
+      await pushLocalNotification({
+        id: `loc_ejar_approved_${action.payload.eventId}`,
+        title: ar ? 'كويل · تمت الموافقة' : 'Kowil · approved',
+        body: ar
+          ? (result?.approval?.kowil_note_ar
+            || 'تم تجهيز إشعارات المالك ووكيل العقود والمستأجر — لم يُرسل تلقائياً.')
+          : (result?.approval?.kowil_note_en
+            || 'Notices for owner, contracts agent, and tenant are prepared — not auto-sent.'),
+        priority: 'high',
+        route: '/contracts',
+      });
+      // Offer tenant WhatsApp only after owner permission (prepare → optional send).
+      const tenantMsg = msgs.tenant || action.payload.message;
+      const phone = action.payload.phone;
+      if (tenantMsg && phone) {
+        const digits = String(phone).replace(/\D/g, '');
+        if (digits) {
+          const wa = Platform.select({
+            ios: `whatsapp://send?phone=${digits}&text=${encodeURIComponent(tenantMsg)}`,
+            default: `https://wa.me/${digits}?text=${encodeURIComponent(tenantMsg)}`,
+          });
+          await Linking.openURL(wa!).catch(() => Share.share({ message: tenantMsg }));
+        } else {
+          await Share.share({ message: tenantMsg });
+        }
+      } else if (tenantMsg) {
+        await Share.share({ message: tenantMsg });
+      }
+    }
+    if (action?.kind === 'approve_utility_payment' && action.payload?.eventId) {
+      const result = await approveUtilityPayment(action.payload.eventId);
+      const ar = getLang() === 'ar';
+      await onUtilityPaymentApproved(
+        action.payload.utility || 'electricity',
+        action.payload.billNumber || '—',
+      );
+      await pushLocalNotification({
+        id: `loc_util_approved_${action.payload.eventId}`,
+        title: ar ? 'كويل · تمت الموافقة على السداد' : 'Kowil · payment approved',
+        body: ar
+          ? (result?.approval?.kowil_note_ar
+            || 'تم تجهيز السداد بعد إذنك — لم يُخصم أي مبلغ تلقائياً.')
+          : (result?.approval?.kowil_note_en
+            || 'Payment prepared after your permission — nothing was auto-charged.'),
+        priority: 'high',
+        route: '/wallet',
+      });
+      const payUrl = action.payload.paymentUrl || result?.approval?.payment_url;
+      const summary = result?.approval?.prepared_messages?.payment_summary
+        || result?.approval?.prepared_messages?.owner;
+      if (payUrl) {
+        await Linking.openURL(payUrl).catch(() => {
+          if (summary) return Share.share({ message: summary });
+        });
+      } else if (summary) {
+        await Share.share({ message: summary });
+      }
+    }
+    if (action?.kind === 'approve_tenant_payment' && action.payload?.paymentId) {
+      const { confirmTenantPayment } = await import('@/src/utils/portal-desk-store');
+      await confirmTenantPayment(action.payload.paymentId, { ar: getLang() === 'ar' });
+    }
     await removePendingAction(id);
     await reload();
-  }, [reload]);
+  }, [reload, state.pendingActions]);
 
   const dismissAction = useCallback(async (id: string) => {
+    const action = state.pendingActions.find((a) => a.id === id);
+    if (action?.kind === 'approve_tenant_payment' && action.payload?.paymentId) {
+      const { rejectTenantPayment } = await import('@/src/utils/portal-desk-store');
+      await rejectTenantPayment(action.payload.paymentId);
+    }
     await removePendingAction(id);
     await reload();
-  }, [reload]);
+  }, [reload, state.pendingActions]);
 
   const recentEvents = useMemo(() => state.events.slice(0, 8), [state.events]);
   const openTickets = useMemo(

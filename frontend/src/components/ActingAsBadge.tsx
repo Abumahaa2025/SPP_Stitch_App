@@ -14,7 +14,7 @@ import { Feather } from '@expo/vector-icons';
 import { colors, spacing, typography, radius, iconSize } from '../theme';
 import { useI18n } from '../i18n';
 
-export type PortalRole = 'agent' | 'tech' | 'tenant';
+export type PortalRole = 'agent' | 'tech' | 'tenant' | 'guard';
 
 const ROLE_META: Record<PortalRole, {
   labelKey: string;
@@ -26,6 +26,7 @@ const ROLE_META: Record<PortalRole, {
   agent:  { labelKey: 'role.badge.agent',  icon: 'briefcase', color: colors.gold,    edge: colors.goldEdge,    bg: colors.goldSoft },
   tech:   { labelKey: 'role.badge.tech',   icon: 'tool',      color: colors.emerald, edge: colors.emeraldEdge, bg: colors.emeraldSoft },
   tenant: { labelKey: 'role.badge.tenant', icon: 'home',      color: colors.gold,    edge: colors.goldEdge,    bg: colors.goldSoft },
+  guard:  { labelKey: 'role.badge.guard',  icon: 'shield',    color: colors.emerald, edge: colors.emeraldEdge, bg: colors.emeraldSoft },
 };
 
 type Props = {

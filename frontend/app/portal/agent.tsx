@@ -1,22 +1,32 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Feather } from '@expo/vector-icons';
 
 import { ScreenScaffold } from '@/src/components/ScreenScaffold';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+import { PortalInstallHint } from '@/src/components/PortalInstallHint';
+import { LimitedPortalContact } from '@/src/components/LimitedPortalContact';
 import { usePortalAccess } from '@/src/hooks/usePortalAccess';
 import { setActiveAgentSession } from '@/src/components/AgentPermissionGate';
+import { inAppAgentFollowUpsRoute } from '@/src/utils/portal-access-store';
+import { agentThreadId } from '@/src/types/portal-desk';
+import { AGENT_OWNER_PERM_KEYS } from '@/src/types/portal-access';
 import { colors, spacing, typography } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
+/**
+ * Agent portal — scoped desk only (permissions + follow-ups + contact admin).
+ * Does NOT open full SPP owner screens.
+ */
 export default function AgentPortalScreen() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; t?: string }>();
-  const { agents, logLogin } = usePortalAccess();
+  const { agents, guards, followUps, logLogin, ready } = usePortalAccess();
 
   const agent = agents.find((a) => a.id === params.id && a.portalToken === params.t && a.linkActive);
 
@@ -29,6 +39,15 @@ export default function AgentPortalScreen() {
     }
   }, [agent?.id]);
 
+  if (!ready) {
+    return (
+      <ScreenScaffold testID="agent-portal">
+        <StoryScreenHeader question={t('opsv2.agent.title' as any)} showBack />
+        <AliveEmpty title={t('opsv2.agent.title' as any)} body="…" />
+      </ScreenScaffold>
+    );
+  }
+
   if (!agent) {
     return (
       <ScreenScaffold testID="agent-portal">
@@ -38,47 +57,83 @@ export default function AgentPortalScreen() {
     );
   }
 
-  const links: { key: string; route: string; perm: keyof typeof agent.permissions }[] = [
-    { key: 'contracts', route: '/contracts', perm: 'contracts' },
-    { key: 'maintenance', route: '/maintenance', perm: 'maintenance' },
-    { key: 'tenants', route: '/tenants', perm: 'tenants' },
-  ];
+  const openFollowUps = followUps.filter(
+    (f) => f.agentId === agent.id && f.status !== 'done',
+  ).length;
+  const pairedGuards = guards.filter((g) => !g.pairedAgentId || g.pairedAgentId === agent.id);
+  const granted = AGENT_OWNER_PERM_KEYS.filter((p) => agent.permissions[p]);
 
   return (
     <ScreenScaffold testID="agent-portal">
-      <StoryScreenHeader
-        question={t('opsv2.agent.welcome' as any).replace('{name}', agent.name)}
-        hint={agent.email}
-        showBack
-      />
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing['2xl'] }}>
+        <StoryScreenHeader
+          question={t('opsv2.agent.welcome' as any).replace('{name}', agent.name)}
+          hint={agent.email}
+          showBack
+        />
 
-      <ActingAsBadge role="agent" displayName={agent.name} scope={agent.email} />
+        <ActingAsBadge role="agent" displayName={agent.name} scope={agent.email} />
+        <PortalInstallHint role="agent" />
 
-      <GlassCard padding={16} radiusToken="md" edge="gold">
-        <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.portals.addAgent' as any)}</Text>
-        {(['contracts', 'maintenance', 'tenants', 'wallet', 'settings'] as const).map((p) => (
-          <Text key={p} style={[styles.perm, isRTL && styles.rtl]}>
-            {agent.permissions[p] ? '✓' : '✗'} {t(`opsv2.portals.perm.${p}` as any)}
+        <LimitedPortalContact
+          actor="agent"
+          actorId={agent.id}
+          actorName={agent.name}
+          threadId={agentThreadId(agent.id)}
+        />
+
+        <GlassCard padding={16} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }}>
+          <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.agent.permsTitle' as any)}</Text>
+          <Text style={[styles.hint, isRTL && styles.rtl]}>
+            {t('opsv2.portalDesk.agentScopeHint' as any)}
           </Text>
-        ))}
-      </GlassCard>
+          {AGENT_OWNER_PERM_KEYS.map((p) => (
+            <Text key={p} style={[styles.perm, isRTL && styles.rtl]}>
+              {agent.permissions[p] ? '✓' : '✗'} {t(`opsv2.portals.perm.${p}` as any)}
+            </Text>
+          ))}
+          {granted.length ? (
+            <Text style={[styles.hint, isRTL && styles.rtl, { marginTop: 10 }]}>
+              {t('opsv2.portalDesk.agentGranted' as any)}: {granted.map((p) => t(`opsv2.portals.perm.${p}` as any)).join(' · ')}
+            </Text>
+          ) : null}
+        </GlassCard>
 
-      <View style={{ marginTop: spacing.lg, gap: spacing.sm }}>
-        {links.filter((l) => agent.permissions[l.perm]).map((l) => (
-          <Pressable key={l.key} onPress={() => router.push(l.route as any)}>
-            <GlassCard padding={14} radiusToken="md">
-              <Text style={styles.link}>{t(`opsv2.portals.perm.${l.perm}` as any)} →</Text>
-            </GlassCard>
-          </Pressable>
-        ))}
-      </View>
+        <Pressable
+          onPress={() => router.push(inAppAgentFollowUpsRoute(agent.id, agent.portalToken) as any)}
+          testID="agent-open-followups"
+        >
+          <GlassCard padding={16} radiusToken="md" edge="emerald">
+            <View style={[styles.row, isRTL && styles.rowRtl]}>
+              <Feather name="git-pull-request" size={16} color={colors.emerald} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.linkTitle, isRTL && styles.rtl]}>
+                  {t('opsv2.agent.followupsTitle' as any)}
+                </Text>
+                <Text style={[styles.hint, isRTL && styles.rtl]}>
+                  {t('opsv2.agent.followupsHint' as any)
+                    .replace('{n}', String(openFollowUps))
+                    .replace('{g}', String(pairedGuards.length))}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={16} color={colors.textMuted} />
+            </View>
+          </GlassCard>
+        </Pressable>
+      </ScrollView>
     </ScreenScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  section: { color: colors.textMuted, fontSize: 11, letterSpacing: 0.8, textTransform: 'uppercase' },
+  section: {
+    color: colors.textMuted, fontSize: 11, letterSpacing: 0.8,
+    textTransform: 'uppercase', fontWeight: typography.weight.semibold,
+  },
+  hint: { color: colors.textDim, fontSize: 12, marginTop: 6, lineHeight: 18 },
   perm: { color: colors.text, fontSize: 14, marginTop: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  rowRtl: { flexDirection: 'row-reverse' },
   rtl: { writingDirection: 'rtl', textAlign: 'right' },
-  link: { color: colors.gold, fontSize: 15, fontWeight: typography.weight.medium },
+  linkTitle: { color: colors.text, fontSize: 15, fontWeight: typography.weight.semibold },
 });

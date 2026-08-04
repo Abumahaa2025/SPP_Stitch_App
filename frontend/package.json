@@ -13,6 +13,7 @@
     "web": "expo start --web",
     "export:web": "expo export -p web",
     "build:android:beta": "node ./scripts/build-android-beta.mjs",
+    "update:beta": "eas update --channel beta",
     "lint": "expo lint"
   },
   "dependencies": {

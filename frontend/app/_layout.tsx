@@ -15,6 +15,7 @@ import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
 import { WorkspaceChrome } from "@/src/components/WorkspaceChrome";
 import { isPathAllowedForPersona, personaHomeRoute } from "@/src/utils/role-scope";
 import { resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
+import { applyExpoOtaIfAvailable } from "@/src/utils/expo-ota";
 
 LogBox.ignoreAllLogs(true);
 
@@ -73,6 +74,12 @@ export default function RootLayout() {
       setLangReady(true);
     })();
   }, []);
+
+  // OTA: same install link — JS updates from Expo channel `beta` on cold start.
+  useEffect(() => {
+    if (!langReady) return;
+    void applyExpoOtaIfAvailable();
+  }, [langReady]);
 
   // Enforce a minimum splash hold for brand presence (~2s logo entrance).
   useEffect(() => {

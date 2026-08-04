@@ -8,6 +8,8 @@ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+import { PortalInstallHint } from '@/src/components/PortalInstallHint';
+import { TenantPortalDesk } from '@/src/components/TenantPortalDesk';
 import { MaintenanceJourney } from '@/src/components/maintenance/MaintenanceJourney';
 import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
@@ -91,6 +93,7 @@ export default function TenantPortalScreen() {
         displayName={tenant.name}
         scope={`${t('op.tenant.unit')} ${unitLabel} · ${propertyLabel}`}
       />
+      <PortalInstallHint role="tenant" />
 
       <GlassCard padding={18} radiusToken="md" edge="gold">
         <Text style={[styles.section, isRTL && styles.rtl]}>{t('op.tenant.unit')}</Text>
@@ -128,6 +131,13 @@ export default function TenantPortalScreen() {
           {paymentOk ? t('opsv2.tenant.paid' as any) : t('opsv2.tenant.due' as any)}
         </Text>
       </GlassCard>
+
+      <TenantPortalDesk
+        tenantId={tenant.id}
+        tenantName={tenant.name}
+        unitId={localTenant?.unitId || unit?.id}
+        guestMode={guestMode}
+      />
 
       {myTickets[0]?.tenantNotifications?.length ? (
         <GlassCard padding={16} radiusToken="md" style={styles.gap}>

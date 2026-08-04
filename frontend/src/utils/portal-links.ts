@@ -11,7 +11,7 @@ export const PORTAL_BRIDGE_URL =
 /** Same bridge on API host (when backend route is deployed). */
 export const PORTAL_BRIDGE_API_URL = 'https://spp-beta-api.onrender.com/portal/open';
 
-export type PortalRole = 'tenant' | 'tech' | 'agent';
+export type PortalRole = 'tenant' | 'tech' | 'agent' | 'guard';
 
 export type PortalShareMeta = {
   name?: string;
@@ -52,6 +52,11 @@ export function inAppAgentPortal(agentId: string, token: string, meta?: PortalSh
   return `/portal/agent?${q}`;
 }
 
+export function inAppGuardPortal(guardId: string, token: string, meta?: PortalShareMeta) {
+  const q = qs({ id: guardId, t: token, n: meta?.name });
+  return `/portal/guard?${q}`;
+}
+
 function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: PortalShareMeta) {
   const q = qs({
     role,
@@ -60,7 +65,7 @@ function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: Po
     n: meta?.name,
     u: meta?.unit,
     prop: meta?.property,
-    v: '35',
+    v: '36',
   });
   // Prefer jsDelivr so links work immediately after git push.
   return `${PORTAL_BRIDGE_URL}?${q}`;
@@ -107,11 +112,29 @@ export function buildAgentPortalLink(agentId: string, token: string, meta?: Port
   return { url, qrData: url, deep, token, inApp };
 }
 
+export function buildGuardPortalLink(guardId: string, token: string, meta?: PortalShareMeta) {
+  const inApp = inAppGuardPortal(guardId, token, meta);
+  const url = buildHttpsBridge('guard', guardId, token, meta);
+  const deep = ExpoLinking.createURL('/portal/guard', {
+    queryParams: {
+      id: guardId,
+      t: token,
+      ...(meta?.name ? { n: meta.name } : {}),
+    },
+  });
+  return { url, qrData: url, deep, token, inApp };
+}
+
 /** Map any shared / deep URL to an in-app portal route. */
 export function resolvePortalInAppFromUrl(url: string): string | null {
   const raw = String(url || '').trim();
   if (!raw) return null;
-  if (raw.startsWith('/portal/tenant') || raw.startsWith('/portal/tech') || raw.startsWith('/portal/agent')) {
+  if (
+    raw.startsWith('/portal/tenant')
+    || raw.startsWith('/portal/tech')
+    || raw.startsWith('/portal/agent')
+    || raw.startsWith('/portal/guard')
+  ) {
     return raw;
   }
 
@@ -130,6 +153,7 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
     if (path.includes('portal/open') || path.endsWith('portal-open.html') || path.includes('portal-open')) {
       if (role === 'tech' && t) return inAppTechPortal(t, id || undefined, meta);
       if (role === 'agent' && id && t) return inAppAgentPortal(id, t, meta);
+      if (role === 'guard' && id && t) return inAppGuardPortal(id, t, meta);
       if (t && id) return inAppTenantPortal(id, t, meta);
     }
 
@@ -145,6 +169,11 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
       const pathId = raw.match(/\/agent\/([^/?#]+)/)?.[1];
       const agentId = id || pathId || '';
       if (agentId && t) return inAppAgentPortal(agentId, t, meta);
+    }
+    if (path.includes('portal/guard') || /\/guard(\/|\?|$)/.test(raw)) {
+      const pathId = raw.match(/\/guard\/([^/?#]+)/)?.[1];
+      const guardId = id || pathId || '';
+      if (guardId && t) return inAppGuardPortal(guardId, t, meta);
     }
   } catch { /* ignore */ }
 
@@ -162,6 +191,7 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
     if (t && (u.pathname.includes('portal') || u.hostname.includes('jsdelivr') || u.hostname.includes('onrender'))) {
       if (role === 'tech') return inAppTechPortal(t, id || undefined, meta);
       if (role === 'agent' && id) return inAppAgentPortal(id, t, meta);
+      if (role === 'guard' && id) return inAppGuardPortal(id, t, meta);
       if (id) return inAppTenantPortal(id, t, meta);
     }
   } catch { /* ignore */ }

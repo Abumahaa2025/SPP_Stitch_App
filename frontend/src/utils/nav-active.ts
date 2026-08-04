@@ -4,7 +4,7 @@ export function resolveActiveTab(pathname: string): string {
   if (pathname.startsWith('/brain')) return 'assistant';
   if (pathname.startsWith('/notifications')) return 'notifications';
 
-  // المزيد — reports, connections, settings, help, about, setup, billing
+  // المزيد — reports, settings, help, about, setup, billing
   if (
     pathname.startsWith('/hub')
     || pathname.startsWith('/settings')
@@ -16,10 +16,9 @@ export function resolveActiveTab(pathname: string): string {
     || pathname.startsWith('/upload')
     || pathname.startsWith('/reports')
     || pathname.startsWith('/billing')
-    || pathname.startsWith('/operational/services')
   ) return 'more';
 
-  // تشغيل العقار — daily operations
+  // تشغيل العقار — daily operations (incl. connections / services)
   if (
     pathname.startsWith('/owner')
     || pathname.startsWith('/portfolio')
