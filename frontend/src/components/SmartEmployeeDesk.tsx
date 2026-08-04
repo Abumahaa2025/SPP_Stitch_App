@@ -57,9 +57,54 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
       vacantCount: osLive.units.filter((u) => u.status === 'vacant').length,
       openMaintCount: openTickets.length,
     });
+    try {
+      const { syncEjarNotices } = await import('@/src/utils/ejar-sync');
+      const { tasks: ejarTasks } = await syncEjarNotices(ar);
+      if (ejarTasks.length) {
+        const existing = new Set(thought.tasks.map((t) => t.id));
+        thought = {
+          ...thought,
+          tasks: [...ejarTasks.filter((t) => !existing.has(t.id)), ...thought.tasks],
+          lastThoughtAr: thought.lastThoughtAr
+            || 'كويل راجع إشعارات منصة إيجار ويقترح إبلاغ الأطراف بعد إذنك.',
+          lastThoughtEn: thought.lastThoughtEn
+            || 'Kowil reviewed Ejar notices and suggests notifying parties after your permission.',
+        };
+      }
+    } catch { /* offline */ }
+    try {
+      const { syncUtilityNotices } = await import('@/src/utils/utilities-sync');
+      const { tasks: utilTasks } = await syncUtilityNotices(ar);
+      if (utilTasks.length) {
+        const existing = new Set(thought.tasks.map((t) => t.id));
+        thought = {
+          ...thought,
+          tasks: [...utilTasks.filter((t) => !existing.has(t.id)), ...thought.tasks],
+          lastThoughtAr: thought.lastThoughtAr
+            || 'كويل راجع فواتير الكهرباء/المياه ويقترح السداد بعد إذنك.',
+          lastThoughtEn: thought.lastThoughtEn
+            || 'Kowil reviewed electricity/water bills and suggests payment after your permission.',
+        };
+      }
+    } catch { /* offline */ }
+    try {
+      const { syncPlatformInbox } = await import('@/src/utils/platform-inbox-sync');
+      const { tasks: platTasks } = await syncPlatformInbox(ar);
+      if (platTasks.length) {
+        const existing = new Set(thought.tasks.map((t) => t.id));
+        thought = {
+          ...thought,
+          tasks: [...platTasks.filter((t) => !existing.has(t.id)), ...thought.tasks],
+          lastThoughtAr: thought.lastThoughtAr
+            || 'كويل قرأ رسائل المنصات الآلية ومنصات الذكاء — بانتظار موافقتك للتوجيه.',
+          lastThoughtEn: thought.lastThoughtEn
+            || 'Kowil read automated messaging & intelligence feeds — waiting for your approval to route.',
+        };
+      }
+    } catch { /* offline */ }
     await saveSmartEmployee(thought);
     setEmp(thought);
-  }, [openTickets, reload]);
+  }, [openTickets, reload, ar]);
 
   useFocusEffect(
     useCallback(() => {
@@ -79,6 +124,44 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
     setBusyId(task.id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
+      if (task.requiresOwnerApproval && task.platformEventId) {
+        const { approveEjarEvent } = await import('@/src/utils/ejar-sync');
+        const { approveUtilityPayment } = await import('@/src/utils/utilities-sync');
+        const { approvePlatformInboxEvent } = await import('@/src/utils/platform-inbox-sync');
+        const { dispatchAfterOwnerApproval } = await import('@/src/utils/kowil-platform-dispatch');
+        const {
+          onEjarApproved,
+          onUtilityPaymentApproved,
+          onPlatformMessageApproved,
+        } = await import('@/src/utils/operational-flow-engine');
+
+        let prepared: Record<string, string> | undefined;
+        const eid = task.platformEventId;
+
+        if (task.platformSource === 'ejar' || task.id.startsWith('ejar_task_')) {
+          const res = await approveEjarEvent(eid);
+          prepared = res?.approval?.prepared_messages as Record<string, string> | undefined;
+          await onEjarApproved(task.unitNumber || '');
+        } else if (task.platformSource === 'electricity' || task.platformSource === 'water') {
+          const res = await approveUtilityPayment(eid);
+          prepared = res?.approval?.prepared_messages as Record<string, string> | undefined;
+          await onUtilityPaymentApproved(task.platformSource, eid);
+        } else {
+          const res = await approvePlatformInboxEvent(eid);
+          prepared = res?.approval?.prepared_messages as Record<string, string> | undefined;
+          await onPlatformMessageApproved(task.routeTo || 'tenant', task.platformSource || 'platform');
+        }
+
+        await dispatchAfterOwnerApproval(prepared, task, task.routeTo);
+        await pushLocalNotification({
+          title: ar ? 'كويل أرسل بعد موافقتك' : 'Kowil sent after your approval',
+          body: ar ? task.titleAr : task.titleEn,
+          route: '/brain',
+        });
+        await persist(completeTask(emp, task.id, true));
+        return;
+      }
+
       if (task.action === 'send_whatsapp' && task.whatsappMessage) {
         const digits = String(task.whatsappPhone || '').replace(/\D/g, '');
         const msg = task.whatsappMessage;

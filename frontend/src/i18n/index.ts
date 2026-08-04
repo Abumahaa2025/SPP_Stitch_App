@@ -7,6 +7,7 @@ import { polishEn, polishAr } from './polish-keys';
 import { operationalEn, operationalAr } from './operational-keys';
 import { journeyEn, journeyAr } from './journey-keys';
 import { opsV2En, opsV2Ar } from './ops-v2-keys';
+import { platformConnectionEn, platformConnectionAr } from './platform-connection-keys';
 import { phaseAEn, phaseAAr } from './phase-a-keys';
 import { opsFixEn, opsFixAr } from './ops-fix-keys';
 
@@ -21,6 +22,7 @@ const dict = {
     ...operationalEn,
     ...journeyEn,
     ...opsV2En,
+    ...platformConnectionEn,
     'app.name': 'SPP',
     'app.tagline': 'AI Operating System for Real Estate',
 
@@ -1727,6 +1729,7 @@ const dict = {
     ...operationalAr,
     ...journeyAr,
     ...opsV2Ar,
+    ...platformConnectionAr,
     'app.name': 'SPP',
     'app.tagline': 'نظام تشغيل بالذكاء الاصطناعي للعقارات',
 
