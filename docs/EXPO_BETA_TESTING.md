@@ -1,0 +1,49 @@
+# SPP Beta — stable install + OTA updates (Expo)
+
+## Stable Android install (one link — keep this APK)
+
+After the first install, **JavaScript updates** ship via **EAS Update** on channel `beta` (same `runtimeVersion` / app version). You do **not** need a new APK for UI/JS fixes — reopen the app to pull updates.
+
+| Resource | URL |
+|----------|-----|
+| **Direct APK (latest release)** | https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest/download/spp-beta.apk |
+| **Expo project dashboard** | https://expo.dev/accounts/abumahaa2025/projects/spp-stitch-transfer |
+| **EAS Update channel `beta`** | https://expo.dev/accounts/abumahaa2025/projects/spp-stitch-transfer/updates |
+| **Backend (beta)** | https://spp-beta-api.onrender.com |
+
+Project ID (linked in `frontend/app.json`): `405761ee-fac3-4b25-9784-23f7441535e3`
+
+## How OTA works
+
+1. `frontend/app.json` → `updates.url` points at the Expo project above.
+2. `frontend/eas.json` → preview profile uses **channel `beta`**.
+3. On app start, `applyExpoOtaIfAvailable()` checks channel `beta` and reloads if a new bundle exists.
+4. CI workflow `.github/workflows/expo-ota-update.yml` publishes to `beta` on push to `main` (requires `EXPO_TOKEN`).
+
+## Publish an update manually
+
+```bash
+cd frontend
+export EXPO_TOKEN=your_token
+eas update --channel beta --message "describe change"
+```
+
+## Build a new native APK (only when native deps / version change)
+
+GitHub Actions → **Expo Beta APK** → branch `main`, or:
+
+```bash
+cd frontend
+eas build --platform android --profile preview
+```
+
+## Local dev link (Expo Go / dev client)
+
+```bash
+cd frontend
+npm run link
+```
+
+---
+
+**Arabic:** ثبّت APK مرة واحدة من الرابط أعلاه. أي تعديلات على الواجهة تصل عبر Expo (قناة beta) عند فتح التطبيق — بدون رابط تثبيت جديد.

@@ -23,12 +23,11 @@ import { storage } from '@/src/utils/storage';
 import { buildTenantPortalLink, PORTAL_BRIDGE_URL } from '@/src/utils/portal-links';
 import { formatDate } from '@/src/utils/locale';
 import type { AgentPermissions, PropertyAgentRecord } from '@/src/types/portal-access';
+import { DEFAULT_AGENT_PERMISSIONS } from '@/src/types/portal-access';
 import { colors, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
-const DEFAULT_PERMS: AgentPermissions = {
-  contracts: true, maintenance: true, tenants: true, wallet: false, settings: false,
-};
+const DEFAULT_PERMS: AgentPermissions = DEFAULT_AGENT_PERMISSIONS;
 
 const GUARDS_KEY = 'spp.accountControl.guards';
 
