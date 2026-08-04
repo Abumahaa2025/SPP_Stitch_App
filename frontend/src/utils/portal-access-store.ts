@@ -1,15 +1,29 @@
 import { storage } from '@/src/utils/storage';
 import type {
+  AgentFollowUp,
   AgentPermissions,
+  FollowUpActor,
+  FollowUpDomain,
+  FollowUpStatus,
   PortalAccessEntry,
   PortalAccessState,
   PropertyAgentRecord,
+  PropertyGuardRecord,
+} from '@/src/types/portal-access';
+import {
+  DEFAULT_AGENT_PERMISSIONS,
+  normalizeAgentPermissions,
 } from '@/src/types/portal-access';
 import { buildAgentPortalLink, inAppAgentPortal } from '@/src/utils/portal-links';
 
 const KEY = 'spp.portalAccess';
 
-const DEFAULT: PortalAccessState = { agents: [], accessLog: [] };
+const DEFAULT: PortalAccessState = {
+  agents: [],
+  guards: [],
+  followUps: [],
+  accessLog: [],
+};
 
 let cache: PortalAccessState = { ...DEFAULT };
 const listeners = new Set<() => void>();
@@ -27,19 +41,67 @@ function notify() {
   listeners.forEach((fn) => fn());
 }
 
+function normalizeReply(r: Record<string, unknown>): {
+  at: string; actor: FollowUpActor; text: string; authorName: string;
+} {
+  return {
+    at: String(r.at || ''),
+    actor: (r.actor as FollowUpActor) || 'agent',
+    // Legacy replies stored message under `name`.
+    text: String(r.text ?? r.name ?? ''),
+    authorName: String(r.authorName || ''),
+  };
+}
+
+function normalizeState(raw: Partial<PortalAccessState>): { state: PortalAccessState; dirty: boolean } {
+  let dirty = false;
+  const agents = (raw.agents || []).map((a) => ({
+    ...a,
+    permissions: normalizeAgentPermissions(a.permissions),
+  }));
+  const guards = (raw.guards || []).map((g) => {
+    if (!g.portalToken) dirty = true;
+    return {
+      ...g,
+      portalToken: g.portalToken || uid('gtok').slice(-12),
+      linkActive: g.linkActive !== false,
+    };
+  });
+  const followUps = (raw.followUps || []).map((f) => ({
+    ...f,
+    replies: (f.replies || []).map((r) => normalizeReply(r as unknown as Record<string, unknown>)),
+  }));
+  return {
+    dirty,
+    state: {
+      agents,
+      guards,
+      followUps,
+      accessLog: raw.accessLog || [],
+    },
+  };
+}
+
 export async function loadPortalAccess(): Promise<PortalAccessState> {
   const raw = await storage.getItem<string>(KEY, '');
   if (raw) {
     try {
-      cache = { ...DEFAULT, ...JSON.parse(raw) };
+      const parsed = JSON.parse(raw);
+      const { state, dirty } = normalizeState({ ...DEFAULT, ...parsed });
+      cache = state;
+      if (dirty) {
+        await storage.setItem(KEY, JSON.stringify(cache));
+      }
     } catch { /* ignore */ }
+  } else {
+    cache = { ...DEFAULT };
   }
   return cache;
 }
 
 export async function savePortalAccess(next: PortalAccessState) {
-  cache = next;
-  await storage.setItem(KEY, JSON.stringify(next));
+  cache = normalizeState(next).state;
+  await storage.setItem(KEY, JSON.stringify(cache));
   notify();
 }
 
@@ -52,6 +114,7 @@ export async function addAgent(
   const built = buildAgentPortalLink(id, token, { name: input.name });
   const agent: PropertyAgentRecord = {
     ...input,
+    permissions: normalizeAgentPermissions(input.permissions),
     id,
     portalToken: token,
     portalUrl: built.url,
@@ -61,6 +124,104 @@ export async function addAgent(
   };
   await savePortalAccess({ ...s, agents: [...s.agents, agent] });
   return agent;
+}
+
+export async function updateAgentPermissions(
+  agentId: string,
+  permissions: AgentPermissions,
+): Promise<void> {
+  const s = await loadPortalAccess();
+  const agents = s.agents.map((a) => (
+    a.id === agentId
+      ? { ...a, permissions: normalizeAgentPermissions(permissions) }
+      : a
+  ));
+  await savePortalAccess({ ...s, agents });
+}
+
+export async function addGuard(
+  input: { name: string; phone: string; notes?: string; pairedAgentId?: string },
+): Promise<PropertyGuardRecord> {
+  const s = await loadPortalAccess();
+  const guard: PropertyGuardRecord = {
+    id: uid('guard'),
+    name: input.name.trim(),
+    phone: input.phone.trim(),
+    notes: input.notes?.trim(),
+    pairedAgentId: input.pairedAgentId,
+    portalToken: uid('gtok').slice(-12),
+    createdAt: new Date().toISOString(),
+    linkActive: true,
+  };
+  await savePortalAccess({ ...s, guards: [...s.guards, guard] });
+  return guard;
+}
+
+export async function createFollowUp(input: {
+  title: string;
+  body: string;
+  domain: FollowUpDomain;
+  createdBy: FollowUpActor;
+  createdByName: string;
+  agentId?: string;
+  guardId?: string;
+  status?: FollowUpStatus;
+}): Promise<AgentFollowUp> {
+  const s = await loadPortalAccess();
+  const now = new Date().toISOString();
+  const item: AgentFollowUp = {
+    id: uid('fu'),
+    title: input.title.trim(),
+    body: input.body.trim(),
+    domain: input.domain,
+    status: input.status || 'open',
+    createdBy: input.createdBy,
+    createdByName: input.createdByName,
+    agentId: input.agentId,
+    guardId: input.guardId,
+    createdAt: now,
+    updatedAt: now,
+    replies: [],
+  };
+  await savePortalAccess({ ...s, followUps: [item, ...s.followUps].slice(0, 80) });
+  return item;
+}
+
+export async function replyFollowUp(
+  followUpId: string,
+  actor: FollowUpActor,
+  authorName: string,
+  message: string,
+  nextStatus?: FollowUpStatus,
+): Promise<void> {
+  const s = await loadPortalAccess();
+  const now = new Date().toISOString();
+  const followUps = s.followUps.map((f) => {
+    if (f.id !== followUpId) return f;
+    return {
+      ...f,
+      updatedAt: now,
+      status: nextStatus || (
+        actor === 'guard' ? 'waiting_agent'
+          : actor === 'agent' ? 'waiting_owner'
+            : actor === 'owner' ? 'waiting_agent'
+              : f.status
+      ),
+      replies: [
+        ...f.replies,
+        { at: now, actor, text: message.trim(), authorName },
+      ],
+    };
+  });
+  await savePortalAccess({ ...s, followUps });
+}
+
+export async function setFollowUpStatus(followUpId: string, status: FollowUpStatus) {
+  const s = await loadPortalAccess();
+  const followUps = s.followUps.map((f) => (
+    f.id === followUpId ? { ...f, status, updatedAt: new Date().toISOString() } : f
+  ));
+  await savePortalAccess({ ...s, followUps });
 }
 
 export async function recordPortalLogin(
@@ -90,3 +251,13 @@ export async function toggleAgentLink(agentId: string, active: boolean) {
 export function inAppAgentRoute(agentId: string, token: string) {
   return inAppAgentPortal(agentId, token);
 }
+
+export function inAppAgentFollowUpsRoute(agentId: string, token: string) {
+  return `/portal/agent-followups?id=${encodeURIComponent(agentId)}&t=${encodeURIComponent(token)}`;
+}
+
+export function inAppGuardPortal(guardId: string, token: string) {
+  return `/portal/guard?id=${encodeURIComponent(guardId)}&t=${encodeURIComponent(token)}`;
+}
+
+export { DEFAULT_AGENT_PERMISSIONS, normalizeAgentPermissions };

@@ -18,12 +18,9 @@ import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { useWorkspacePadding } from '@/src/hooks/use-workspace-padding';
 import type { AgentPermissions, PropertyAgentRecord } from '@/src/types/portal-access';
+import { AGENT_OWNER_PERM_KEYS, DEFAULT_AGENT_PERMISSIONS } from '@/src/types/portal-access';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
-
-const DEFAULT_PERMS: AgentPermissions = {
-  contracts: true, maintenance: true, tenants: true, wallet: false, settings: false,
-};
 
 type RailKey = 'profile' | null;
 
@@ -40,7 +37,7 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
   const [agentName, setAgentName] = useState('');
   const [agentPhone, setAgentPhone] = useState('');
   const [agentEmail, setAgentEmail] = useState('');
-  const [perms, setPerms] = useState<AgentPermissions>(DEFAULT_PERMS);
+  const [perms, setPerms] = useState<AgentPermissions>({ ...DEFAULT_AGENT_PERMISSIONS });
   const [lastAgent, setLastAgent] = useState<PropertyAgentRecord | null>(null);
 
   const displayName = useMemo(() => {
@@ -66,7 +63,7 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
     setAgentName('');
     setAgentPhone('');
     setAgentEmail('');
-    setPerms(DEFAULT_PERMS);
+    setPerms({ ...DEFAULT_AGENT_PERMISSIONS });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
 
@@ -155,7 +152,10 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
               keyboardType="email-address"
               style={[styles.input, ar && styles.rtl]}
             />
-            {(['contracts', 'maintenance', 'tenants', 'wallet', 'settings'] as const).map((p) => (
+            <Text style={[styles.section, ar && styles.rtl]}>
+              {ar ? 'صلاحيات يحددها المالك' : 'Owner-selected permissions'}
+            </Text>
+            {AGENT_OWNER_PERM_KEYS.map((p) => (
               <View key={p} style={[styles.permRow, ar && styles.rowRtl]}>
                 <Text style={styles.permLabel}>{t(`opsv2.portals.perm.${p}` as any)}</Text>
                 <Switch

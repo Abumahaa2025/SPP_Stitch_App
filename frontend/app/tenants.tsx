@@ -38,7 +38,7 @@ export default function Tenants() {
   const propMap = useMemo(() => new Map(props.map((p) => [p.id, p])), [props]);
 
   return (
-    <AgentPermissionGate perm="tenants">
+    <AgentPermissionGate anyOf={['rentals', 'tenants']}>
     <ScreenScaffold testID="tenants-screen">
       <StoryScreenHeader question={t('page.q.tenants')} hint={t('tenants.sub')} showBack testID="tenants-header" />
       <SetupProgressBar compact testID="tenants-setup-progress" />

@@ -20,31 +20,39 @@ import { usePropertyOS, buildTechnicianPortal } from '@/src/hooks/usePropertyOS'
 import { usePortalAccess } from '@/src/hooks/usePortalAccess';
 import { useTechnicians } from '@/src/hooks/useTechnicians';
 import { inAppTechRoute } from '@/src/utils/operational-flow-engine';
-import { inAppAgentRoute } from '@/src/utils/portal-access-store';
+import { inAppAgentRoute, inAppGuardPortal } from '@/src/utils/portal-access-store';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import { formatDate } from '@/src/utils/locale';
 import type { AgentPermissions, PropertyAgentRecord } from '@/src/types/portal-access';
-
-const DEFAULT_PERMS: AgentPermissions = {
-  contracts: true, maintenance: true, tenants: true, wallet: false, settings: false,
-};
+import { AGENT_OWNER_PERM_KEYS, DEFAULT_AGENT_PERMISSIONS } from '@/src/types/portal-access';
 
 export default function PortalsManagementScreen() {
-  const { t, isRTL } = useI18n();
+  const { t, isRTL, lang } = useI18n();
+  const ar = lang === 'ar' || !!isRTL;
   const router = useRouter();
   const { countEnabled } = useNotificationPrefs();
   const { state, ensureTechnicianPortal } = usePropertyOS(countEnabled);
-  const { agents, addAgent, getLastLogin, setAgentActive } = usePortalAccess();
+  const {
+    agents, guards, followUps,
+    addAgent, addGuard, getLastLogin, setAgentActive,
+    replyFollowUp, setFollowUpStatus,
+  } = usePortalAccess();
   const { technicians } = useTechnicians();
 
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [agentName, setAgentName] = useState('');
   const [agentPhone, setAgentPhone] = useState('');
   const [agentEmail, setAgentEmail] = useState('');
-  const [perms, setPerms] = useState<AgentPermissions>(DEFAULT_PERMS);
+  const [perms, setPerms] = useState<AgentPermissions>({ ...DEFAULT_AGENT_PERMISSIONS });
   const [lastCreatedAgent, setLastCreatedAgent] = useState<PropertyAgentRecord | null>(null);
+  const [guardName, setGuardName] = useState('');
+  const [guardPhone, setGuardPhone] = useState('');
+  const [showGuardForm, setShowGuardForm] = useState(false);
+  const [ownerReplyDraft, setOwnerReplyDraft] = useState<Record<string, string>>({});
+
+  const openFollowUps = followUps.filter((f) => f.status !== 'done');
 
   const techUrl = state.technicianPortalToken
     ? buildTechnicianPortal(state.technicianPortalToken)
@@ -68,8 +76,29 @@ export default function PortalsManagementScreen() {
     setAgentName('');
     setAgentPhone('');
     setAgentEmail('');
-    setPerms(DEFAULT_PERMS);
+    setPerms({ ...DEFAULT_AGENT_PERMISSIONS });
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const createGuard = async () => {
+    if (!guardName.trim()) return;
+    await addGuard({
+      name: guardName.trim(),
+      phone: guardPhone,
+      pairedAgentId: agents[0]?.id,
+    });
+    setShowGuardForm(false);
+    setGuardName('');
+    setGuardPhone('');
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const sendOwnerReply = async (followUpId: string) => {
+    const msg = (ownerReplyDraft[followUpId] || '').trim();
+    if (!msg) return;
+    await replyFollowUp(followUpId, 'owner', ar ? 'المالك' : 'Owner', msg, 'waiting_agent');
+    setOwnerReplyDraft((prev) => ({ ...prev, [followUpId]: '' }));
+    Haptics.selectionAsync();
   };
 
   return (
@@ -208,7 +237,7 @@ export default function PortalsManagementScreen() {
             keyboardType="email-address"
             style={[styles.input, isRTL && styles.rtl]}
           />
-          {(['contracts', 'maintenance', 'tenants', 'wallet', 'settings'] as const).map((p) => (
+          {AGENT_OWNER_PERM_KEYS.map((p) => (
             <View key={p} style={[styles.permRow, isRTL && styles.rowRtl]}>
               <Text style={styles.permLabel}>{t(`opsv2.portals.perm.${p}` as any)}</Text>
               <Switch
@@ -224,6 +253,116 @@ export default function PortalsManagementScreen() {
         </GlassCard>
       ) : null}
 
+      <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.portals.guardsTitle' as any)}</Text>
+      <Pressable
+        style={styles.actionBtn}
+        onPress={() => setShowGuardForm((v) => !v)}
+        testID="add-guard-toggle"
+      >
+        <Text style={styles.actionText}>
+          {showGuardForm ? t('common.cancel') : t('opsv2.portals.addGuard' as any)}
+        </Text>
+      </Pressable>
+      {showGuardForm ? (
+        <GlassCard padding={14} radiusToken="md" style={styles.gap}>
+          <KeyboardAwareTextInput
+            value={guardName}
+            onChangeText={setGuardName}
+            placeholder={t('opsv2.portals.guardName' as any)}
+            placeholderTextColor={colors.textSubtle}
+            style={[styles.input, isRTL && styles.rtl]}
+          />
+          <KeyboardAwareTextInput
+            value={guardPhone}
+            onChangeText={setGuardPhone}
+            placeholder={t('opsv2.portals.guardPhone' as any)}
+            placeholderTextColor={colors.textSubtle}
+            keyboardType="phone-pad"
+            style={[styles.input, isRTL && styles.rtl]}
+          />
+          <Pressable style={styles.createBtn} onPress={createGuard}>
+            <Text style={styles.createBtnText}>{t('opsv2.portals.createGuard' as any)}</Text>
+          </Pressable>
+        </GlassCard>
+      ) : null}
+      {guards.map((g) => (
+        <GlassCard key={g.id} padding={14} radiusToken="md" style={styles.gap}>
+          <Text style={styles.agentName}>{g.name}</Text>
+          <Text style={styles.meta}>{g.phone || '—'}</Text>
+          <Text style={[styles.dim, isRTL && styles.rtl]}>
+            {t('opsv2.portals.guardHint' as any)}
+          </Text>
+          <Pressable
+            style={styles.actionBtn}
+            onPress={() => router.push(inAppGuardPortal(g.id, g.portalToken) as any)}
+            testID={`open-guard-${g.id}`}
+          >
+            <Text style={styles.actionText}>{t('opsv2.portals.openGuardPortal' as any)}</Text>
+          </Pressable>
+        </GlassCard>
+      ))}
+
+      <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.portals.ownerFollowups' as any)}</Text>
+      <Text style={[styles.dim, isRTL && styles.rtl, { marginBottom: spacing.sm }]}>
+        {t('opsv2.portals.ownerFollowupsHint' as any)}
+      </Text>
+      {!openFollowUps.length ? (
+        <Text style={[styles.dim, isRTL && styles.rtl]}>{t('opsv2.portals.emptyOwnerFollowups' as any)}</Text>
+      ) : openFollowUps.map((f) => {
+        const agentName = agents.find((a) => a.id === f.agentId)?.name;
+        const guardNameLabel = guards.find((g) => g.id === f.guardId)?.name;
+        return (
+          <GlassCard key={f.id} padding={14} radiusToken="md" style={styles.gap} edge={f.status === 'waiting_owner' ? 'gold' : undefined}>
+            <Text style={styles.agentName}>{f.title}</Text>
+            <Text style={styles.meta}>
+              {f.domain === 'general'
+                ? (ar ? 'عام' : 'General')
+                : t(`opsv2.portals.perm.${f.domain}` as any)}
+              {' · '}
+              {t(`opsv2.agent.status.${f.status}` as any)}
+            </Text>
+            {(agentName || guardNameLabel) ? (
+              <Text style={[styles.dim, isRTL && styles.rtl]}>
+                {[agentName && `${ar ? 'وكيل' : 'Agent'}: ${agentName}`, guardNameLabel && `${ar ? 'حارس' : 'Guard'}: ${guardNameLabel}`]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
+            ) : null}
+            <Text style={[styles.dim, isRTL && styles.rtl, { marginTop: 6 }]}>{f.body}</Text>
+            {f.replies.slice(-2).map((r, i) => (
+              <Text key={`${f.id}-r-${i}`} style={[styles.meta, { marginTop: 4 }, isRTL && styles.rtl]}>
+                {r.authorName}: {r.text}
+              </Text>
+            ))}
+            <KeyboardAwareTextInput
+              value={ownerReplyDraft[f.id] || ''}
+              onChangeText={(v) => setOwnerReplyDraft((prev) => ({ ...prev, [f.id]: v }))}
+              placeholder={t('opsv2.agent.replyPh' as any)}
+              placeholderTextColor={colors.textSubtle}
+              style={[styles.input, isRTL && styles.rtl]}
+            />
+            <View style={[styles.actions, isRTL && styles.rowRtl]}>
+              <Pressable style={styles.actionBtn} onPress={() => sendOwnerReply(f.id)} testID={`owner-reply-${f.id}`}>
+                <Text style={styles.actionText}>{t('opsv2.agent.reply' as any)}</Text>
+              </Pressable>
+              <Pressable
+                style={styles.actionBtn}
+                onPress={() => setFollowUpStatus(f.id, 'waiting_guard')}
+              >
+                <Text style={styles.actionText}>{t('opsv2.agent.askGuard' as any)}</Text>
+              </Pressable>
+              <Pressable
+                style={styles.actionBtn}
+                onPress={() => setFollowUpStatus(f.id, 'done')}
+              >
+                <Text style={styles.actionText}>{t('opsv2.agent.markDone' as any)}</Text>
+              </Pressable>
+            </View>
+          </GlassCard>
+        );
+      })}
+
+      <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.portals.agentsList' as any)}</Text>
       {agents.map((agent) => (
         <GlassCard key={agent.id} padding={14} radiusToken="md" style={styles.gap}>
           <View style={[styles.agentRow, isRTL && styles.rowRtl]}>
@@ -233,6 +372,11 @@ export default function PortalsManagementScreen() {
             </Text>
           </View>
           <Text style={styles.link} selectable numberOfLines={2}>{agent.portalUrl}</Text>
+          {AGENT_OWNER_PERM_KEYS.filter((p) => agent.permissions[p]).map((p) => (
+            <Text key={p} style={[styles.dim, isRTL && styles.rtl]}>
+              ✓ {t(`opsv2.portals.perm.${p}` as any)}
+            </Text>
+          ))}
           <Pressable
             style={styles.actionBtn}
             onPress={() => router.push(inAppAgentRoute(agent.id, agent.portalToken) as any)}

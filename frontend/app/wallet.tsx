@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { ScreenScaffold } from '@/src/components/ScreenScaffold';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
+import { AgentPermissionGate } from '@/src/components/AgentPermissionGate';
 import { colors, spacing, typography } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -22,6 +23,7 @@ export default function WalletScreen() {
   const router = useRouter();
 
   return (
+    <AgentPermissionGate anyOf={['electricity', 'water', 'wallet']}>
     <ScreenScaffold testID="wallet-screen">
       <StoryScreenHeader
         question={t('op.wallet.title')}
@@ -52,6 +54,7 @@ export default function WalletScreen() {
         ))}
       </View>
     </ScreenScaffold>
+    </AgentPermissionGate>
   );
 }
 
