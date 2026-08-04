@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { PageHeader } from "../components/PageHeader";
 import { useStore } from "../lib/store";
 import { Modal } from "../components/Modal";
 import "./pages.css";
@@ -39,23 +40,22 @@ export function MaintenancePage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <div className="section-kicker">التشغيل</div>
-          <h2>الصيانة والفنيون</h2>
-          <p className="muted">أنشئ الطلب، عيّن فنياً، وتابع الحالة حتى الإكمال.</p>
-        </div>
-        <div className="head-actions">
-          <button className="btn btn-ghost" onClick={() => setTechOpen(true)}>
+      <PageHeader
+        kicker="التشغيل"
+        title="الصيانة والفنيون"
+        desc="أنشئ الطلب، عيّن فنياً، وتابع الحالة حتى الإكمال."
+        actions={
+          <>
+            <button className="btn btn-ghost" onClick={() => setTechOpen(true)}>
             إضافة فني
           </button>
-          <button className="btn btn-primary" onClick={() => setReqOpen(true)}>
+            <button className="btn btn-primary" onClick={() => setReqOpen(true)}>
             طلب صيانة
           </button>
-        </div>
-      </div>
-
-      <section className="card block">
+          </>
+        }
+      />
+<section className="card block">
         <div className="block-head">
           <h3>الفنيون المتاحون</h3>
         </div>

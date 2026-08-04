@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { useStore } from "../lib/store";
 import { parsePropertiesCsv } from "../engines";
 import "./pages.css";
@@ -19,15 +20,12 @@ export function SettingsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <div className="section-kicker">الحساب</div>
-          <h2>الإعدادات</h2>
-          <p className="muted">إعدادات التشغيل والاستيراد — جاهزة للتوسع السحابي.</p>
-        </div>
-      </div>
-
-      <section className="card block">
+      <PageHeader
+        kicker="الحساب"
+        title="الإعدادات"
+        desc="إعدادات التشغيل والاستيراد — جاهزة للتوسع السحابي."
+      />
+<section className="card block">
         <div className="block-head">
           <h3>الملف الشخصي</h3>
         </div>
@@ -70,9 +68,9 @@ export function SettingsPage() {
         <div className="block-head">
           <h3>البيانات التجريبية</h3>
         </div>
-        <p className="muted">التطبيق يحفظ تغييراتك محلياً على هذا الجهاز.</p>
-        <button className="btn btn-primary" onClick={resetDemo}>
-          إعادة ضبط البيانات
+        <p className="muted">التطبيق يحفظ تغييراتك في قاعدة بيانات محلية على هذا الجهاز مع مؤشر تحميل/حفظ.</p>
+        <button className="btn btn-primary" onClick={() => void resetDemo()}>
+          إعادة ضبط قاعدة البيانات
         </button>
       </section>
 

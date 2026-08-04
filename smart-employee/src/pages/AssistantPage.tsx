@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
+import { PageHeader } from "../components/PageHeader";
 import { useStore } from "../lib/store";
 import { buildDailyBrief, buildKnowledge, buildRecommendations } from "../engines";
 import { sar } from "../lib/format";
@@ -15,14 +16,11 @@ export function AssistantPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <div className="section-kicker">المحرك الذكي</div>
-          <h2>المساعد العقاري</h2>
-          <p className="muted">{brief.greeting} — توصيات مبنية على قواعد تشغيل حتمية.</p>
-        </div>
-      </div>
-
+      <PageHeader
+        kicker="المحرك الذكي"
+        title="المساعد العقاري"
+        desc={`${brief.greeting} — توصيات مبنية على قواعد تشغيل حتمية.`}
+      />
       <section className="card block">
         <div className="block-head">
           <h3>

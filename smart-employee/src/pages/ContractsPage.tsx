@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { PageHeader } from "../components/PageHeader";
 import { useStore } from "../lib/store";
 import { daysLeft, formatDate, sar } from "../lib/format";
 import { Modal } from "../components/Modal";
@@ -26,18 +27,19 @@ export function ContractsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <div className="section-kicker">الالتزامات</div>
-          <h2>إدارة العقود</h2>
-          <p className="muted">تابع نهاية العقود وجدّدها قبل انتهاء المدة.</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => setOpen(true)}>
+      <PageHeader
+        kicker="الالتزامات"
+        title="إدارة العقود"
+        desc="تابع نهاية العقود وجدّدها قبل انتهاء المدة."
+        actions={
+          <>
+            <button className="btn btn-primary" onClick={() => setOpen(true)}>
           إضافة عقد
         </button>
-      </div>
-
-      <div className="list stack-gap">
+          </>
+        }
+      />
+<div className="list stack-gap">
         {state.contracts.map((c) => {
           const left = daysLeft(c.end);
           const pill =

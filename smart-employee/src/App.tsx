@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "./components/AppShell";
+import { LoadingGate } from "./components/LoadingGate";
 import { useStore } from "./lib/store";
 import { LoginPage } from "./pages/LoginPage";
 import { HomePage } from "./pages/HomePage";
@@ -11,6 +12,10 @@ import { TenantsPage } from "./pages/TenantsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 import { MorePage } from "./pages/MorePage";
 import { AssistantPage } from "./pages/AssistantPage";
+import { DataEntryPage } from "./pages/DataEntryPage";
+import { OwnerPage } from "./pages/OwnerPage";
+import { PermissionsPage } from "./pages/PermissionsPage";
+import { RentsPage } from "./pages/RentsPage";
 
 function Protected() {
   const { state } = useStore();
@@ -20,20 +25,26 @@ function Protected() {
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route element={<Protected />}>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/properties" element={<PropertiesPage />} />
-        <Route path="/contracts" element={<ContractsPage />} />
-        <Route path="/sensors" element={<SensorsPage />} />
-        <Route path="/maintenance" element={<MaintenancePage />} />
-        <Route path="/tenants" element={<TenantsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/more" element={<MorePage />} />
-        <Route path="/assistant" element={<AssistantPage />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <LoadingGate>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route element={<Protected />}>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/owner" element={<OwnerPage />} />
+          <Route path="/permissions" element={<PermissionsPage />} />
+          <Route path="/data-entry" element={<DataEntryPage />} />
+          <Route path="/properties" element={<PropertiesPage />} />
+          <Route path="/contracts" element={<ContractsPage />} />
+          <Route path="/rents" element={<RentsPage />} />
+          <Route path="/sensors" element={<SensorsPage />} />
+          <Route path="/maintenance" element={<MaintenancePage />} />
+          <Route path="/tenants" element={<TenantsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/more" element={<MorePage />} />
+          <Route path="/assistant" element={<AssistantPage />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </LoadingGate>
   );
 }

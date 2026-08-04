@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { PageHeader } from "../components/PageHeader";
 import { useStore } from "../lib/store";
 import { sar } from "../lib/format";
 import { Modal } from "../components/Modal";
@@ -14,6 +16,7 @@ function statusPill(status: string) {
 
 export function PropertiesPage() {
   const { state, addProperty, cyclePropertyStatus } = useStore();
+  const navigate = useNavigate();
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
 
@@ -41,18 +44,22 @@ export function PropertiesPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <div className="section-kicker">الأصول</div>
-          <h2>إدارة العقارات</h2>
-          <p className="muted">ابحث، حدّث الحالة، أو أضف عقاراً جديداً بخطوات بسيطة.</p>
-        </div>
-        <button className="btn btn-primary" onClick={() => setOpen(true)}>
-          إضافة عقار
-        </button>
-      </div>
-
-      <div className="card block">
+      <PageHeader
+        kicker="الأصول"
+        title="إدارة العقارات"
+        desc="ابحث، حدّث الحالة، أو أضف عقاراً جديداً بخطوات بسيطة."
+        actions={
+          <>
+            <button className="btn btn-ghost" onClick={() => navigate("/data-entry")}>
+              إدخال شامل
+            </button>
+            <button className="btn btn-primary" onClick={() => setOpen(true)}>
+              إضافة سريعة
+            </button>
+          </>
+        }
+      />
+<div className="card block">
         <div className="field">
           <label htmlFor="prop-search">بحث</label>
           <input

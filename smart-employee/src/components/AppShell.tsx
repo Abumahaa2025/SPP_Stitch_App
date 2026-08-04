@@ -2,13 +2,13 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Building2,
   ClipboardList,
-  Cpu,
+  Database,
   Ellipsis,
   Home,
   LogOut,
-  Settings2,
+  Shield,
   Sparkles,
-  Users,
+  UserRound,
   Wrench,
   Bell,
 } from "lucide-react";
@@ -18,25 +18,26 @@ import "./AppShell.css";
 
 const links = [
   { to: "/", label: "الرئيسية", icon: Home, end: true },
-  { to: "/assistant", label: "المساعد", icon: Sparkles },
+  { to: "/owner", label: "المالك", icon: UserRound },
+  { to: "/permissions", label: "الصلاحيات", icon: Shield },
+  { to: "/data-entry", label: "إدخال البيانات", icon: Database },
   { to: "/properties", label: "العقارات", icon: Building2 },
   { to: "/contracts", label: "العقود", icon: ClipboardList },
-  { to: "/sensors", label: "الحساسات", icon: Cpu },
+  { to: "/rents", label: "الإيجارات", icon: ClipboardList },
   { to: "/maintenance", label: "الصيانة", icon: Wrench },
-  { to: "/tenants", label: "المستأجرون", icon: Users },
-  { to: "/settings", label: "الإعدادات", icon: Settings2 },
+  { to: "/assistant", label: "المساعد", icon: Sparkles },
 ];
 
 const mobileLinks = [
   { to: "/", label: "الرئيسية", icon: Home, end: true },
-  { to: "/assistant", label: "المساعد", icon: Sparkles },
-  { to: "/properties", label: "العقارات", icon: Building2 },
-  { to: "/maintenance", label: "الصيانة", icon: Wrench },
+  { to: "/data-entry", label: "إدخال", icon: Database },
+  { to: "/owner", label: "المالك", icon: UserRound },
+  { to: "/permissions", label: "صلاحيات", icon: Shield },
   { to: "/more", label: "المزيد", icon: Ellipsis },
 ];
 
 export function AppShell() {
-  const { state, logout } = useStore();
+  const { state, logout, saving } = useStore();
   const navigate = useNavigate();
   const unread = state.alerts.length;
 
@@ -61,7 +62,12 @@ export function AppShell() {
 
         <nav className="side-links">
           {links.map((l) => (
-            <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}>
+            <NavLink
+              key={l.to}
+              to={l.to}
+              end={l.end}
+              className={({ isActive }) => (isActive ? "nav-link active" : "nav-link")}
+            >
               <l.icon size={18} />
               <span>{l.label}</span>
             </NavLink>
@@ -83,7 +89,7 @@ export function AppShell() {
       <div className="main-column">
         <header className="top-bar card">
           <div>
-            <div className="top-kicker muted">لوحة التشغيل</div>
+            <div className="top-kicker muted">لوحة التشغيل {saving ? "· حفظ..." : ""}</div>
             <h1>مرحباً {state.user.name.split(" ")[0]}</h1>
           </div>
           <div className="top-actions">
@@ -101,7 +107,12 @@ export function AppShell() {
 
       <nav className="bottom-nav card" aria-label="التنقل السفلي">
         {mobileLinks.map((l) => (
-          <NavLink key={l.to} to={l.to} end={l.end} className={({ isActive }) => (isActive ? "bottom-link active" : "bottom-link")}>
+          <NavLink
+            key={l.to}
+            to={l.to}
+            end={l.end}
+            className={({ isActive }) => (isActive ? "bottom-link active" : "bottom-link")}
+          >
             <l.icon size={18} />
             <span>{l.label}</span>
           </NavLink>

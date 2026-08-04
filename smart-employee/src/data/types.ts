@@ -3,6 +3,13 @@ export type PropertyType = "سكني" | "تجاري";
 export type ContractType = "إيجار سكني" | "إيجار تجاري" | "عقد صيانة";
 export type SensorStatus = "يعمل" | "تنبيه" | "متوقف";
 export type MaintStatus = "جديد" | "قيد التنفيذ" | "مكتمل";
+export type PermissionKey =
+  | "إدارة العقود"
+  | "تحصيل الإيجارات"
+  | "إدارة الصيانة"
+  | "خدمات الكهرباء"
+  | "خدمات المياه"
+  | "إدارة العقارات";
 
 export interface Property {
   id: string;
@@ -14,6 +21,8 @@ export interface Property {
   price: number;
   area: number;
   rooms: number;
+  baths?: number;
+  notes?: string;
 }
 
 export interface Contract {
@@ -21,10 +30,24 @@ export interface Contract {
   no: string;
   unit: string;
   property: string;
+  propertyId?: string;
   tenant: string;
   end: string;
+  start?: string;
   type: ContractType;
   rent: number;
+}
+
+export interface RentPayment {
+  id: string;
+  contractNo: string;
+  tenant: string;
+  property: string;
+  amount: number;
+  dueDate: string;
+  paidDate?: string;
+  status: "مدفوع" | "متأخر" | "قادم";
+  method?: string;
 }
 
 export interface Sensor {
@@ -70,6 +93,30 @@ export interface Tenant {
   rent: number;
   phone: string;
   status: "نشط" | "متأخر" | "منتهي";
+  /** اختياري */
+  email?: string;
+  nationalId?: string;
+  secondaryPhone?: string;
+  notes?: string;
+  deposit?: number;
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+  phone: string;
+  role: string;
+  status: "نشط" | "بانتظار الموافقة";
+  permissions: PermissionKey[];
+  accessLink: string;
+}
+
+export interface OwnerProfile {
+  name: string;
+  phone: string;
+  email: string;
+  company?: string;
+  city: string;
 }
 
 export interface AppUser {
@@ -81,8 +128,11 @@ export interface AppUser {
 export interface AppState {
   loggedIn: boolean;
   user: AppUser;
+  owner: OwnerProfile;
+  agents: Agent[];
   properties: Property[];
   contracts: Contract[];
+  rents: RentPayment[];
   sensors: Sensor[];
   alerts: Alert[];
   technicians: Technician[];
@@ -96,4 +146,31 @@ export interface Toast {
   id: string;
   msg: string;
   kind: ToastKind;
+}
+
+export interface PropertyPackageInput {
+  property: Omit<Property, "id" | "status"> & { status?: PropertyStatus };
+  contract?: {
+    unit: string;
+    tenantName: string;
+    type: ContractType;
+    start: string;
+    end: string;
+    rent: number;
+  };
+  tenant?: {
+    name: string;
+    phone: string;
+    email?: string;
+    nationalId?: string;
+    secondaryPhone?: string;
+    notes?: string;
+    deposit?: number;
+  };
+  rent?: {
+    amount: number;
+    dueDate: string;
+    status: RentPayment["status"];
+    method?: string;
+  };
 }

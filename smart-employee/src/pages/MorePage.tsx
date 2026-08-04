@@ -1,52 +1,53 @@
 import { Link } from "react-router-dom";
-import { Cpu, Settings2, Users } from "lucide-react";
+import {
+  Building2,
+  ClipboardList,
+  Cpu,
+  Database,
+  Receipt,
+  Settings2,
+  Shield,
+  Sparkles,
+  UserRound,
+  Users,
+  Wrench,
+} from "lucide-react";
+import { PageHeader } from "../components/PageHeader";
 import "./pages.css";
+
+const items = [
+  { to: "/data-entry", title: "إدخال البيانات", desc: "عقار وعقود وإيجارات ومستأجر", icon: Database },
+  { to: "/owner", title: "حساب المالك", desc: "هوية المالك وملخص المحفظة", icon: UserRound },
+  { to: "/permissions", title: "إدارة الصلاحيات", desc: "الوكلاء والشركاء", icon: Shield },
+  { to: "/rents", title: "الإيجارات", desc: "الدفعات والتحصيل", icon: Receipt },
+  { to: "/tenants", title: "المستأجرون", desc: "سجل المستأجرين", icon: Users },
+  { to: "/contracts", title: "العقود", desc: "التجديد والانتهاء", icon: ClipboardList },
+  { to: "/properties", title: "العقارات", desc: "قائمة الأصول", icon: Building2 },
+  { to: "/sensors", title: "الحساسات", desc: "القراءات والتنبيهات", icon: Cpu },
+  { to: "/maintenance", title: "الصيانة", desc: "الطلبات والفنيون", icon: Wrench },
+  { to: "/assistant", title: "المساعد", desc: "قرارات المحرك", icon: Sparkles },
+  { to: "/settings", title: "الإعدادات", desc: "الحساب والاستيراد", icon: Settings2 },
+];
 
 export function MorePage() {
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <div className="section-kicker">المزيد</div>
-          <h2>أقسام إضافية</h2>
-          <p className="muted">الوصول السريع للمستأجرين والحساسات والإعدادات.</p>
-        </div>
-      </div>
+      <PageHeader
+        kicker="المزيد"
+        title="كل الأقسام"
+        desc="وصول سريع لكل صفحات التشغيل والصلاحيات وإدخال البيانات."
+      />
 
       <div className="cards-grid">
-        <Link to="/assistant" className="card property-card">
-          <div className="property-top">
-            <h3>المساعد</h3>
-          </div>
-          <p className="muted">قرارات المحرك والتوصيات</p>
-        </Link>
-        <Link to="/tenants" className="card property-card">
-          <div className="property-top">
-            <h3>المستأجرون</h3>
-            <Users size={18} />
-          </div>
-          <p className="muted">سجل المستأجرين وحالة السداد</p>
-        </Link>
-        <Link to="/sensors" className="card property-card">
-          <div className="property-top">
-            <h3>الحساسات</h3>
-            <Cpu size={18} />
-          </div>
-          <p className="muted">القراءات والتنبيهات الميدانية</p>
-        </Link>
-        <Link to="/contracts" className="card property-card">
-          <div className="property-top">
-            <h3>العقود</h3>
-          </div>
-          <p className="muted">التجديد والانتهاء</p>
-        </Link>
-        <Link to="/settings" className="card property-card">
-          <div className="property-top">
-            <h3>الإعدادات</h3>
-            <Settings2 size={18} />
-          </div>
-          <p className="muted">الحساب والبيانات التجريبية</p>
-        </Link>
+        {items.map((item) => (
+          <Link key={item.to} to={item.to} className="card property-card">
+            <div className="property-top">
+              <h3>{item.title}</h3>
+              <item.icon size={18} />
+            </div>
+            <p className="muted">{item.desc}</p>
+          </Link>
+        ))}
       </div>
     </div>
   );

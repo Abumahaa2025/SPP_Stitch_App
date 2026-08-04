@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { PageHeader } from "../components/PageHeader";
 import { useStore } from "../lib/store";
 import { sar } from "../lib/format";
 import "./pages.css";
@@ -26,15 +27,12 @@ export function TenantsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <div className="section-kicker">العلاقات</div>
-          <h2>سجل المستأجرين</h2>
-          <p className="muted">عرض سريع لحالة العقود والمدفوعات المرتبطة بكل مستأجر.</p>
-        </div>
-      </div>
-
-      <div className="card block">
+      <PageHeader
+        kicker="العلاقات"
+        title="سجل المستأجرين"
+        desc="عرض سريع لحالة العقود والمدفوعات المرتبطة بكل مستأجر."
+      />
+<div className="card block">
         <div className="field">
           <label htmlFor="tenant-search">بحث</label>
           <input
@@ -60,7 +58,11 @@ export function TenantsPage() {
               <div className="meta-row">
                 <span>{t.phone}</span>
                 <strong>{sar(t.rent)}</strong>
+                {t.email && <span>{t.email}</span>}
+                {t.nationalId && <span>هوية {t.nationalId}</span>}
+                {t.deposit ? <span>تأمين {sar(t.deposit)}</span> : null}
               </div>
+              {t.notes && <small className="muted">ملاحظة: {t.notes}</small>}
             </div>
           </article>
         ))}

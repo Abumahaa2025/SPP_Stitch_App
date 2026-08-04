@@ -10,24 +10,30 @@ import {
 import { seedState, uid } from "../data/seed";
 import { nextMaintStatus } from "../engines";
 import type { ImportedPropertyRow } from "../engines";
+import { clearDatabase, loadDatabase, saveDatabase } from "./db";
 import type {
+  Agent,
   AppState,
   Contract,
   MaintenanceRequest,
+  OwnerProfile,
+  PermissionKey,
   Property,
+  PropertyPackageInput,
   Technician,
   Toast,
   ToastKind,
 } from "../data/types";
 
-const STORAGE_KEY = "smart-employee-v1";
-
 interface StoreApi {
   state: AppState;
+  loading: boolean;
+  saving: boolean;
+  ready: boolean;
   toasts: Toast[];
   login: (username: string, password: string) => boolean;
   logout: () => void;
-  resetDemo: () => void;
+  resetDemo: () => Promise<void>;
   addProperty: (p: Omit<Property, "id" | "status">) => void;
   importProperties: (rows: ImportedPropertyRow[]) => void;
   cyclePropertyStatus: (id: string) => void;
@@ -37,29 +43,52 @@ interface StoreApi {
   advanceMaintenance: (id: string) => void;
   addTechnician: (t: Omit<Technician, "id" | "rating">) => void;
   simulateSensors: () => void;
+  savePropertyPackage: (input: PropertyPackageInput) => Promise<void>;
+  updateOwner: (owner: OwnerProfile) => void;
+  addAgent: (agent: Omit<Agent, "id" | "accessLink" | "status"> & { status?: Agent["status"] }) => void;
+  toggleAgentPermission: (agentId: string, permission: PermissionKey) => void;
   pushToast: (msg: string, kind?: ToastKind) => void;
 }
 
 const StoreContext = createContext<StoreApi | null>(null);
 
-function loadState(): AppState {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return seedState();
-    const parsed = JSON.parse(raw) as AppState;
-    return { ...seedState(), ...parsed, loggedIn: Boolean(parsed.loggedIn) };
-  } catch {
-    return seedState();
-  }
-}
-
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AppState>(() => loadState());
+  const [state, setState] = useState<AppState>(() => seedState());
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [ready, setReady] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state]);
+    let alive = true;
+    (async () => {
+      setLoading(true);
+      const data = await loadDatabase();
+      if (!alive) return;
+      setState(data);
+      setReady(true);
+      setLoading(false);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    let cancelled = false;
+    (async () => {
+      setSaving(true);
+      try {
+        await saveDatabase(state);
+      } finally {
+        if (!cancelled) setSaving(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [state, ready]);
 
   const pushToast = useCallback((msg: string, kind: ToastKind = "ok") => {
     const id = uid("toast");
@@ -72,6 +101,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const api = useMemo<StoreApi>(
     () => ({
       state,
+      loading,
+      saving,
+      ready,
       toasts,
       pushToast,
       login: (username, password) => {
@@ -84,18 +116,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState((s) => ({ ...s, loggedIn: false }));
         pushToast("تم تسجيل الخروج بنجاح");
       },
-      resetDemo: () => {
+      resetDemo: async () => {
+        setLoading(true);
+        await clearDatabase();
         const next = seedState();
         next.loggedIn = true;
         setState(next);
-        pushToast("تمت إعادة ضبط البيانات التجريبية");
+        setLoading(false);
+        pushToast("تمت إعادة ضبط قاعدة البيانات التجريبية");
       },
       addProperty: (p) => {
         setState((s) => ({
           ...s,
           properties: [{ id: uid("p"), status: "شاغرة", ...p }, ...s.properties],
         }));
-        pushToast("تمت إضافة العقار بنجاح");
+        pushToast("تمت إضافة العقار إلى قاعدة البيانات");
       },
       importProperties: (rows) => {
         setState((s) => ({
@@ -105,7 +140,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ...s.properties,
           ],
         }));
-        pushToast(`تم استيراد ${rows.length} عقار`);
+        pushToast(`تم استيراد ${rows.length} عقار إلى قاعدة البيانات`);
       },
       cyclePropertyStatus: (id) => {
         const order: Property["status"][] = ["شاغرة", "مؤجرة", "تحت الصيانة"];
@@ -128,7 +163,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             contracts: [{ id: uid("c"), no, ...c }, ...s.contracts],
           };
         });
-        pushToast("تمت إضافة العقد بنجاح");
+        pushToast("تمت إضافة العقد إلى قاعدة البيانات");
       },
       renewContract: (id) => {
         setState((s) => ({
@@ -205,8 +240,133 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         });
         pushToast("تم تحديث بيانات المستشعرات");
       },
+      savePropertyPackage: async (input) => {
+        setSaving(true);
+        await new Promise((r) => setTimeout(r, 350));
+        setState((s) => {
+          const propertyId = uid("p");
+          const hasTenant = Boolean(input.tenant?.name && input.contract?.tenantName);
+          const property: Property = {
+            id: propertyId,
+            status: input.property.status || (hasTenant ? "مؤجرة" : "شاغرة"),
+            ...input.property,
+          };
+
+          let contracts = s.contracts;
+          let tenants = s.tenants;
+          let rents = s.rents;
+          let contractNo = "";
+
+          if (input.contract && input.contract.tenantName) {
+            const prefix = input.contract.type === "عقد صيانة" ? "MNT" : "CON";
+            contractNo = `${prefix}-${new Date().getFullYear()}-${String(s.contracts.length + 1).padStart(3, "0")}`;
+            contracts = [
+              {
+                id: uid("c"),
+                no: contractNo,
+                unit: input.contract.unit,
+                property: property.name,
+                propertyId,
+                tenant: input.contract.tenantName,
+                start: input.contract.start,
+                end: input.contract.end,
+                type: input.contract.type,
+                rent: input.contract.rent,
+              },
+              ...s.contracts,
+            ];
+          }
+
+          if (input.tenant && input.tenant.name && contractNo) {
+            tenants = [
+              {
+                id: uid("tn"),
+                name: input.tenant.name,
+                unit: input.contract?.unit || "",
+                contractNo,
+                rent: input.contract?.rent || 0,
+                phone: input.tenant.phone,
+                status: "نشط",
+                email: input.tenant.email || undefined,
+                nationalId: input.tenant.nationalId || undefined,
+                secondaryPhone: input.tenant.secondaryPhone || undefined,
+                notes: input.tenant.notes || undefined,
+                deposit: input.tenant.deposit || undefined,
+              },
+              ...s.tenants,
+            ];
+          }
+
+          if (input.rent && contractNo) {
+            rents = [
+              {
+                id: uid("r"),
+                contractNo,
+                tenant: input.contract?.tenantName || "",
+                property: property.name,
+                amount: input.rent.amount,
+                dueDate: input.rent.dueDate,
+                status: input.rent.status,
+                method: input.rent.method || undefined,
+                paidDate: input.rent.status === "مدفوع" ? input.rent.dueDate : undefined,
+              },
+              ...s.rents,
+            ];
+          }
+
+          return {
+            ...s,
+            properties: [property, ...s.properties],
+            contracts,
+            tenants,
+            rents,
+          };
+        });
+        setSaving(false);
+        pushToast("تم حفظ حزمة بيانات العقار في قاعدة البيانات");
+      },
+      updateOwner: (owner) => {
+        setState((s) => ({ ...s, owner }));
+        pushToast("تم تحديث بيانات المالك");
+      },
+      addAgent: (agent) => {
+        setState((s) => {
+          const slug = agent.name.trim().replace(/\s+/g, "-").slice(0, 24) || "agent";
+          return {
+            ...s,
+            agents: [
+              {
+                id: uid("ag"),
+                status: agent.status || "نشط",
+                accessLink: `smart-employee.app/access/${encodeURIComponent(slug)}`,
+                name: agent.name,
+                phone: agent.phone,
+                role: agent.role,
+                permissions: agent.permissions,
+              },
+              ...s.agents,
+            ],
+          };
+        });
+        pushToast("تمت إضافة الوكيل/الشريك");
+      },
+      toggleAgentPermission: (agentId, permission) => {
+        setState((s) => ({
+          ...s,
+          agents: s.agents.map((a) => {
+            if (a.id !== agentId) return a;
+            const has = a.permissions.includes(permission);
+            return {
+              ...a,
+              permissions: has
+                ? a.permissions.filter((p) => p !== permission)
+                : [...a.permissions, permission],
+            };
+          }),
+        }));
+      },
     }),
-    [state, toasts, pushToast],
+    [state, loading, saving, ready, toasts, pushToast],
   );
 
   return <StoreContext.Provider value={api}>{children}</StoreContext.Provider>;

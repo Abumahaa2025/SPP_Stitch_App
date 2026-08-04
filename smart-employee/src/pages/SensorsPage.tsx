@@ -1,3 +1,4 @@
+import { PageHeader } from "../components/PageHeader";
 import { useStore } from "../lib/store";
 import "./pages.css";
 
@@ -12,18 +13,19 @@ export function SensorsPage() {
 
   return (
     <div className="stack">
-      <div className="page-head">
-        <div>
-          <div className="section-kicker">المراقبة</div>
-          <h2>لوحة المستشعرات</h2>
-          <p className="muted">تابع حالة الحساسات والتنبيهات الميدانية بسرعة.</p>
-        </div>
-        <button className="btn btn-primary" onClick={simulateSensors}>
+      <PageHeader
+        kicker="المراقبة"
+        title="لوحة المستشعرات"
+        desc="تابع حالة الحساسات والتنبيهات الميدانية بسرعة."
+        actions={
+          <>
+            <button className="btn btn-primary" onClick={simulateSensors}>
           تحديث القراءة
         </button>
-      </div>
-
-      <section className="card block">
+          </>
+        }
+      />
+<section className="card block">
         <div className="block-head">
           <h3>سجل الإنذارات</h3>
         </div>
