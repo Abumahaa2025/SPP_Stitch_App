@@ -19,6 +19,8 @@ import { RentsPage } from "./pages/RentsPage";
 import { EjarPage } from "./pages/EjarPage";
 import { AlertsPage } from "./pages/AlertsPage";
 import { TenantRenewalPage } from "./pages/TenantRenewalPage";
+import { PlatformsPage } from "./pages/PlatformsPage";
+import { OwnerAuthPage } from "./pages/OwnerAuthPage";
 
 function Protected() {
   const { state } = useStore();
@@ -32,6 +34,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/tenant-renewal/:renewalId" element={<TenantRenewalPage />} />
+        <Route path="/owner-auth/:authId" element={<OwnerAuthPage />} />
         <Route element={<Protected />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/owner" element={<OwnerPage />} />
@@ -41,6 +44,7 @@ export default function App() {
           <Route path="/contracts" element={<ContractsPage />} />
           <Route path="/rents" element={<RentsPage />} />
           <Route path="/ejar" element={<EjarPage />} />
+          <Route path="/platforms" element={<PlatformsPage />} />
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/sensors" element={<SensorsPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />

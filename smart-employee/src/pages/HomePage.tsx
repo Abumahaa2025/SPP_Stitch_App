@@ -7,6 +7,7 @@ import {
   Cpu,
   Database,
   KeyRound,
+  Link2,
   Receipt,
   Shield,
   Sparkles,
@@ -44,9 +45,10 @@ const opsMenus: { id: string; title: string; icon: typeof Building2; items: Menu
   },
   {
     id: "ejar",
-    title: "إيجار والتنبيهات",
+    title: "المنصات والتنبيهات",
     icon: Shield,
     items: [
+      { label: "إدارة روابط المنصات", to: "/platforms", desc: "إيجار · الكهرباء · المياه + إضافة رابط" },
       { label: "ربط منصة إيجار", to: "/ejar", desc: "إشعارات وتجديد العقود" },
       { label: "إدارة التنبيهات", to: "/alerts", desc: "حلول واقتراحات قابلة للتنفيذ" },
       { label: "الصلاحيات", to: "/permissions", desc: "الوكلاء والشركاء" },
@@ -113,6 +115,15 @@ export function HomePage() {
           <div>
             <strong>إدخال البيانات</strong>
             <p className="muted">حفظ مباشر في قاعدة البيانات</p>
+          </div>
+        </button>
+        <button className="card home-action" onClick={() => navigate("/platforms")}>
+          <Link2 size={20} />
+          <div>
+            <strong>روابط المنصات</strong>
+            <p className="muted">
+              {state.platformLinks.filter((p) => p.connected).length} متصل · إيجار وكهرباء ومياه
+            </p>
           </div>
         </button>
       </section>
@@ -251,6 +262,9 @@ export function HomePage() {
           </button>
           <button className="quick" onClick={() => navigate("/sensors")}>
             <Cpu size={18} /> الحساسات
+          </button>
+          <button className="quick" onClick={() => navigate("/platforms")}>
+            <Link2 size={18} /> المنصات
           </button>
           <button className="quick" onClick={() => navigate("/ejar")}>
             <ClipboardList size={18} /> إيجار

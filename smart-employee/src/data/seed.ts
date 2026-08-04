@@ -1,4 +1,5 @@
 import type { AppState } from "./types";
+import { defaultPlatformLinks } from "./platforms";
 
 let n = 0;
 export function uid(prefix: string) {
@@ -41,4 +42,7 @@ export const seedState = (): AppState => ({
     notes: "",
   },
   ejarRenewals: [],
+  platformLinks: defaultPlatformLinks(),
+  platformNotices: [],
+  ownerAuthorizations: [],
 });

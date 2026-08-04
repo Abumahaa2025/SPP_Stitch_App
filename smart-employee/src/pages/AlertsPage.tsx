@@ -33,6 +33,10 @@ export function AlertsPage() {
       navigate("/contracts");
       return;
     }
+    if (type === "open_platforms") {
+      navigate("/platforms");
+      return;
+    }
     if (type === "open_tenant") {
       navigate("/tenants");
     }

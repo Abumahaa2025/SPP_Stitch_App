@@ -29,7 +29,88 @@ export type AlertActionType =
   | "submit_ejar"
   | "open_contract"
   | "open_tenant"
+  | "open_platforms"
+  | "owner_auth_decide"
   | "custom";
+
+export type PlatformKind = "ejar" | "electricity" | "water" | "custom";
+
+export type PlatformNoticeKind =
+  | "bill"
+  | "payment_due"
+  | "renewal"
+  | "outage"
+  | "info"
+  | "action_required";
+
+export type PlatformNoticeStatus =
+  | "جديد"
+  | "أُشعر_المالك"
+  | "أُشعر_المستأجرون"
+  | "بانتظار_إذن_المالك"
+  | "مأذون"
+  | "مرفوض"
+  | "منفّذ"
+  | "متجاهل";
+
+export type OwnerAuthActionType = "pay_bill" | "renew_service" | "submit_procedure" | "custom";
+
+export type OwnerAuthStatus = "بانتظار" | "موافق" | "مرفوض" | "منتهي";
+
+export interface PlatformLink {
+  id: string;
+  kind: PlatformKind;
+  name: string;
+  /** رابط البوابة للمستخدم */
+  portalUrl: string;
+  /** عنوان واجهة API أو وسيط الإشعارات */
+  apiBaseUrl?: string;
+  accountNo?: string;
+  apiKeyMasked?: string;
+  connected: boolean;
+  receiveNotifications: boolean;
+  /** السماح بطلب إجراء نيابة عن المالك بعد إذنه */
+  actOnBehalfEnabled: boolean;
+  lastSyncAt?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface PlatformNotice {
+  id: string;
+  platformId: string;
+  platformName: string;
+  kind: PlatformNoticeKind;
+  title: string;
+  body: string;
+  amount?: number;
+  dueDate?: string;
+  accountRef?: string;
+  receivedAt: string;
+  suggestion: string;
+  status: PlatformNoticeStatus;
+  ownerAuthId?: string;
+  relatedTenantIds?: string[];
+  relatedPropertyId?: string;
+  history: { at: string; note: string }[];
+}
+
+export interface OwnerAuthorization {
+  id: string;
+  noticeId: string;
+  platformId: string;
+  platformName: string;
+  title: string;
+  description: string;
+  actionType: OwnerAuthActionType;
+  amount?: number;
+  status: OwnerAuthStatus;
+  token: string;
+  requestedAt: string;
+  decidedAt?: string;
+  executedAt?: string;
+  history: { at: string; note: string }[];
+}
 
 export interface Property {
   id: string;
@@ -210,6 +291,9 @@ export interface AppState {
   tenants: Tenant[];
   ejar: EjarConnection;
   ejarRenewals: EjarRenewalCase[];
+  platformLinks: PlatformLink[];
+  platformNotices: PlatformNotice[];
+  ownerAuthorizations: OwnerAuthorization[];
 }
 
 export type ToastKind = "ok" | "warn" | "danger";

@@ -6,6 +6,7 @@ import {
   Database,
   Ellipsis,
   Home,
+  Link2,
   LogOut,
   Shield,
   Sparkles,
@@ -21,6 +22,7 @@ const links = [
   { to: "/owner", label: "المالك", icon: UserRound },
   { to: "/permissions", label: "الصلاحيات", icon: Shield },
   { to: "/data-entry", label: "إدخال البيانات", icon: Database },
+  { to: "/platforms", label: "المنصات", icon: Link2 },
   { to: "/ejar", label: "إيجار", icon: ClipboardList },
   { to: "/alerts", label: "التنبيهات", icon: Bell },
   { to: "/properties", label: "العقارات", icon: Building2 },
@@ -32,7 +34,7 @@ const links = [
 const mobileLinks = [
   { to: "/", label: "الرئيسية", icon: Home, end: true },
   { to: "/data-entry", label: "إدخال", icon: Database },
-  { to: "/ejar", label: "إيجار", icon: ClipboardList },
+  { to: "/platforms", label: "منصات", icon: Link2 },
   { to: "/alerts", label: "تنبيهات", icon: Bell },
   { to: "/more", label: "المزيد", icon: Ellipsis },
 ];

@@ -5,6 +5,7 @@ import {
   ClipboardList,
   Cpu,
   Database,
+  Link2,
   Receipt,
   Settings2,
   Shield,
@@ -18,6 +19,7 @@ import "./pages.css";
 
 const items = [
   { to: "/data-entry", title: "إدخال البيانات", desc: "يدوي أو استرداد + إضافة مستأجر", icon: Database },
+  { to: "/platforms", title: "إدارة المنصات", desc: "إيجار · الكهرباء · المياه + إضافة رابط", icon: Link2 },
   { to: "/ejar", title: "منصة إيجار", desc: "الربط وتجديد العقود", icon: ClipboardList },
   { to: "/alerts", title: "التنبيهات والحلول", desc: "اقتراحات قابلة للتنفيذ", icon: Bell },
   { to: "/owner", title: "حساب المالك", desc: "هوية المالك وملخص المحفظة", icon: UserRound },

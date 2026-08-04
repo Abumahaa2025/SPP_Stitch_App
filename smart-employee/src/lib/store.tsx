@@ -19,6 +19,14 @@ import {
   startTenantRenewalNotice,
 } from "../engines/ejar";
 import {
+  buildOwnerAuthFromNotice,
+  decideOwnerAuth,
+  executeAuthorizedAction,
+  markNoticeStatus,
+  noticesToAlerts,
+  pullPlatformNotices,
+} from "../engines/platforms";
+import {
   buildCredentials,
   clearEjarSecrets,
   getEjarGateway,
@@ -35,6 +43,8 @@ import type {
   MaintenanceRequest,
   OwnerProfile,
   PermissionKey,
+  PlatformKind,
+  PlatformLink,
   Property,
   PropertyPackageInput,
   Technician,
@@ -89,6 +99,28 @@ interface StoreApi {
   ownerApproveEjarRenewal: (renewalId: string) => Promise<void>;
   submitEjarRenewal: (renewalId: string) => Promise<void>;
   resolveAlert: (alertId: string) => void;
+  upsertPlatformLink: (link: PlatformLink) => void;
+  addPlatformLink: (input: {
+    name: string;
+    portalUrl: string;
+    kind?: PlatformKind;
+    apiBaseUrl?: string;
+    accountNo?: string;
+  }) => void;
+  removePlatformLink: (id: string) => void;
+  connectPlatformLink: (id: string, input: { accountNo: string; apiKey: string }) => void;
+  disconnectPlatformLink: (id: string) => void;
+  updatePlatformLinkFlags: (
+    id: string,
+    patch: Partial<Pick<PlatformLink, "receiveNotifications" | "actOnBehalfEnabled" | "portalUrl" | "apiBaseUrl" | "notes">>,
+  ) => void;
+  syncPlatformInbox: () => void;
+  notifyOwnerAboutNotice: (noticeId: string) => void;
+  notifyTenantsAboutNotice: (noticeId: string) => void;
+  requestOwnerAuthorization: (noticeId: string) => void;
+  ownerDecideAuthorization: (authId: string, accept: boolean, token?: string) => boolean;
+  executeOwnerAuthorizedAction: (authId: string) => void;
+  dismissPlatformNotice: (noticeId: string) => void;
   pushToast: (msg: string, kind?: ToastKind) => void;
 }
 
@@ -96,10 +128,13 @@ const StoreContext = createContext<StoreApi | null>(null);
 
 function withMergedAlerts(s: AppState): AppState {
   const generated = buildRenewalAlerts(s);
-  const manual = s.alerts.filter((a) => a.resolved || !a.relatedContractId);
+  const platformAlerts = noticesToAlerts(s);
+  const manual = s.alerts.filter((a) => a.resolved || (!a.relatedContractId && a.actions?.[0]?.type !== "open_platforms"));
   const byTitle = new Set(manual.map((a) => `${a.title}|${a.relatedContractId || ""}`));
-  const uniqueGen = generated.filter((a) => !byTitle.has(`${a.title}|${a.relatedContractId || ""}`));
-  return { ...s, alerts: [...uniqueGen, ...manual].slice(0, 40) };
+  const uniqueGen = [...generated, ...platformAlerts].filter(
+    (a) => !byTitle.has(`${a.title}|${a.relatedContractId || ""}`),
+  );
+  return { ...s, alerts: [...uniqueGen, ...manual].slice(0, 50) };
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -605,6 +640,255 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ...s,
           alerts: s.alerts.map((a) => (a.id === alertId ? { ...a, resolved: true } : a)),
         }));
+      },
+      upsertPlatformLink: (link) => {
+        setState((s) => ({
+          ...s,
+          platformLinks: s.platformLinks.some((p) => p.id === link.id)
+            ? s.platformLinks.map((p) => (p.id === link.id ? link : p))
+            : [link, ...s.platformLinks],
+        }));
+        pushToast("تم حفظ رابط المنصة");
+      },
+      addPlatformLink: ({ name, portalUrl, kind, apiBaseUrl, accountNo }) => {
+        if (!name.trim() || !portalUrl.trim()) {
+          pushToast("أدخل اسم المنصة والرابط", "warn");
+          return;
+        }
+        const link: PlatformLink = {
+          id: uid("plt"),
+          kind: kind || "custom",
+          name: name.trim(),
+          portalUrl: portalUrl.trim(),
+          apiBaseUrl: apiBaseUrl?.trim() || "",
+          accountNo: accountNo?.trim() || "",
+          connected: false,
+          receiveNotifications: true,
+          actOnBehalfEnabled: true,
+          createdAt: new Date().toISOString(),
+          notes: "رابط مخصص",
+        };
+        setState((s) => ({ ...s, platformLinks: [link, ...s.platformLinks] }));
+        pushToast("تمت إضافة الرابط");
+      },
+      removePlatformLink: (id) => {
+        if (["plt_ejar", "plt_electricity", "plt_water"].includes(id)) {
+          pushToast("لا يمكن حذف المنصات الأساسية — يمكن إلغاء ربطها فقط", "warn");
+          return;
+        }
+        setState((s) => ({
+          ...s,
+          platformLinks: s.platformLinks.filter((p) => p.id !== id),
+        }));
+        pushToast("تم حذف الرابط");
+      },
+      connectPlatformLink: (id, { accountNo, apiKey }) => {
+        if (!accountNo.trim() || !apiKey.trim()) {
+          pushToast("أدخل رقم الحساب ومفتاح الربط", "warn");
+          return;
+        }
+        setState((s) => ({
+          ...s,
+          platformLinks: s.platformLinks.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  connected: true,
+                  accountNo: accountNo.trim(),
+                  apiKeyMasked: `${apiKey.trim().slice(0, 3)}••••${apiKey.trim().slice(-2)}`,
+                  lastSyncAt: new Date().toISOString(),
+                }
+              : p,
+          ),
+        }));
+        pushToast("تم ربط المنصة واستقبال الإشعارات مفعّل");
+      },
+      disconnectPlatformLink: (id) => {
+        setState((s) => ({
+          ...s,
+          platformLinks: s.platformLinks.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  connected: false,
+                  apiKeyMasked: undefined,
+                  lastSyncAt: undefined,
+                }
+              : p,
+          ),
+        }));
+        pushToast("تم إلغاء ربط المنصة");
+      },
+      updatePlatformLinkFlags: (id, patch) => {
+        setState((s) => ({
+          ...s,
+          platformLinks: s.platformLinks.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+        }));
+        pushToast("تم تحديث إعدادات الرابط");
+      },
+      syncPlatformInbox: () => {
+        let synced = 0;
+        setState((s) => {
+          const { notices, syncedIds } = pullPlatformNotices(s);
+          synced = syncedIds.length;
+          if (!syncedIds.length) return s;
+          const at = new Date().toISOString();
+          return withMergedAlerts({
+            ...s,
+            platformNotices: notices,
+            platformLinks: s.platformLinks.map((p) =>
+              syncedIds.includes(p.id) ? { ...p, lastSyncAt: at } : p,
+            ),
+          });
+        });
+        if (!synced) {
+          pushToast("اربط منصة واحدة على الأقل مع تفعيل استقبال الإشعارات", "warn");
+          return;
+        }
+        pushToast("تم سحب الرسائل والإشعارات من المنصات المرتبطة");
+      },
+      notifyOwnerAboutNotice: (noticeId) => {
+        const notice = state.platformNotices.find((n) => n.id === noticeId);
+        if (!notice) {
+          pushToast("الإشعار غير موجود", "danger");
+          return;
+        }
+        const ownerLabel = state.owner.name || state.owner.phone || "المالك";
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            platformNotices: markNoticeStatus(
+              s.platformNotices,
+              noticeId,
+              "أُشعر_المالك",
+              `أُرسل إشعار للمالك (${ownerLabel}): ${notice.title}`,
+            ),
+          }),
+        );
+        pushToast(`تم إرسال الإشعار والاقتراح إلى المالك`);
+      },
+      notifyTenantsAboutNotice: (noticeId) => {
+        const notice = state.platformNotices.find((n) => n.id === noticeId);
+        if (!notice) {
+          pushToast("الإشعار غير موجود", "danger");
+          return;
+        }
+        const tenants = state.tenants.filter((t) =>
+          notice.relatedTenantIds?.length ? notice.relatedTenantIds.includes(t.id) : t.status === "نشط",
+        );
+        if (!tenants.length) {
+          pushToast("لا يوجد مستأجرون لإرسال الإشعار إليهم", "warn");
+          return;
+        }
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            platformNotices: markNoticeStatus(
+              s.platformNotices,
+              noticeId,
+              "أُشعر_المستأجرون",
+              `أُرسل إشعار لـ ${tenants.length} مستأجر: ${notice.suggestion}`,
+            ),
+          }),
+        );
+        pushToast(`تم إرسال الإشعار لـ ${tenants.length} مستأجر`);
+      },
+      requestOwnerAuthorization: (noticeId) => {
+        const notice = state.platformNotices.find((n) => n.id === noticeId);
+        if (!notice) {
+          pushToast("الإشعار غير موجود", "danger");
+          return;
+        }
+        const platform = state.platformLinks.find((p) => p.id === notice.platformId);
+        if (platform && !platform.actOnBehalfEnabled) {
+          pushToast("فعّل صلاحية التصرف نيابة عن المالك في إعدادات الرابط", "warn");
+          return;
+        }
+        const auth = buildOwnerAuthFromNotice(notice, platform);
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            ownerAuthorizations: [auth, ...s.ownerAuthorizations],
+            platformNotices: s.platformNotices.map((n) =>
+              n.id === noticeId
+                ? {
+                    ...n,
+                    status: "بانتظار_إذن_المالك",
+                    ownerAuthId: auth.id,
+                    history: [
+                      ...n.history,
+                      {
+                        at: new Date().toISOString(),
+                        note: `طُلب إذن المالك — رابط الموافقة /owner-auth/${auth.id}`,
+                      },
+                    ],
+                  }
+                : n,
+            ),
+          }),
+        );
+        pushToast("تم طلب إذن المالك لإتمام السداد/الإجراء");
+      },
+      ownerDecideAuthorization: (authId, accept, token) => {
+        let ok = false;
+        let message = "";
+        setState((s) => {
+          const result = decideOwnerAuth(s.ownerAuthorizations, authId, accept, token);
+          ok = result.ok;
+          message = result.message;
+          if (!result.ok || !result.auth) return s;
+          let next: AppState = {
+            ...s,
+            ownerAuthorizations: result.auths,
+            platformNotices: markNoticeStatus(
+              s.platformNotices,
+              result.auth.noticeId,
+              accept ? "مأذون" : "مرفوض",
+              accept ? "المالك وافق على التنفيذ نيابة عنه" : "المالك رفض الإجراء",
+            ),
+          };
+          if (accept) {
+            const exec = executeAuthorizedAction(
+              next.ownerAuthorizations,
+              next.platformNotices,
+              authId,
+            );
+            if (exec.ok) {
+              next = {
+                ...next,
+                ownerAuthorizations: exec.auths,
+                platformNotices: exec.notices,
+              };
+              message = exec.message;
+            }
+          }
+          return withMergedAlerts(next);
+        });
+        pushToast(message, ok ? "ok" : "danger");
+        return ok;
+      },
+      executeOwnerAuthorizedAction: (authId) => {
+        setState((s) => {
+          const result = executeAuthorizedAction(s.ownerAuthorizations, s.platformNotices, authId);
+          if (!result.ok) {
+            pushToast(result.message, "danger");
+            return s;
+          }
+          pushToast(result.message);
+          return withMergedAlerts({
+            ...s,
+            ownerAuthorizations: result.auths,
+            platformNotices: result.notices,
+          });
+        });
+      },
+      dismissPlatformNotice: (noticeId) => {
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            platformNotices: markNoticeStatus(s.platformNotices, noticeId, "متجاهل", "تم تجاهل الإشعار"),
+          }),
+        );
       },
     }),
     [state, loading, saving, ready, toasts, pushToast, submitFromSnapshot],
