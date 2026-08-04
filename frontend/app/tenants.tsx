@@ -39,7 +39,7 @@ export default function Tenants() {
 
   return (
     <AgentPermissionGate anyOf={['rentals', 'tenants']}>
-    <ScreenScaffold testID="tenants-screen">
+      <ScreenScaffold testID="tenants-screen">
       <StoryScreenHeader question={t('page.q.tenants')} hint={t('tenants.sub')} showBack testID="tenants-header" />
       <SetupProgressBar compact testID="tenants-setup-progress" />
       <GuidedSetup flowId="tenant" defaultOpen={tenants.length === 0 && !osState.tenants.length} testID="tenants-guided" />

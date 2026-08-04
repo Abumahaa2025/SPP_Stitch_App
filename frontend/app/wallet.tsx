@@ -21,39 +21,40 @@ const LINKS = [
 export default function WalletScreen() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
+  const walletPerms = ['electricity', 'water', 'wallet'] as const;
 
   return (
-    <AgentPermissionGate anyOf={['electricity', 'water', 'wallet']}>
-    <ScreenScaffold testID="wallet-screen">
-      <StoryScreenHeader
-        question={t('op.wallet.title')}
-        hint={t('op.wallet.sub')}
-        showBack
-        testID="wallet-header"
-      />
-      <View style={styles.list}>
-        {LINKS.map((link, i) => (
-          <Animated.View key={link.key} entering={FadeInDown.duration(450).delay(40 + i * 40)}>
-            <Pressable
-              testID={`wallet-${link.key}`}
-              onPress={() => { Haptics.selectionAsync(); router.push(link.route as any); }}
-              style={({ pressed }) => [pressed && { opacity: 0.88 }]}
-            >
-              <GlassCard padding={16} radiusToken="md" edge={link.tone === 'emerald' ? 'emerald' : link.tone === 'gold' ? 'gold' : 'neutral'}>
-                <View style={[styles.row, isRTL && styles.rowRtl]}>
-                  <Feather name={link.icon} size={18} color={link.tone === 'emerald' ? colors.emerald : colors.gold} />
-                  <View style={styles.text}>
-                    <Text style={[styles.label, isRTL && styles.rtl]}>{t(link.labelKey as any)}</Text>
-                    <Text style={[styles.hint, isRTL && styles.rtl]}>{t(link.hintKey as any)}</Text>
+    <AgentPermissionGate anyOf={[...walletPerms]}>
+      <ScreenScaffold testID="wallet-screen">
+        <StoryScreenHeader
+          question={t('op.wallet.title')}
+          hint={t('op.wallet.sub')}
+          showBack
+          testID="wallet-header"
+        />
+        <View style={styles.list}>
+          {LINKS.map((link, i) => (
+            <Animated.View key={link.key} entering={FadeInDown.duration(450).delay(40 + i * 40)}>
+              <Pressable
+                testID={`wallet-${link.key}`}
+                onPress={() => { Haptics.selectionAsync(); router.push(link.route as any); }}
+                style={({ pressed }) => [pressed && { opacity: 0.88 }]}
+              >
+                <GlassCard padding={16} radiusToken="md" edge={link.tone === 'emerald' ? 'emerald' : link.tone === 'gold' ? 'gold' : 'neutral'}>
+                  <View style={[styles.row, isRTL && styles.rowRtl]}>
+                    <Feather name={link.icon} size={18} color={link.tone === 'emerald' ? colors.emerald : colors.gold} />
+                    <View style={styles.text}>
+                      <Text style={[styles.label, isRTL && styles.rtl]}>{t(link.labelKey as any)}</Text>
+                      <Text style={[styles.hint, isRTL && styles.rtl]}>{t(link.hintKey as any)}</Text>
+                    </View>
+                    <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={colors.textSubtle} />
                   </View>
-                  <Feather name={isRTL ? 'chevron-left' : 'chevron-right'} size={16} color={colors.textSubtle} />
-                </View>
-              </GlassCard>
-            </Pressable>
-          </Animated.View>
-        ))}
-      </View>
-    </ScreenScaffold>
+                </GlassCard>
+              </Pressable>
+            </Animated.View>
+          ))}
+        </View>
+      </ScreenScaffold>
     </AgentPermissionGate>
   );
 }
