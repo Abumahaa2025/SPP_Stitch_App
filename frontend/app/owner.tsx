@@ -59,7 +59,7 @@ const PRIMARY_TOOLS: HubLink[] = [
 
 /**
  * Daily operations — Spec §3 / §5.5.
- * Agent links live on Home account rail; technicians live under Maintenance.
+ * Agent links live on Home Control rail button; technicians live under Maintenance.
  * Maintenance / connections / data center live in PRIMARY_TOOLS above.
  */
 const LINKS: HubLink[] = [
