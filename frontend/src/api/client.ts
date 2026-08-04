@@ -118,10 +118,19 @@ export type SensorT = {
 };
 
 export type NotifT = {
-  id: string; title: string; body: string; priority: string;
-  at: string; read: boolean;
+  id: string;
+  title: string;
+  body: string;
+  priority: string;
+  at: string;
+  read: boolean;
   /** Optional deep link (local notifications). */
   route?: string;
+  /** Bilingual storage — UI picks by active language */
+  titleAr?: string;
+  titleEn?: string;
+  bodyAr?: string;
+  bodyEn?: string;
 };
 
 export type ChatMsg = {

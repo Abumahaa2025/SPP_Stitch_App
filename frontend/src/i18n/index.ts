@@ -10,7 +10,7 @@ import { opsV2En, opsV2Ar } from './ops-v2-keys';
 import { phaseAEn, phaseAAr } from './phase-a-keys';
 import { opsFixEn, opsFixAr } from './ops-fix-keys';
 
-type Lang = 'en' | 'ar';
+export type Lang = 'en' | 'ar';
 
 const dict = {
   en: {

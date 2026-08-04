@@ -103,8 +103,8 @@ export function UploadResultsWizard({
   onApplied,
   onReset,
 }: Props) {
-  const { isRTL } = useI18n();
-  const ar = lang === 'ar' || isRTL;
+  const { isRTL, lang: appLang } = useI18n();
+  const ar = appLang === 'ar';
   const router = useRouter();
   const summary = useMemo(() => summaryOf(analysis), [analysis]);
   const [stage, setStage] = useState<WizardStage>(1);
