@@ -1,19 +1,19 @@
-﻿# رابط تثبيت APK (اختبار على الجوال)
+﻿# رابط تثبيت APK (مرة واحدة) + تحديثات مباشرة بعدها
 
-## الرابط الثابت (استخدمه للتثبيت)
+## تثبيت مرة واحدة فقط (آخر إصدار 1.0.40 — قناة Expo beta مضمّنة)
 
-**تحميل مباشر — اسم ملف ثابت `spp-beta.apk`:**
+**تحميل مباشر:**
+https://github.com/Abumahaa2025/SPP_Stitch_App/releases/download/v1.0.40/spp-beta.apk
+
+**نفس الرابط الثابت (Latest):**
 https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest/download/spp-beta.apk
 
-**صفحة آخر إصدار (إن لم يعمل التحميل المباشر):**
-https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest
+بعد هذا التثبيت: أي تعديل واجهة/JS ينزل تلقائيًا عند فتح التطبيق أو العودة إليه — **بدون رابط جديد**.
 
-## ملاحظات
+## كيف يعمل
 
-- الحزمة: `ai.spp.stitch`
-- بعد التثبيت مرة واحدة، تحديثات الواجهة تصل عبر **Expo OTA** قناة `beta` عند فتح التطبيق.
-- لوحة التحديثات: https://expo.dev/accounts/abumahaa2025/projects/spp-beta/updates
+1. APK يحتوي `expo-channel-name: beta` + `runtimeVersion` = رقم إصدار التطبيق.
+2. كل push على `main` ينشر OTA عبر: Actions → **Expo OTA Update (beta)**.
+3. التطبيق يفحص التحديث عند التشغيل وعند الرجوع من الخلفية.
 
-## إصدار أصلي باسم الملف القديم (احتياط)
-
-https://github.com/Abumahaa2025/SPP_Stitch_App/releases/download/v1.0.38/spp-stitch-1.0.38.apk
+الحزمة: `ai.spp.stitch`

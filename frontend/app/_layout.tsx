@@ -2,7 +2,7 @@ import { Stack, useRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Localization from "expo-localization";
 import { useEffect, useState } from "react";
-import { LogBox, Platform, View } from "react-native";
+import { AppState, LogBox, Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Linking from "expo-linking";
@@ -75,10 +75,14 @@ export default function RootLayout() {
     })();
   }, []);
 
-  // OTA: same install link — JS updates from Expo channel `beta` on cold start.
+  // OTA: same APK install — JS updates from Expo channel `beta` on start + resume.
   useEffect(() => {
     if (!langReady) return;
     void applyExpoOtaIfAvailable();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void applyExpoOtaIfAvailable();
+    });
+    return () => sub.remove();
   }, [langReady]);
 
   // Enforce a minimum splash hold for brand presence (~2s logo entrance).
