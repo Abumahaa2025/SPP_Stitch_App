@@ -68,13 +68,13 @@ export function GlassTabBar() {
           Alert.alert(
             ar ? 'تم حفظ العقار' : 'Property saved',
             ar
-              ? `تم حفظ «${name}». افتح مركز البيانات لعرض الجدول.`
-              : `«${name}» is saved. Open the database center for the table.`,
+              ? `تم حفظ «${name}». افتح مركز البيانات والعمليات لعرض الجدول.`
+              : `«${name}» is saved. Open Data & operations for the table.`,
             [
               { text: ar ? 'لاحقاً' : 'Later', style: 'cancel', onPress: () => router.replace('/owner' as any) },
               {
-                text: ar ? 'مركز البيانات' : 'Database center',
-                onPress: () => router.replace('/database' as any),
+                text: ar ? 'مركز البيانات والعمليات' : 'Data & operations',
+                onPress: () => router.replace('/operational/base?tab=registry' as any),
               },
             ],
           );

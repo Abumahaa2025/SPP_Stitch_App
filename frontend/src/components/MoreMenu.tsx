@@ -30,8 +30,6 @@ const TOOL_ITEMS: MoreItem[] = [
   { key: 'portfolio', labelKey: 'more.portfolio', hintKey: 'more.portfolio.hint', icon: 'activity', route: '/portfolio', tone: 'gold' },
   { key: 'opsBase', labelKey: 'more.opsBase', hintKey: 'more.opsBase.hint', icon: 'database', route: '/operational/base', tone: 'emerald' },
   { key: 'monthly', labelKey: 'more.monthly', hintKey: 'more.monthly.hint', icon: 'calendar', route: '/operational/monthly-summary', tone: 'gold' },
-  { key: 'officialTenants', labelKey: 'more.officialTenants', hintKey: 'more.officialTenants.hint', icon: 'book', route: '/database', tone: 'emerald' },
-  { key: 'tenants', labelKey: 'more.tenants', hintKey: 'more.tenants.hint', icon: 'users', route: '/tenants', tone: 'gold' },
   { key: 'maintenance', labelKey: 'more.maintenance', hintKey: 'more.maintenance.hint', icon: 'tool', route: '/maintenance', tone: 'emerald' },
   { key: 'roles', labelKey: 'more.roles', hintKey: 'more.roles.hint', icon: 'shield', route: '/roles', tone: 'gold' },
   { key: 'integrations', labelKey: 'more.integrations', hintKey: 'more.integrations.hint', icon: 'link', route: '/operational/services', tone: 'emerald' },

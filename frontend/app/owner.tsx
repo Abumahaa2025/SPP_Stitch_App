@@ -34,7 +34,7 @@ const LINKS: HubLink[] = [
   { key: 'properties', icon: 'home', labelKey: 'op.owner.properties', hintKey: 'op.owner.properties.hint', route: '/operational/base', tone: 'gold' },
   { key: 'units', icon: 'grid', labelKey: 'op.owner.units', hintKey: 'op.owner.units.hint', route: '/operational/property?tab=units' },
   { key: 'contracts', icon: 'file-text', labelKey: 'op.owner.contracts', hintKey: 'op.owner.contracts.hint', route: '/contracts', tone: 'gold' },
-  { key: 'tenants', icon: 'users', labelKey: 'op.owner.tenants', hintKey: 'op.owner.tenants.hint', route: '/tenants' },
+  { key: 'tenants', icon: 'users', labelKey: 'op.owner.tenants', hintKey: 'op.owner.tenants.hint', route: '/operational/base?tab=tenants' },
   { key: 'payments', icon: 'dollar-sign', labelKey: 'op.owner.payments', hintKey: 'op.owner.payments.hint', route: '/operational/payments', tone: 'emerald' },
   { key: 'imports', icon: 'download', labelKey: 'op.owner.imports', hintKey: 'op.owner.imports.hint', route: '/operational/property?tab=imports', tone: 'gold' },
   { key: 'reports', icon: 'bar-chart-2', labelKey: 'op.owner.reports', hintKey: 'op.owner.reports.hint', route: '/reports', tone: 'gold' },
@@ -98,7 +98,7 @@ export default function Owner() {
                     <Text style={styles.kpiValue}>{String(state.units.length)}</Text>
                     <Text style={styles.kpiLabel}>{t('op.owner.kpi.units')}</Text>
                   </Pressable>
-                  <Pressable style={styles.kpi} onPress={() => router.push('/tenants' as any)} testID="owner-kpi-tenants">
+                  <Pressable style={styles.kpi} onPress={() => router.push('/operational/base?tab=tenants' as any)} testID="owner-kpi-tenants">
                     <Text style={styles.kpiValue}>{String(state.tenants.length)}</Text>
                     <Text style={styles.kpiLabel}>{t('op.owner.kpi.tenants')}</Text>
                   </Pressable>

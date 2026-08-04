@@ -629,7 +629,7 @@ export function UploadResultsWizard({
                     label={ar ? 'فتح الوحدات' : 'Open units'}
                     onPress={() => router.push('/operational/property?tab=units' as never)}
                   />
-                  <NavBtn label={ar ? 'فتح المستأجرين' : 'Open tenants'} onPress={() => router.push('/tenants' as never)} />
+                  <NavBtn label={ar ? 'فتح المستأجرين' : 'Open tenants'} onPress={() => router.push('/operational/base?tab=tenants' as never)} />
                   <NavBtn label={ar ? 'فتح العقود' : 'Open contracts'} onPress={() => router.push('/contracts' as never)} />
                   <NavBtn
                     label={ar ? 'فتح المدفوعات' : 'Open payments'}

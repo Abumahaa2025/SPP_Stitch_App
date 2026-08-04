@@ -121,9 +121,9 @@ export function HomeDataEntry({ testID = 'home-data-entry', defaultOpen = true }
             </Pressable>
           </View>
           {state.property ? (
-            <Pressable style={{ marginTop: 12 }} onPress={() => router.push('/database' as any)}>
+            <Pressable style={{ marginTop: 12 }} onPress={() => router.push('/operational/base?tab=registry' as any)}>
               <Text style={[styles.link, ar && styles.rtl]}>
-                {ar ? 'فتح مركز البيانات ←' : 'Open Database center →'}
+                {ar ? 'فتح مركز البيانات والعمليات ←' : 'Open Data & operations →'}
               </Text>
             </Pressable>
           ) : null}
