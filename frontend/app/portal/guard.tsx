@@ -1,9 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
-import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
+import React, { useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { Feather } from '@expo/vector-icons';
 
 import { ScreenScaffold } from '@/src/components/ScreenScaffold';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
@@ -12,27 +10,77 @@ import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
 import { PortalInstallHint } from '@/src/components/PortalInstallHint';
 import { LimitedPortalContact } from '@/src/components/LimitedPortalContact';
+import { GuardTaskWorkflowCard } from '@/src/components/GuardTaskWorkflowCard';
 import { usePortalAccess } from '@/src/hooks/usePortalAccess';
+import { usePortalDesk } from '@/src/hooks/usePortalDesk';
 import { guardThreadId } from '@/src/types/portal-desk';
-import { colors, spacing, typography, radius } from '@/src/theme';
+import { loadPortalDesk, pushPortalNotice } from '@/src/utils/portal-desk-store';
+import { colors, spacing, typography } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
 /**
- * Guard portal — replies to agent/owner follow-ups tagged to this guard.
- * Additive; reuses GlassCard / StoryScreenHeader identity.
+ * Guard limited portal — installable link app with task workflow:
+ * notify → accept → notes/photo/video → hand to agent → done.
  */
 export default function GuardPortalScreen() {
   const { t, isRTL, lang } = useI18n();
   const ar = lang === 'ar' || !!isRTL;
   const params = useLocalSearchParams<{ id?: string; t?: string }>();
-  const { guards, followUps, agents, replyFollowUp, setFollowUpStatus, logLogin } = usePortalAccess();
-  const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+  const {
+    guards, followUps, agents,
+    replyFollowUp, acceptGuardFollowUp, setFollowUpStatus, logLogin,
+  } = usePortalAccess();
+  usePortalDesk();
 
   const guard = guards.find((g) => g.id === params.id && g.portalToken === params.t && g.linkActive);
 
   useEffect(() => {
     if (guard) void logLogin(guard.id, 'guard', guard.name);
   }, [guard?.id]);
+
+  const mine = useMemo(
+    () => followUps.filter(
+      (f) => f.guardId === guard?.id || (!f.guardId && f.status === 'waiting_guard' && !!guard),
+    ),
+    [followUps, guard?.id],
+  );
+
+  const pairedAgent = agents.find((a) => a.id === guard?.pairedAgentId);
+
+  const { newTasks, activeTasks, doneTasks } = useMemo(() => ({
+    newTasks: mine.filter((f) => !f.guardAcceptedAt && f.status !== 'done'),
+    activeTasks: mine.filter((f) => f.guardAcceptedAt && f.status !== 'done'),
+    doneTasks: mine.filter((f) => f.status === 'done'),
+  }), [mine]);
+
+  // Soft notify once per waiting_guard title (deduped against existing desk notices).
+  useEffect(() => {
+    if (!guard) return;
+    let cancelled = false;
+    (async () => {
+      const desk = await loadPortalDesk();
+      const existing = new Set(
+        desk.notices
+          .filter((n) => n.audience === 'guard' && n.audienceId === guard.id)
+          .map((n) => n.body),
+      );
+      const assigned = mine.filter((f) => !f.guardAcceptedAt && f.status !== 'done');
+      for (const f of assigned) {
+        const body = ar ? `مهمة جديدة: ${f.title}` : `New task: ${f.title}`;
+        if (existing.has(body)) continue;
+        if (cancelled) return;
+        await pushPortalNotice({
+          audience: 'guard',
+          audienceId: guard.id,
+          title: ar ? 'إشعار بمهمة' : 'Task notification',
+          body,
+          kind: 'task',
+        });
+        existing.add(body);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [guard?.id, mine.map((f) => `${f.id}:${f.status}:${f.guardAcceptedAt || ''}`).join('|'), ar]);
 
   if (!guard) {
     return (
@@ -43,127 +91,139 @@ export default function GuardPortalScreen() {
     );
   }
 
-  const mine = followUps.filter(
-    (f) => f.guardId === guard.id || (!f.guardId && f.status === 'waiting_guard'),
+  const renderList = (label: string, list: typeof mine) => (
+    <View style={styles.section}>
+      <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>{label}</Text>
+      {list.length === 0 ? <Text style={styles.empty}>—</Text> : list.map((f) => (
+        <GuardTaskWorkflowCard
+          key={f.id}
+          followUp={f}
+          onAccept={async () => {
+            await acceptGuardFollowUp(f.id);
+            await pushPortalNotice({
+              audience: 'guard',
+              audienceId: guard.id,
+              title: ar ? 'استلام المهمة' : 'Task accepted',
+              body: ar ? `تم استلام: ${f.title}` : `Accepted: ${f.title}`,
+              kind: 'task',
+            });
+          }}
+          onReply={async (text, media, nextStatus) => {
+            await replyFollowUp(f.id, 'guard', guard.name, text, nextStatus, media);
+            if (media?.length) {
+              await pushPortalNotice({
+                audience: 'guard',
+                audienceId: guard.id,
+                title: ar ? 'رفع توثيق' : 'Proof uploaded',
+                body: ar
+                  ? `تم رفع ${media[0]?.kind === 'video' ? 'فيديو' : 'صورة'} للمهمة: ${f.title}`
+                  : `${media[0]?.kind === 'video' ? 'Video' : 'Photo'} uploaded for: ${f.title}`,
+                kind: 'media',
+              });
+            } else if (text.trim()) {
+              await pushPortalNotice({
+                audience: 'guard',
+                audienceId: guard.id,
+                title: ar ? 'ملاحظات المهمة' : 'Task notes',
+                body: ar ? `ملاحظة على: ${f.title}` : `Note on: ${f.title}`,
+                kind: 'task',
+              });
+            }
+          }}
+          onHandToAgent={async () => {
+            await setFollowUpStatus(f.id, 'waiting_agent');
+            await pushPortalNotice({
+              audience: 'guard',
+              audienceId: guard.id,
+              title: ar ? 'تسليم للوكيل' : 'Handed to agent',
+              body: ar ? `تم تحويل: ${f.title}` : `Handed off: ${f.title}`,
+              kind: 'task',
+            });
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          }}
+          onMarkDone={async () => {
+            await setFollowUpStatus(f.id, 'done');
+            await pushPortalNotice({
+              audience: 'guard',
+              audienceId: guard.id,
+              title: ar ? 'اكتمال المهمة' : 'Task complete',
+              body: ar ? `اكتملت: ${f.title}` : `Completed: ${f.title}`,
+              kind: 'task',
+            });
+          }}
+        />
+      ))}
+    </View>
   );
-  const pairedAgent = agents.find((a) => a.id === guard.pairedAgentId);
-
-  const sendReply = async (followUpId: string) => {
-    const msg = (replyDraft[followUpId] || '').trim();
-    if (!msg) return;
-    await replyFollowUp(followUpId, 'guard', guard.name, msg, 'waiting_agent');
-    setReplyDraft((prev) => ({ ...prev, [followUpId]: '' }));
-    Haptics.selectionAsync();
-  };
 
   return (
     <ScreenScaffold testID="guard-portal">
-      <StoryScreenHeader
-        question={t('opsv2.guard.welcome' as any).replace('{name}', guard.name)}
-        hint={t('opsv2.guard.sub' as any)}
-        showBack
-      />
-      <ActingAsBadge role="guard" displayName={guard.name} scope={pairedAgent?.name} />
-      <PortalInstallHint role="guard" />
-      <LimitedPortalContact
-        actor="guard"
-        actorId={guard.id}
-        actorName={guard.name}
-        threadId={guardThreadId(guard.id)}
-      />
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing['2xl'] }}>
+        <StoryScreenHeader
+          question={t('opsv2.guard.welcome' as any).replace('{name}', guard.name)}
+          hint={t('opsv2.guard.portalHint' as any)}
+          showBack
+        />
+        <ActingAsBadge role="guard" displayName={guard.name} scope={pairedAgent?.name} />
+        <PortalInstallHint role="guard" />
+        <LimitedPortalContact
+          actor="guard"
+          actorId={guard.id}
+          actorName={guard.name}
+          threadId={guardThreadId(guard.id)}
+        />
 
-      <ScrollView contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.md }}>
-        <GlassCard padding={14} radiusToken="md" edge="emerald">
-          <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.agent.teamTitle' as any)}</Text>
-          <Text style={[styles.line, isRTL && styles.rtl]}>
+        <GlassCard padding={14} radiusToken="md" edge="emerald" style={{ marginBottom: spacing.md }}>
+          <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>
+            {t('opsv2.agent.teamTitle' as any)}
+          </Text>
+          <Text style={[styles.dim, isRTL && styles.rtl]}>
             {ar ? 'المالك · يتابع الموافقات' : 'Owner · approvals'}
           </Text>
-          {pairedAgent ? (
-            <Text style={[styles.line, isRTL && styles.rtl]}>
-              {ar ? `الوكيل · ${pairedAgent.name}` : `Agent · ${pairedAgent.name}`}
-            </Text>
-          ) : (
-            <Text style={[styles.line, isRTL && styles.rtl]}>
-              {ar ? 'الوكيل · مرتبط بالعقار' : 'Agent · property-linked'}
-            </Text>
-          )}
-          <Text style={[styles.line, isRTL && styles.rtl]}>
+          <Text style={[styles.dim, isRTL && styles.rtl]}>
+            {pairedAgent
+              ? (ar ? `الوكيل · ${pairedAgent.name}` : `Agent · ${pairedAgent.name}`)
+              : (ar ? 'الوكيل · مرتبط بالعقار' : 'Agent · property-linked')}
+          </Text>
+          <Text style={[styles.dim, isRTL && styles.rtl]}>
             {ar ? `الحارس · ${guard.name}` : `Guard · ${guard.name}`}
           </Text>
         </GlassCard>
 
-        <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.guard.openFollowups' as any)}</Text>
-        {!mine.length ? (
-          <Text style={[styles.hint, isRTL && styles.rtl]}>{t('opsv2.agent.emptyFollowups' as any)}</Text>
-        ) : null}
-        {mine.map((f) => (
-          <GlassCard key={f.id} padding={14} radiusToken="md">
-            <Text style={[styles.cardTitle, isRTL && styles.rtl]}>{f.title}</Text>
-            <Text style={[styles.meta, isRTL && styles.rtl]}>
-              {f.domain === 'general'
-                ? (ar ? 'عام' : 'General')
-                : t(`opsv2.portals.perm.${f.domain}` as any)}
-              {' · '}
-              {t(`opsv2.agent.status.${f.status}` as any)}
-            </Text>
-            <Text style={[styles.body, isRTL && styles.rtl]}>{f.body}</Text>
-            {f.replies.slice(-3).map((r, i) => (
-              <Text key={`${f.id}-${i}`} style={[styles.reply, isRTL && styles.rtl]}>
-                {r.authorName}: {r.text}
-              </Text>
-            ))}
-            {f.status !== 'done' ? (
-              <>
-                <KeyboardAwareTextInput
-                  value={replyDraft[f.id] || ''}
-                  onChangeText={(v) => setReplyDraft((prev) => ({ ...prev, [f.id]: v }))}
-                  placeholder={t('opsv2.agent.replyPh' as any)}
-                  placeholderTextColor={colors.textSubtle}
-                  style={[styles.input, isRTL && styles.rtl]}
-                />
-                <View style={[styles.row, isRTL && styles.rowRtl]}>
-                  <Pressable style={styles.secondary} onPress={() => sendReply(f.id)} testID={`guard-reply-${f.id}`}>
-                    <Feather name="send" size={12} color={colors.emerald} />
-                    <Text style={styles.secondaryText}>{t('opsv2.agent.reply' as any)}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={styles.secondary}
-                    onPress={() => setFollowUpStatus(f.id, 'waiting_agent')}
-                  >
-                    <Text style={styles.secondaryText}>{t('opsv2.guard.handAgent' as any)}</Text>
-                  </Pressable>
-                </View>
-              </>
-            ) : null}
-          </GlassCard>
-        ))}
+        <GlassCard padding={14} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }}>
+          <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>
+            {t('opsv2.guard.stepsTitle' as any)}
+          </Text>
+          <Text style={[styles.dim, isRTL && styles.rtl]}>
+            {t('opsv2.guard.limitedBody' as any)}
+          </Text>
+        </GlassCard>
+
+        {mine.length === 0 ? (
+          <AliveEmpty
+            title={t('opsv2.guard.title' as any)}
+            body={t('opsv2.agent.emptyFollowups' as any)}
+          />
+        ) : (
+          <>
+            {renderList(t('opsv2.guard.new' as any), newTasks)}
+            {renderList(t('opsv2.guard.active' as any), activeTasks)}
+            {renderList(t('opsv2.guard.done' as any), doneTasks)}
+          </>
+        )}
       </ScrollView>
     </ScreenScaffold>
   );
 }
 
 const styles = StyleSheet.create({
-  section: {
-    color: colors.textMuted, fontSize: 11, letterSpacing: 0.8,
-    textTransform: 'uppercase', fontWeight: typography.weight.semibold, marginBottom: 8,
+  section: { marginBottom: spacing.lg },
+  sectionTitle: {
+    color: colors.textMuted, fontSize: 10, letterSpacing: 1.5,
+    textTransform: 'uppercase', marginBottom: spacing.sm,
+    fontWeight: typography.weight.semibold,
   },
-  line: { color: colors.text, fontSize: 13, marginTop: 6 },
-  hint: { color: colors.textDim, fontSize: 12, lineHeight: 18 },
+  empty: { color: colors.textSubtle, fontSize: 12 },
+  dim: { color: colors.textMuted, fontSize: typography.small, lineHeight: 18, marginTop: 4 },
   rtl: { writingDirection: 'rtl', textAlign: 'right' },
-  rowRtl: { flexDirection: 'row-reverse' },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  input: {
-    borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
-    padding: 10, color: colors.text, marginTop: 8, fontSize: 14,
-  },
-  cardTitle: { color: colors.text, fontSize: 15, fontWeight: typography.weight.semibold },
-  meta: { color: colors.textMuted, fontSize: 11, marginTop: 4 },
-  body: { color: colors.textDim, fontSize: 13, marginTop: 8, lineHeight: 20 },
-  reply: { color: colors.emerald, fontSize: 12, marginTop: 6 },
-  secondary: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
-  },
-  secondaryText: { color: colors.text, fontSize: 11 },
 });

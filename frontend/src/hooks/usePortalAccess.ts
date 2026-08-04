@@ -6,6 +6,7 @@ import {
   addGuard as storeAddGuard,
   createFollowUp as storeCreateFollowUp,
   replyFollowUp as storeReplyFollowUp,
+  acceptGuardFollowUp as storeAcceptGuardFollowUp,
   setFollowUpStatus as storeSetFollowUpStatus,
   recordPortalLogin,
   toggleAgentLink,
@@ -16,6 +17,7 @@ import type {
   AgentPermissions,
   FollowUpActor,
   FollowUpDomain,
+  FollowUpMediaItem,
   FollowUpStatus,
   PortalAccessState,
   PropertyAgentRecord,
@@ -82,8 +84,14 @@ export function usePortalAccess() {
     authorName: string,
     message: string,
     nextStatus?: FollowUpStatus,
+    media?: FollowUpMediaItem[],
   ) => {
-    await storeReplyFollowUp(followUpId, actor, authorName, message, nextStatus);
+    await storeReplyFollowUp(followUpId, actor, authorName, message, nextStatus, media);
+    await reload();
+  }, [reload]);
+
+  const acceptGuardFollowUp = useCallback(async (followUpId: string) => {
+    await storeAcceptGuardFollowUp(followUpId);
     await reload();
   }, [reload]);
 
@@ -131,6 +139,7 @@ export function usePortalAccess() {
     addGuard,
     createFollowUp,
     replyFollowUp,
+    acceptGuardFollowUp,
     setFollowUpStatus,
     updateAgentPermissions,
     logLogin,

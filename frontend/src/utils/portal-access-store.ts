@@ -4,6 +4,7 @@ import type {
   AgentPermissions,
   FollowUpActor,
   FollowUpDomain,
+  FollowUpMediaItem,
   FollowUpStatus,
   PortalAccessEntry,
   PortalAccessState,
@@ -201,9 +202,16 @@ export async function replyFollowUp(
   authorName: string,
   message: string,
   nextStatus?: FollowUpStatus,
+  media?: FollowUpMediaItem[],
 ): Promise<void> {
   const s = await loadPortalAccess();
   const now = new Date().toISOString();
+  const text = message.trim() || (
+    media?.length
+      ? (media[0].kind === 'video' ? 'Video attachment' : 'Photo attachment')
+      : ''
+  );
+  if (!text && !media?.length) return;
   const followUps = s.followUps.map((f) => {
     if (f.id !== followUpId) return f;
     return {
@@ -217,8 +225,31 @@ export async function replyFollowUp(
       ),
       replies: [
         ...f.replies,
-        { at: now, actor, text: message.trim(), authorName },
+        {
+          at: now,
+          actor,
+          text,
+          authorName,
+          ...(media?.length ? { media } : {}),
+        },
       ],
+    };
+  });
+  await savePortalAccess({ ...s, followUps });
+}
+
+/** Guard claims an assigned follow-up task (notification → accept). */
+export async function acceptGuardFollowUp(followUpId: string): Promise<void> {
+  const s = await loadPortalAccess();
+  const now = new Date().toISOString();
+  const followUps = s.followUps.map((f) => {
+    if (f.id !== followUpId) return f;
+    if (f.guardAcceptedAt) return f;
+    return {
+      ...f,
+      guardAcceptedAt: now,
+      updatedAt: now,
+      status: f.status === 'open' ? 'waiting_guard' : f.status,
     };
   });
   await savePortalAccess({ ...s, followUps });

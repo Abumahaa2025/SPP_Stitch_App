@@ -92,11 +92,19 @@ export type FollowUpDomain =
 
 export type FollowUpStatus = 'open' | 'waiting_guard' | 'waiting_agent' | 'waiting_owner' | 'done';
 
+export type FollowUpMediaItem = {
+  uri: string;
+  kind: 'photo' | 'video';
+  name?: string;
+};
+
 export type AgentFollowUpReply = {
   at: string;
   actor: FollowUpActor;
   text: string;
   authorName: string;
+  /** Optional photo/video proof from guard (or agent) desk. */
+  media?: FollowUpMediaItem[];
 };
 
 export type AgentFollowUp = {
@@ -109,6 +117,8 @@ export type AgentFollowUp = {
   createdByName: string;
   agentId?: string;
   guardId?: string;
+  /** When the guard accepted / claimed this task from the portal. */
+  guardAcceptedAt?: string;
   createdAt: string;
   updatedAt: string;
   replies: AgentFollowUpReply[];
