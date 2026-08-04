@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import {
+  Bell,
   Building2,
   ClipboardList,
   Cpu,
@@ -16,7 +17,9 @@ import { PageHeader } from "../components/PageHeader";
 import "./pages.css";
 
 const items = [
-  { to: "/data-entry", title: "إدخال البيانات", desc: "عقار وعقود وإيجارات ومستأجر", icon: Database },
+  { to: "/data-entry", title: "إدخال البيانات", desc: "يدوي أو استرداد + إضافة مستأجر", icon: Database },
+  { to: "/ejar", title: "منصة إيجار", desc: "الربط وتجديد العقود", icon: ClipboardList },
+  { to: "/alerts", title: "التنبيهات والحلول", desc: "اقتراحات قابلة للتنفيذ", icon: Bell },
   { to: "/owner", title: "حساب المالك", desc: "هوية المالك وملخص المحفظة", icon: UserRound },
   { to: "/permissions", title: "إدارة الصلاحيات", desc: "الوكلاء والشركاء", icon: Shield },
   { to: "/rents", title: "الإيجارات", desc: "الدفعات والتحصيل", icon: Receipt },
@@ -35,7 +38,7 @@ export function MorePage() {
       <PageHeader
         kicker="المزيد"
         title="كل الأقسام"
-        desc="وصول سريع لكل صفحات التشغيل والصلاحيات وإدخال البيانات."
+        desc="وصول سريع لكل صفحات التشغيل وإيجار والصلاحيات وإدخال البيانات."
       />
 
       <div className="cards-grid">

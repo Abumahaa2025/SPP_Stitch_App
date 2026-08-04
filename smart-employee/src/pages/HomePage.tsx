@@ -13,6 +13,7 @@ import {
   UserRound,
   Users,
   Wrench,
+  Bell,
 } from "lucide-react";
 import { useStore } from "../lib/store";
 import { daysLeft, sar } from "../lib/format";
@@ -39,6 +40,16 @@ const opsMenus: { id: string; title: string; icon: typeof Building2; items: Menu
     items: [
       { label: "الإيجارات", to: "/rents", desc: "الدفعات وحالة التحصيل" },
       { label: "المستأجرون", to: "/tenants", desc: "سجل المستأجرين" },
+    ],
+  },
+  {
+    id: "ejar",
+    title: "إيجار والتنبيهات",
+    icon: Shield,
+    items: [
+      { label: "ربط منصة إيجار", to: "/ejar", desc: "إشعارات وتجديد العقود" },
+      { label: "إدارة التنبيهات", to: "/alerts", desc: "حلول واقتراحات قابلة للتنفيذ" },
+      { label: "الصلاحيات", to: "/permissions", desc: "الوكلاء والشركاء" },
     ],
   },
   {
@@ -87,7 +98,7 @@ export function HomePage() {
           <UserRound size={20} />
           <div>
             <strong>حساب المالك</strong>
-            <p className="muted">{state.owner.name}</p>
+            <p className="muted">{state.owner.name || "أدخل بيانات المالك"}</p>
           </div>
         </button>
         <button className="card home-action" onClick={() => navigate("/permissions")}>
@@ -240,6 +251,12 @@ export function HomePage() {
           </button>
           <button className="quick" onClick={() => navigate("/sensors")}>
             <Cpu size={18} /> الحساسات
+          </button>
+          <button className="quick" onClick={() => navigate("/ejar")}>
+            <ClipboardList size={18} /> إيجار
+          </button>
+          <button className="quick" onClick={() => navigate("/alerts")}>
+            <Bell size={18} /> التنبيهات
           </button>
           <button className="quick" onClick={() => navigate("/permissions")}>
             <KeyRound size={18} /> الصلاحيات

@@ -16,6 +16,8 @@ import { DataEntryPage } from "./pages/DataEntryPage";
 import { OwnerPage } from "./pages/OwnerPage";
 import { PermissionsPage } from "./pages/PermissionsPage";
 import { RentsPage } from "./pages/RentsPage";
+import { EjarPage } from "./pages/EjarPage";
+import { AlertsPage } from "./pages/AlertsPage";
 
 function Protected() {
   const { state } = useStore();
@@ -36,6 +38,8 @@ export default function App() {
           <Route path="/properties" element={<PropertiesPage />} />
           <Route path="/contracts" element={<ContractsPage />} />
           <Route path="/rents" element={<RentsPage />} />
+          <Route path="/ejar" element={<EjarPage />} />
+          <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/sensors" element={<SensorsPage />} />
           <Route path="/maintenance" element={<MaintenancePage />} />
           <Route path="/tenants" element={<TenantsPage />} />

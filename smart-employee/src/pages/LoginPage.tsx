@@ -7,8 +7,8 @@ import "./LoginPage.css";
 export function LoginPage() {
   const { state, login } = useStore();
   const navigate = useNavigate();
-  const [username, setUsername] = useState("0500000000");
-  const [password, setPassword] = useState("demo1234");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
 
   if (state.loggedIn) return <Navigate to="/" replace />;
@@ -25,7 +25,7 @@ export function LoginPage() {
       <div className="login-card card">
         <img src="/agent.png" alt="الموظف العقاري الذكي" className="login-agent" />
         <h1>الموظف العقاري الذكي</h1>
-        <p className="muted">مرحباً بك، سجّل دخولك لمتابعة عقاراتك بوضوح وسهولة</p>
+        <p className="muted">سجّل دخولك لإدارة عقاراتك وربطها بمنصة إيجار</p>
 
         <form onSubmit={onSubmit} className="login-form">
           <div className="field">
@@ -54,17 +54,6 @@ export function LoginPage() {
             تسجيل الدخول
           </button>
         </form>
-
-        <button
-          className="btn btn-soft"
-          type="button"
-          onClick={() => {
-            login("demo", "demo");
-            navigate("/");
-          }}
-        >
-          دخول سريع للتجربة
-        </button>
       </div>
     </div>
   );

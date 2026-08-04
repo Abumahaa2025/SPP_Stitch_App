@@ -10,11 +10,19 @@ import {
 import { seedState, uid } from "../data/seed";
 import { nextMaintStatus } from "../engines";
 import type { ImportedPropertyRow } from "../engines";
+import {
+  buildRenewalAlerts,
+  ownerApproveRenewal,
+  simulateTenantReply,
+  startTenantRenewalNotice,
+  submitRenewalToEjar,
+} from "../engines/ejar";
 import { clearDatabase, loadDatabase, saveDatabase } from "./db";
 import type {
   Agent,
   AppState,
   Contract,
+  EjarConnection,
   MaintenanceRequest,
   OwnerProfile,
   PermissionKey,
@@ -47,10 +55,26 @@ interface StoreApi {
   updateOwner: (owner: OwnerProfile) => void;
   addAgent: (agent: Omit<Agent, "id" | "accessLink" | "status"> & { status?: Agent["status"] }) => void;
   toggleAgentPermission: (agentId: string, permission: PermissionKey) => void;
+  refreshOperationalAlerts: () => void;
+  connectEjar: (input: { facilityNo: string; apiKey: string }) => void;
+  disconnectEjar: () => void;
+  notifyTenantRenewal: (contractId: string) => void;
+  tenantReplyRenewal: (renewalId: string, accept: boolean) => void;
+  ownerApproveEjarRenewal: (renewalId: string) => void;
+  submitEjarRenewal: (renewalId: string) => void;
+  resolveAlert: (alertId: string) => void;
   pushToast: (msg: string, kind?: ToastKind) => void;
 }
 
 const StoreContext = createContext<StoreApi | null>(null);
+
+function withMergedAlerts(s: AppState): AppState {
+  const generated = buildRenewalAlerts(s);
+  const manual = s.alerts.filter((a) => a.resolved || !a.relatedContractId);
+  const byTitle = new Set(manual.map((a) => `${a.title}|${a.relatedContractId || ""}`));
+  const uniqueGen = generated.filter((a) => !byTitle.has(`${a.title}|${a.relatedContractId || ""}`));
+  return { ...s, alerts: [...uniqueGen, ...manual].slice(0, 40) };
+}
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(() => seedState());
@@ -65,7 +89,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       const data = await loadDatabase();
       if (!alive) return;
-      setState(data);
+      setState(withMergedAlerts(data));
       setReady(true);
       setLoading(false);
     })();
@@ -109,7 +133,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       login: (username, password) => {
         if (!username.trim() || !password.trim()) return false;
         setState((s) => ({ ...s, loggedIn: true }));
-        pushToast(`أهلاً بعودتك، ${state.user.name}`);
+        pushToast("تم تسجيل الدخول");
         return true;
       },
       logout: () => {
@@ -123,24 +147,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         next.loggedIn = true;
         setState(next);
         setLoading(false);
-        pushToast("تمت إعادة ضبط قاعدة البيانات التجريبية");
+        pushToast("تم تفريغ قاعدة البيانات");
       },
       addProperty: (p) => {
-        setState((s) => ({
-          ...s,
-          properties: [{ id: uid("p"), status: "شاغرة", ...p }, ...s.properties],
-        }));
-        pushToast("تمت إضافة العقار إلى قاعدة البيانات");
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            properties: [{ id: uid("p"), status: "شاغرة", ...p }, ...s.properties],
+          }),
+        );
+        pushToast("تم حفظ العقار في قاعدة البيانات");
       },
       importProperties: (rows) => {
-        setState((s) => ({
-          ...s,
-          properties: [
-            ...rows.map((r) => ({ id: uid("p"), status: "شاغرة" as const, ...r })),
-            ...s.properties,
-          ],
-        }));
-        pushToast(`تم استيراد ${rows.length} عقار إلى قاعدة البيانات`);
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            properties: [
+              ...rows.map((r) => ({ id: uid("p"), status: "شاغرة" as const, ...r })),
+              ...s.properties,
+            ],
+          }),
+        );
+        pushToast(`تم استرداد ${rows.length} عقار إلى قاعدة البيانات`);
       },
       cyclePropertyStatus: (id) => {
         const order: Property["status"][] = ["شاغرة", "مؤجرة", "تحت الصيانة"];
@@ -158,28 +186,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState((s) => {
           const prefix = c.type === "عقد صيانة" ? "MNT" : "CON";
           const no = `${prefix}-${new Date().getFullYear()}-${String(s.contracts.length + 1).padStart(3, "0")}`;
-          return {
+          return withMergedAlerts({
             ...s,
             contracts: [{ id: uid("c"), no, ...c }, ...s.contracts],
-          };
+          });
         });
-        pushToast("تمت إضافة العقد إلى قاعدة البيانات");
+        pushToast("تم حفظ العقد في قاعدة البيانات");
       },
       renewContract: (id) => {
-        setState((s) => ({
-          ...s,
-          contracts: s.contracts.map((c) => {
-            if (c.id !== id) return c;
-            const d = new Date(c.end);
-            d.setFullYear(d.getFullYear() + 1);
-            return { ...c, end: d.toISOString().slice(0, 10) };
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            contracts: s.contracts.map((c) => {
+              if (c.id !== id) return c;
+              const d = new Date(c.end);
+              d.setFullYear(d.getFullYear() + 1);
+              return { ...c, end: d.toISOString().slice(0, 10) };
+            }),
           }),
-        }));
+        );
         pushToast("تم تجديد العقد لسنة إضافية");
       },
       addMaintenance: (m) => {
         setState((s) => {
-          const no = String(1045 + s.maintenance.length);
+          const no = String(1000 + s.maintenance.length + 1);
           return {
             ...s,
             maintenance: [
@@ -188,7 +218,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ],
           };
         });
-        pushToast("تم إرسال طلب الصيانة");
+        pushToast("تم حفظ طلب الصيانة");
       },
       advanceMaintenance: (id) => {
         setState((s) => ({
@@ -208,122 +238,94 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addTechnician: (t) => {
         setState((s) => ({
           ...s,
-          technicians: [{ id: uid("t"), rating: 4.5, ...t }, ...s.technicians],
+          technicians: [{ id: uid("t"), rating: 0, ...t }, ...s.technicians],
         }));
-        pushToast("تمت إضافة الفني بنجاح");
+        pushToast("تم حفظ الفني");
       },
       simulateSensors: () => {
-        setState((s) => {
-          const sensors = s.sensors.map((sensor, i) => {
-            if (i !== 0) return sensor;
-            if (sensor.type === "حرارة") {
-              const t = 20 + Math.floor(Math.random() * 10);
-              const status = t > 26 ? "تنبيه" : "يعمل";
-              return { ...sensor, reading: `${t}°C`, status: status as typeof sensor.status };
-            }
-            return sensor;
-          });
-          const hot = sensors.find((x) => x.status === "تنبيه");
-          const alerts = hot
-            ? [
-                {
-                  id: uid("a"),
-                  title: "تنبيه حرارة",
-                  desc: hot.unit,
-                  time: "الآن",
-                  level: "warn" as const,
-                },
-                ...s.alerts,
-              ].slice(0, 8)
-            : s.alerts;
-          return { ...s, sensors, alerts };
-        });
-        pushToast("تم تحديث بيانات المستشعرات");
+        pushToast("لا توجد حساسات بعد — أضف بياناتك أولاً", "warn");
       },
       savePropertyPackage: async (input) => {
         setSaving(true);
         await new Promise((r) => setTimeout(r, 350));
         setState((s) => {
           const propertyId = uid("p");
-          const hasTenant = Boolean(input.tenant?.name && input.contract?.tenantName);
+          const hasTenants = input.tenants.length > 0;
           const property: Property = {
             id: propertyId,
-            status: input.property.status || (hasTenant ? "مؤجرة" : "شاغرة"),
+            status: input.property.status || (hasTenants ? "مؤجرة" : "شاغرة"),
             ...input.property,
           };
 
           let contracts = s.contracts;
           let tenants = s.tenants;
           let rents = s.rents;
-          let contractNo = "";
+          let seq = s.contracts.length;
 
-          if (input.contract && input.contract.tenantName) {
-            const prefix = input.contract.type === "عقد صيانة" ? "MNT" : "CON";
-            contractNo = `${prefix}-${new Date().getFullYear()}-${String(s.contracts.length + 1).padStart(3, "0")}`;
+          for (const block of input.tenants) {
+            seq += 1;
+            const prefix = block.contractType === "عقد صيانة" ? "MNT" : "CON";
+            const contractNo = `${prefix}-${new Date().getFullYear()}-${String(seq).padStart(3, "0")}`;
+            const tenantId = uid("tn");
             contracts = [
               {
                 id: uid("c"),
                 no: contractNo,
-                unit: input.contract.unit,
+                unit: block.unit,
                 property: property.name,
                 propertyId,
-                tenant: input.contract.tenantName,
-                start: input.contract.start,
-                end: input.contract.end,
-                type: input.contract.type,
-                rent: input.contract.rent,
+                tenant: block.name,
+                tenantId,
+                start: block.start,
+                end: block.end,
+                type: block.contractType,
+                rent: block.rent,
               },
-              ...s.contracts,
+              ...contracts,
             ];
-          }
-
-          if (input.tenant && input.tenant.name && contractNo) {
             tenants = [
               {
-                id: uid("tn"),
-                name: input.tenant.name,
-                unit: input.contract?.unit || "",
+                id: tenantId,
+                name: block.name,
+                unit: block.unit,
                 contractNo,
-                rent: input.contract?.rent || 0,
-                phone: input.tenant.phone,
+                rent: block.rent,
+                phone: block.phone,
                 status: "نشط",
-                email: input.tenant.email || undefined,
-                nationalId: input.tenant.nationalId || undefined,
-                secondaryPhone: input.tenant.secondaryPhone || undefined,
-                notes: input.tenant.notes || undefined,
-                deposit: input.tenant.deposit || undefined,
+                email: block.email || undefined,
+                nationalId: block.nationalId || undefined,
+                secondaryPhone: block.secondaryPhone || undefined,
+                notes: block.notes || undefined,
+                deposit: block.deposit || undefined,
               },
-              ...s.tenants,
+              ...tenants,
             ];
-          }
-
-          if (input.rent && contractNo) {
             rents = [
               {
                 id: uid("r"),
                 contractNo,
-                tenant: input.contract?.tenantName || "",
+                tenant: block.name,
                 property: property.name,
-                amount: input.rent.amount,
-                dueDate: input.rent.dueDate,
-                status: input.rent.status,
-                method: input.rent.method || undefined,
-                paidDate: input.rent.status === "مدفوع" ? input.rent.dueDate : undefined,
+                amount: block.rentAmount || block.rent,
+                dueDate: block.dueDate || block.start,
+                status: block.rentStatus,
+                method: block.method || undefined,
+                paidDate: block.rentStatus === "مدفوع" ? block.dueDate || block.start : undefined,
               },
-              ...s.rents,
+              ...rents,
             ];
           }
 
-          return {
+          return withMergedAlerts({
             ...s,
             properties: [property, ...s.properties],
             contracts,
             tenants,
             rents,
-          };
+          });
         });
         setSaving(false);
-        pushToast("تم حفظ حزمة بيانات العقار في قاعدة البيانات");
+        pushToast("تم حفظ البيانات في جداول قاعدة البيانات");
       },
       updateOwner: (owner) => {
         setState((s) => ({ ...s, owner }));
@@ -348,7 +350,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ],
           };
         });
-        pushToast("تمت إضافة الوكيل/الشريك");
+        pushToast("تم حفظ الوكيل/الشريك");
       },
       toggleAgentPermission: (agentId, permission) => {
         setState((s) => ({
@@ -363,6 +365,79 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 : [...a.permissions, permission],
             };
           }),
+        }));
+      },
+      refreshOperationalAlerts: () => {
+        setState((s) => withMergedAlerts(s));
+        pushToast("تم تحديث التنبيهات والاقتراحات");
+      },
+      connectEjar: ({ facilityNo, apiKey }) => {
+        if (!facilityNo.trim() || !apiKey.trim()) {
+          pushToast("أدخل رقم المنشأة ومفتاح الربط", "warn");
+          return;
+        }
+        const ejar: EjarConnection = {
+          connected: true,
+          facilityNo: facilityNo.trim(),
+          apiKeyMasked: `${apiKey.trim().slice(0, 3)}••••${apiKey.trim().slice(-2)}`,
+          lastSyncAt: new Date().toISOString(),
+          notes: "الربط جاهز لاستقبال إشعارات إيجار ورفع التجديدات",
+        };
+        setState((s) => ({ ...s, ejar }));
+        pushToast("تم ربط منصة إيجار");
+      },
+      disconnectEjar: () => {
+        setState((s) => ({
+          ...s,
+          ejar: { connected: false, facilityNo: "", apiKeyMasked: "", notes: "" },
+        }));
+        pushToast("تم إلغاء ربط إيجار");
+      },
+      notifyTenantRenewal: (contractId) => {
+        setState((s) => {
+          const result = startTenantRenewalNotice(s, contractId);
+          if (!result) return s;
+          return withMergedAlerts({ ...s, ejarRenewals: result.renewals });
+        });
+        pushToast("تم إرسال إشعار التجديد للمستأجر");
+      },
+      tenantReplyRenewal: (renewalId, accept) => {
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            ejarRenewals: simulateTenantReply(s.ejarRenewals, renewalId, accept),
+          }),
+        );
+        pushToast(accept ? "تم تسجيل موافقة المستأجر" : "تم تسجيل رفض المستأجر");
+      },
+      ownerApproveEjarRenewal: (renewalId) => {
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            ejarRenewals: ownerApproveRenewal(s.ejarRenewals, renewalId),
+          }),
+        );
+        pushToast("تمت موافقة المالك — جاهز للرفع إلى إيجار");
+      },
+      submitEjarRenewal: (renewalId) => {
+        setState((s) => {
+          const result = submitRenewalToEjar(s.ejarRenewals, renewalId, s.ejar.connected);
+          if (!result.ok) {
+            pushToast(result.message, "danger");
+            return s;
+          }
+          pushToast(result.message);
+          return withMergedAlerts({
+            ...s,
+            ejar: { ...s.ejar, lastSyncAt: new Date().toISOString() },
+            ejarRenewals: result.renewals,
+          });
+        });
+      },
+      resolveAlert: (alertId) => {
+        setState((s) => ({
+          ...s,
+          alerts: s.alerts.map((a) => (a.id === alertId ? { ...a, resolved: true } : a)),
         }));
       },
     }),

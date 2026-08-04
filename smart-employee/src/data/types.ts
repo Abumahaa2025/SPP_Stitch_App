@@ -9,7 +9,27 @@ export type PermissionKey =
   | "إدارة الصيانة"
   | "خدمات الكهرباء"
   | "خدمات المياه"
-  | "إدارة العقارات";
+  | "إدارة العقارات"
+  | "ربط إيجار";
+
+export type EjarRenewalStatus =
+  | "بانتظار_إشعار_المستأجر"
+  | "تم_إشعار_المستأجر"
+  | "وافق_المستأجر"
+  | "رفض_المستأجر"
+  | "بانتظار_موافقة_المالك"
+  | "موافق_المالك"
+  | "مرفوع_لإيجار"
+  | "مكتمل_في_إيجار"
+  | "فشل_الرفع";
+
+export type AlertActionType =
+  | "notify_tenant_renewal"
+  | "owner_approve_ejar"
+  | "submit_ejar"
+  | "open_contract"
+  | "open_tenant"
+  | "custom";
 
 export interface Property {
   id: string;
@@ -23,6 +43,7 @@ export interface Property {
   rooms: number;
   baths?: number;
   notes?: string;
+  ejarUnitId?: string;
 }
 
 export interface Contract {
@@ -32,10 +53,12 @@ export interface Contract {
   property: string;
   propertyId?: string;
   tenant: string;
+  tenantId?: string;
   end: string;
   start?: string;
   type: ContractType;
   rent: number;
+  ejarContractNo?: string;
 }
 
 export interface RentPayment {
@@ -59,12 +82,24 @@ export interface Sensor {
   status: SensorStatus;
 }
 
+export interface AlertAction {
+  id: string;
+  label: string;
+  type: AlertActionType;
+  payload?: Record<string, string>;
+}
+
 export interface Alert {
   id: string;
   title: string;
   desc: string;
   time: string;
   level: "danger" | "warn" | "info";
+  suggestion?: string;
+  actions?: AlertAction[];
+  relatedContractId?: string;
+  relatedTenantId?: string;
+  resolved?: boolean;
 }
 
 export interface Technician {
@@ -93,7 +128,6 @@ export interface Tenant {
   rent: number;
   phone: string;
   status: "نشط" | "متأخر" | "منتهي";
-  /** اختياري */
   email?: string;
   nationalId?: string;
   secondaryPhone?: string;
@@ -125,6 +159,31 @@ export interface AppUser {
   initials: string;
 }
 
+export interface EjarConnection {
+  connected: boolean;
+  facilityNo: string;
+  apiKeyMasked: string;
+  lastSyncAt?: string;
+  notes?: string;
+}
+
+export interface EjarRenewalCase {
+  id: string;
+  contractId: string;
+  contractNo: string;
+  tenantName: string;
+  tenantPhone: string;
+  propertyName: string;
+  endDate: string;
+  status: EjarRenewalStatus;
+  notifiedAt?: string;
+  tenantReplyAt?: string;
+  ownerApprovedAt?: string;
+  submittedAt?: string;
+  ejarRef?: string;
+  history: { at: string; note: string }[];
+}
+
 export interface AppState {
   loggedIn: boolean;
   user: AppUser;
@@ -138,6 +197,8 @@ export interface AppState {
   technicians: Technician[];
   maintenance: MaintenanceRequest[];
   tenants: Tenant[];
+  ejar: EjarConnection;
+  ejarRenewals: EjarRenewalCase[];
 }
 
 export type ToastKind = "ok" | "warn" | "danger";
@@ -148,29 +209,26 @@ export interface Toast {
   kind: ToastKind;
 }
 
+export interface TenantBlockInput {
+  name: string;
+  phone: string;
+  unit: string;
+  contractType: ContractType;
+  start: string;
+  end: string;
+  rent: number;
+  rentAmount: number;
+  dueDate: string;
+  rentStatus: RentPayment["status"];
+  method?: string;
+  email?: string;
+  nationalId?: string;
+  secondaryPhone?: string;
+  notes?: string;
+  deposit?: number;
+}
+
 export interface PropertyPackageInput {
   property: Omit<Property, "id" | "status"> & { status?: PropertyStatus };
-  contract?: {
-    unit: string;
-    tenantName: string;
-    type: ContractType;
-    start: string;
-    end: string;
-    rent: number;
-  };
-  tenant?: {
-    name: string;
-    phone: string;
-    email?: string;
-    nationalId?: string;
-    secondaryPhone?: string;
-    notes?: string;
-    deposit?: number;
-  };
-  rent?: {
-    amount: number;
-    dueDate: string;
-    status: RentPayment["status"];
-    method?: string;
-  };
+  tenants: TenantBlockInput[];
 }

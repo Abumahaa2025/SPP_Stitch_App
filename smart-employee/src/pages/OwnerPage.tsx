@@ -41,15 +41,15 @@ export function OwnerPage() {
           <div className="settings-grid">
             <div>
               <div className="muted">الاسم</div>
-              <strong>{state.owner.name}</strong>
+              <strong>{state.owner.name || "— غير مُدخل"}</strong>
             </div>
             <div>
               <div className="muted">الجوال</div>
-              <strong>{state.owner.phone}</strong>
+              <strong>{state.owner.phone || "—"}</strong>
             </div>
             <div>
               <div className="muted">البريد</div>
-              <strong>{state.owner.email}</strong>
+              <strong>{state.owner.email || "—"}</strong>
             </div>
             <div>
               <div className="muted">الشركة</div>

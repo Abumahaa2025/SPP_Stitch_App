@@ -176,8 +176,16 @@
   color: var(--primary);
 }
 
-.perm-chip input {
-  display: none;
+.tenant-block {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  background: var(--surface-2);
+}
+
+.btn-secondary {
+  background: var(--secondary);
+  color: var(--on-secondary);
 }
 
 .page-head h2,

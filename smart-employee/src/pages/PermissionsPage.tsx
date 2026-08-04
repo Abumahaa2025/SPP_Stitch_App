@@ -11,6 +11,7 @@ const ALL_PERMS: PermissionKey[] = [
   "خدمات الكهرباء",
   "خدمات المياه",
   "إدارة العقارات",
+  "ربط إيجار",
 ];
 
 export function PermissionsPage() {

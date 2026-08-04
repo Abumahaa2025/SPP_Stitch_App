@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
+  Bell,
   Building2,
   ClipboardList,
   Database,
@@ -10,7 +11,6 @@ import {
   Sparkles,
   UserRound,
   Wrench,
-  Bell,
 } from "lucide-react";
 import { useStore } from "../lib/store";
 import { ToastStack } from "./Toast";
@@ -21,9 +21,10 @@ const links = [
   { to: "/owner", label: "المالك", icon: UserRound },
   { to: "/permissions", label: "الصلاحيات", icon: Shield },
   { to: "/data-entry", label: "إدخال البيانات", icon: Database },
+  { to: "/ejar", label: "إيجار", icon: ClipboardList },
+  { to: "/alerts", label: "التنبيهات", icon: Bell },
   { to: "/properties", label: "العقارات", icon: Building2 },
   { to: "/contracts", label: "العقود", icon: ClipboardList },
-  { to: "/rents", label: "الإيجارات", icon: ClipboardList },
   { to: "/maintenance", label: "الصيانة", icon: Wrench },
   { to: "/assistant", label: "المساعد", icon: Sparkles },
 ];
@@ -31,8 +32,8 @@ const links = [
 const mobileLinks = [
   { to: "/", label: "الرئيسية", icon: Home, end: true },
   { to: "/data-entry", label: "إدخال", icon: Database },
-  { to: "/owner", label: "المالك", icon: UserRound },
-  { to: "/permissions", label: "صلاحيات", icon: Shield },
+  { to: "/ejar", label: "إيجار", icon: ClipboardList },
+  { to: "/alerts", label: "تنبيهات", icon: Bell },
   { to: "/more", label: "المزيد", icon: Ellipsis },
 ];
 
