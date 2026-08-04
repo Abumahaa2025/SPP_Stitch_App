@@ -29,7 +29,7 @@ import { UploadFilePreview } from '@/src/components/UploadFilePreview';
 import { UploadResultsWizard } from '@/src/components/UploadResultsWizard';
 import { PhaseSaveResult } from '@/src/components/PhaseSaveResult';
 import { storage } from '@/src/utils/storage';
-import { UX_BUILD_STAMP } from '@/src/constants/build';
+import { APP_VERSION, UX_BUILD_STAMP } from '@/src/constants/build';
 import { apiUrl } from '@/src/constants/backend';
 import {
   consumeSharedFiles,
@@ -356,7 +356,7 @@ export default function UploadScreen() {
       />
 
       <View style={styles.buildBar} testID="upload-build-stamp">
-        <Text style={styles.buildStamp}>v1.0.38 · {UX_BUILD_STAMP}</Text>
+        <Text style={styles.buildStamp}>v{APP_VERSION} · {UX_BUILD_STAMP}</Text>
         <Text style={styles.apiHint} numberOfLines={2}>
           package ai.spp.stitch · native {nativeOk ? `OK (${nativeId || 'ready'})` : 'MISSING — reinstall APK'}
         </Text>
