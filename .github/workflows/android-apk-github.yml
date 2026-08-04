@@ -16,6 +16,10 @@ on:
         description: 'Short commit for APK filename (optional)'
         required: false
         default: ''
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/android-apk-github.yml'
 
 jobs:
   build:
