@@ -62,5 +62,5 @@ jobs:
         run: |
           echo "## Expo OTA published" >> "$GITHUB_STEP_SUMMARY"
           echo "- Channel: \`beta\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Dashboard: https://expo.dev/accounts/abumahaa2025/projects/spp-stitch-transfer/updates" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dashboard: https://expo.dev/accounts/abumahaa2025/projects/spp-beta/updates" >> "$GITHUB_STEP_SUMMARY"
           echo "- Stable APK (unchanged): https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/spp-beta.apk" >> "$GITHUB_STEP_SUMMARY"
