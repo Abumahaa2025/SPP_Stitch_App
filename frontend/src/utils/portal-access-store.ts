@@ -43,14 +43,17 @@ function notify() {
 }
 
 function normalizeReply(r: Record<string, unknown>): {
-  at: string; actor: FollowUpActor; text: string; authorName: string;
+  at: string; actor: FollowUpActor; text: string; authorName: string; media?: FollowUpMediaItem[];
 } {
+  const mediaRaw = Array.isArray(r.media) ? r.media as FollowUpMediaItem[] : undefined;
+  const media = mediaRaw?.filter((m) => m && (m.kind === 'photo' || m.kind === 'video') && m.uri)?.slice(0, 6);
   return {
     at: String(r.at || ''),
     actor: (r.actor as FollowUpActor) || 'agent',
     // Legacy replies stored message under `name`.
     text: String(r.text ?? r.name ?? ''),
     authorName: String(r.authorName || ''),
+    ...(media?.length ? { media } : {}),
   };
 }
 
@@ -91,8 +94,10 @@ export async function loadPortalAccess(): Promise<PortalAccessState> {
   const raw = await storage.getItem<string>(KEY, '');
   if (raw) {
     try {
-      const parsed = JSON.parse(raw);
-      const { state, dirty } = normalizeState({ ...DEFAULT, ...parsed });
+      // storage.getItem already JSON.parses once; value is usually a stringified state blob.
+      // Also accept a plain object if a client wrote state without the outer stringify.
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      const { state, dirty } = normalizeState({ ...DEFAULT, ...(parsed as object) });
       cache = state;
       if (dirty) {
         await storage.setItem(KEY, JSON.stringify(cache));

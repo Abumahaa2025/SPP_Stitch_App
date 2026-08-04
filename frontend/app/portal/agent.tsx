@@ -26,7 +26,7 @@ export default function AgentPortalScreen() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; t?: string }>();
-  const { agents, guards, followUps, logLogin } = usePortalAccess();
+  const { agents, guards, followUps, logLogin, ready } = usePortalAccess();
 
   const agent = agents.find((a) => a.id === params.id && a.portalToken === params.t && a.linkActive);
 
@@ -38,6 +38,15 @@ export default function AgentPortalScreen() {
       void setActiveAgentSession(null);
     }
   }, [agent?.id]);
+
+  if (!ready) {
+    return (
+      <ScreenScaffold testID="agent-portal">
+        <StoryScreenHeader question={t('opsv2.agent.title' as any)} showBack />
+        <AliveEmpty title={t('opsv2.agent.title' as any)} body="…" />
+      </ScreenScaffold>
+    );
+  }
 
   if (!agent) {
     return (

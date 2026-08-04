@@ -29,7 +29,7 @@ export default function AgentFollowUpsScreen() {
   const ar = lang === 'ar' || !!isRTL;
   const params = useLocalSearchParams<{ id?: string; t?: string }>();
   const {
-    agents, guards, followUps,
+    agents, guards, followUps, ready,
     createFollowUp, replyFollowUp, setFollowUpStatus,
   } = usePortalAccess();
 
@@ -44,6 +44,15 @@ export default function AgentFollowUpsScreen() {
   const [domain, setDomain] = useState<FollowUpDomain>('maintenance');
   const [guardId, setGuardId] = useState<string>('');
   const [replyDraft, setReplyDraft] = useState<Record<string, string>>({});
+
+  if (!ready) {
+    return (
+      <ScreenScaffold testID="agent-followups">
+        <StoryScreenHeader question={t('opsv2.agent.followupsTitle' as any)} showBack />
+        <AliveEmpty title={t('opsv2.agent.followupsTitle' as any)} body="…" />
+      </ScreenScaffold>
+    );
+  }
 
   if (!agent) {
     return (

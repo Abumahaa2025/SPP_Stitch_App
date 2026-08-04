@@ -27,7 +27,7 @@ export default function GuardPortalScreen() {
   const ar = lang === 'ar' || !!isRTL;
   const params = useLocalSearchParams<{ id?: string; t?: string }>();
   const {
-    guards, followUps, agents,
+    guards, followUps, agents, ready,
     replyFollowUp, acceptGuardFollowUp, setFollowUpStatus, logLogin,
   } = usePortalAccess();
   usePortalDesk();
@@ -81,6 +81,15 @@ export default function GuardPortalScreen() {
     })();
     return () => { cancelled = true; };
   }, [guard?.id, mine.map((f) => `${f.id}:${f.status}:${f.guardAcceptedAt || ''}`).join('|'), ar]);
+
+  if (!ready) {
+    return (
+      <ScreenScaffold testID="guard-portal">
+        <StoryScreenHeader question={t('opsv2.guard.title' as any)} showBack />
+        <AliveEmpty title={t('opsv2.guard.title' as any)} body={ar ? 'جاري التحميل…' : 'Loading…'} />
+      </ScreenScaffold>
+    );
+  }
 
   if (!guard) {
     return (
