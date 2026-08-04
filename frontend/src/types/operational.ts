@@ -161,7 +161,9 @@ export type PendingActionKind =
 
   | 'approve_technician'
 
-  | 'approve_owner_alert';
+  | 'approve_owner_alert'
+
+  | 'approve_ejar_notice';
 
 
 

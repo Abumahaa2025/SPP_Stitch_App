@@ -192,6 +192,52 @@ export async function onNotificationPrepared(summaryKey: string, params?: Record
   });
 }
 
+/** Kowil received an official Ejar notice — ask owner before notifying parties. */
+export async function onEjarNoticeReceived(input: {
+  eventId: string;
+  contractNumber: string;
+  unit?: string;
+  tenantName?: string;
+  tenantPhone?: string;
+  daysLeft?: number | null;
+  preparedTenantMessage?: string;
+  eventType?: string;
+}) {
+  const contract = input.contractNumber || '—';
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'employee',
+    summaryKey: 'op.event.ejarReceived',
+    summaryParams: { contract },
+  });
+  const expiryLike = !input.eventType || /expir|renewal/i.test(input.eventType);
+  await addPendingAction({
+    kind: 'approve_ejar_notice',
+    labelKey: expiryLike ? 'op.pending.ejarExpiry' : 'op.pending.ejarNotice',
+    labelParams: { contract },
+    payload: {
+      eventId: input.eventId,
+      contractNumber: contract,
+      unit: input.unit || '',
+      tenantName: input.tenantName || '',
+      phone: input.tenantPhone || '',
+      message: input.preparedTenantMessage || '',
+      daysLeft: input.daysLeft != null ? String(input.daysLeft) : '',
+    },
+  });
+}
+
+/** Owner approved — Kowil prepared notices for owner, contracts agent, tenant. */
+export async function onEjarApproved(contractNumber: string) {
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'owner',
+    summaryKey: 'op.event.ejarApproved',
+    summaryParams: { contract: contractNumber || '—' },
+  });
+}
+
+
 export async function onRenewalSuggested(unitNumber: string, tenantName: string) {
   await appendEvent({
     kind: 'renewal_suggested',

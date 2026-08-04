@@ -57,9 +57,29 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
       vacantCount: osLive.units.filter((u) => u.status === 'vacant').length,
       openMaintCount: openTickets.length,
     });
+    // Merge Ejar official notices (Kowil suggests; owner must approve before notify).
+    try {
+      const { syncEjarNotices } = await import('@/src/utils/ejar-sync');
+      const { tasks: ejarTasks } = await syncEjarNotices(ar);
+      if (ejarTasks.length) {
+        const existing = new Set(thought.tasks.map((t) => t.id));
+        const merged = [
+          ...ejarTasks.filter((t) => !existing.has(t.id)),
+          ...thought.tasks,
+        ];
+        thought = {
+          ...thought,
+          tasks: merged,
+          lastThoughtAr: thought.lastThoughtAr
+            || 'كويل راجع إشعارات منصة إيجار ويقترح إبلاغ الأطراف بعد إذنك.',
+          lastThoughtEn: thought.lastThoughtEn
+            || 'Kowil reviewed Ejar notices and suggests notifying parties after your permission.',
+        };
+      }
+    } catch { /* offline / backend down — local desk still works */ }
     await saveSmartEmployee(thought);
     setEmp(thought);
-  }, [openTickets, reload]);
+  }, [openTickets, reload, ar]);
 
   useFocusEffect(
     useCallback(() => {

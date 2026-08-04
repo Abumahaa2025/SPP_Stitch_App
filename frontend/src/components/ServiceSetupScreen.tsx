@@ -86,6 +86,17 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
       [],
     ],
   },
+  ejar: {
+    serviceKey: 'ejar',
+    icon: 'file-text',
+    stepCount: 4,
+    fields: [
+      [{ key: 'organizationId', labelKey: 'setup.ejar.field.org', placeholderKey: 'setup.ejar.field.orgPh' }],
+      [{ key: 'webhookSecret', labelKey: 'setup.ejar.field.secret', placeholderKey: 'setup.ejar.field.secretPh', secure: true }],
+      [{ key: 'notifyAgents', labelKey: 'setup.ejar.field.agents', placeholderKey: 'setup.ejar.field.agentsPh' }],
+      [],
+    ],
+  },
   backup: {
     serviceKey: 'sheets',
     icon: 'hard-drive',

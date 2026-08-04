@@ -144,6 +144,8 @@ export default function Profile() {
         <Divider />
         <ServiceRow icon="message-circle" label={t('settings.services.whatsapp')} status="phase4" dir={dir} t={t} onPress={() => notImpl(t('settings.services.whatsapp'))} testID="p-wa" />
         <Divider />
+        <ServiceRow icon="file-text" label={t('settings.services.ejar')} status="phase4" dir={dir} t={t} onPress={() => router.push('/setup/ejar' as any)} testID="p-ejar" />
+        <Divider />
         <ServiceRow icon="cpu" label={t('settings.services.openai')} status="active" dir={dir} t={t} onPress={() => Haptics.selectionAsync()} testID="p-oai" />
       </SectionCard>
 

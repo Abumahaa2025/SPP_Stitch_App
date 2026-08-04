@@ -26,6 +26,14 @@ from datetime import datetime, timezone, timedelta
 
 from adapters.gas_client import GasClientError
 from adapters.live_data import domain_source, get_gas_client, resolve_domain, beta_mode_enabled
+from adapters.ejar_client import ejar_enabled, verify_webhook_secret, status_payload as ejar_status_payload
+from adapters.ejar_events import (
+    normalize_ejar_payload,
+    build_notifications as build_ejar_notifications,
+    build_decision as build_ejar_decision,
+    build_kowil_task,
+    build_approval_record as build_ejar_approval_record,
+)
 from adapters.executive.brain import build_executive_brain
 from adapters.canonical.pipeline import (
     insights_to_api,
@@ -968,11 +976,128 @@ async def _list_reports_live() -> List[dict]:
     return await resolve_domain("REPORTS", _gas_reports, _mongo_reports)
 
 
+async def _list_ejar_notifications() -> List[dict]:
+    """Ejar fan-out notifications stored alongside other NotifT rows."""
+    if _use_memory_store():
+        return [n for n in (_memory_db.get("notifications") or []) if n.get("source") == "ejar"]
+    if not _mongo_available:
+        return []
+    try:
+        cursor = _get_db()["notifications"].find({"source": "ejar"}).sort("at", -1).limit(40)
+        return [_strip_id(doc) async for doc in cursor]
+    except Exception as exc:
+        logger.warning("Ejar notifications list failed: %s", exc)
+        return []
+
+
 async def _list_notifications_live() -> List[dict]:
+    ejar_notifs = await _list_ejar_notifications()
     ai_state = await _load_ai_state()
     if ai_state:
-        return derive_notifications_from_ai_state(ai_state)
-    return await resolve_domain("ALERTS", _gas_notifications, _mongo_notifications)
+        base = derive_notifications_from_ai_state(ai_state)
+        # Ejar notices prepend — official platform alerts stay visible.
+        return [*ejar_notifs, *base]
+    domain = await resolve_domain("ALERTS", _gas_notifications, _mongo_notifications)
+    return [*ejar_notifs, *(domain or [])]
+
+
+async def _persist_ejar_event(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Upsert one Ejar event (memory or Mongo)."""
+    eid = event.get("id")
+    if _use_memory_store() or (beta_mode_enabled() and not _mongo_available):
+        store = _memory_db.setdefault("ejar_events", [])
+        store = [e for e in store if e.get("id") != eid]
+        store.insert(0, event)
+        _memory_db["ejar_events"] = store[:100]
+        return event
+    if not _mongo_available:
+        # Still accept in-process for webhook demos without Mongo.
+        store = _memory_db.setdefault("ejar_events", [])
+        store = [e for e in store if e.get("id") != eid]
+        store.insert(0, event)
+        _memory_db["ejar_events"] = store[:100]
+        return event
+    try:
+        await _get_db()["ejar_events"].update_one(
+            {"_id": eid},
+            {"$set": {**event, "_id": eid}},
+            upsert=True,
+        )
+        return event
+    except Exception as exc:
+        logger.warning("Ejar event persist failed: %s", exc)
+        store = _memory_db.setdefault("ejar_events", [])
+        store.insert(0, event)
+        _memory_db["ejar_events"] = store[:100]
+        return event
+
+
+async def _persist_ejar_notifications(notifications: List[dict]) -> None:
+    if not notifications:
+        return
+    if _use_memory_store() or not _mongo_available:
+        store = list(_memory_db.get("notifications") or [])
+        by_id = {n.get("id"): n for n in store if n.get("id")}
+        for n in notifications:
+            by_id[n["id"]] = n
+        _memory_db["notifications"] = list(by_id.values())
+        return
+    try:
+        coll = _get_db()["notifications"]
+        for n in notifications:
+            await coll.update_one({"_id": n["id"]}, {"$set": {**n, "_id": n["id"]}}, upsert=True)
+    except Exception as exc:
+        logger.warning("Ejar notifications persist failed: %s", exc)
+
+
+async def _list_ejar_events(limit: int = 40) -> List[dict]:
+    if _use_memory_store() or _memory_db.get("ejar_events"):
+        return list(_memory_db.get("ejar_events") or [])[:limit]
+    if not _mongo_available:
+        return []
+    try:
+        cursor = _get_db()["ejar_events"].find({}).sort("received_at", -1).limit(limit)
+        return [_strip_id(doc) async for doc in cursor]
+    except Exception as exc:
+        logger.warning("Ejar events list failed: %s", exc)
+        return list(_memory_db.get("ejar_events") or [])[:limit]
+
+
+async def _get_ejar_event(event_id: str) -> Optional[dict]:
+    for e in _memory_db.get("ejar_events") or []:
+        if e.get("id") == event_id:
+            return e
+    if not _mongo_available:
+        return None
+    try:
+        doc = await _get_db()["ejar_events"].find_one({"_id": event_id})
+        return _strip_id(doc) if doc else None
+    except Exception:
+        return None
+
+
+async def _persist_ejar_approval(record: Dict[str, Any]) -> Dict[str, Any]:
+    aid = record.get("_id") or record.get("approval_id")
+    if _use_memory_store() or not _mongo_available:
+        store = _memory_db.setdefault("ejar_approvals", [])
+        store = [a for a in store if a.get("_id") != aid and a.get("approval_id") != aid]
+        store.insert(0, record)
+        _memory_db["ejar_approvals"] = store[:50]
+        return record
+    try:
+        await _get_db()["ejar_approvals"].update_one(
+            {"_id": aid},
+            {"$setOnInsert": {**record, "_id": aid}},
+            upsert=True,
+        )
+        stored = await _get_db()["ejar_approvals"].find_one({"_id": aid})
+        return _strip_id(stored) if stored else record
+    except Exception as exc:
+        logger.warning("Ejar approval persist failed: %s", exc)
+        store = _memory_db.setdefault("ejar_approvals", [])
+        store.insert(0, record)
+        _memory_db["ejar_approvals"] = store[:50]
+        return record
 
 
 async def _get_property_live(pid: str) -> Optional[dict]:
@@ -1493,6 +1618,105 @@ async def build_info():
         "git_branch": os.getenv("RENDER_GIT_BRANCH") or os.getenv("SPP_GIT_BRANCH") or None,
         "service": os.getenv("RENDER_SERVICE_NAME") or None,
         "beta": beta_mode_enabled(),
+    }
+
+
+class EjarApproveRequest(BaseModel):
+    event_id: str
+
+
+@api_router.get("/integrations/ejar/status")
+async def ejar_integration_status():
+    """Connection status for منصة إيجار — degrades when unset."""
+    events = await _list_ejar_events(limit=1)
+    last = events[0].get("received_at") if events else None
+    all_events = await _list_ejar_events(limit=100)
+    return ejar_status_payload(event_count=len(all_events), last_event_at=last)
+
+
+@api_router.post("/webhooks/ejar")
+async def ejar_webhook(request: Request):
+    """Inbound Ejar official notices (contract nearing expiry, renewals, …).
+
+    Kowil fan-out: persist notifications for owner + contracts-permission agents
+    + tenant, and create a confirmation-gated decision for owner approval.
+    """
+    secret = request.headers.get("X-Ejar-Secret") or request.headers.get("X-SPP-Ejar-Secret")
+    if not verify_webhook_secret(secret):
+        raise HTTPException(401, {"code": "ejar_unauthorized", "message": "Invalid Ejar webhook secret"})
+
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(400, {"code": "ejar_invalid_json", "message": "JSON body required"}) from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, {"code": "ejar_invalid_body", "message": "Object body required"})
+
+    event = normalize_ejar_payload(body)
+    await _persist_ejar_event(event)
+    notifications = build_ejar_notifications(event)
+    await _persist_ejar_notifications(notifications)
+    decision = build_ejar_decision(event)
+    task = build_kowil_task(event)
+
+    logger.info(
+        "Ejar webhook accepted event_id=%s type=%s contract=%s",
+        event.get("id"),
+        event.get("event_type"),
+        event.get("contract_number"),
+    )
+    return {
+        "ok": True,
+        "event": event,
+        "decision": decision,
+        "kowil_task": task,
+        "notifications": notifications,
+        "kowil": {
+            "suggestion_ar": decision.get("title_ar"),
+            "suggestion_en": decision.get("title_en"),
+            "requires_owner_permission": True,
+            "notify_audiences": ["owner", "agent_contracts", "tenant"],
+        },
+    }
+
+
+@api_router.get("/ejar/events")
+async def list_ejar_events():
+    """Recent Ejar events for Kowil desk / contracts permission holders."""
+    events = await _list_ejar_events(limit=40)
+    return {
+        "configured": ejar_enabled(),
+        "events": events,
+        "tasks": [build_kowil_task(e) for e in events if e.get("owner_approval") != "approved"],
+        "decisions": [build_ejar_decision(e) for e in events if e.get("owner_approval") != "approved"],
+    }
+
+
+@api_router.post("/ejar/approve")
+async def approve_ejar_event(req: EjarApproveRequest):
+    """Owner grants Kowil permission to notify owner + contracts agent + tenant.
+
+    Prepares messages only (delivery_status=not_sent) — same safety pattern as
+    late-tenant decision approvals.
+    """
+    event = await _get_ejar_event(req.event_id)
+    if not event:
+        raise HTTPException(404, {"code": "ejar_event_not_found", "event_id": req.event_id})
+
+    approval = build_ejar_approval_record(event)
+    stored = await _persist_ejar_approval(approval)
+
+    # Mark event approved so Kowil stops re-prompting.
+    event = {**event, "owner_approval": "approved", "approved_at": approval.get("approved_at")}
+    await _persist_ejar_event(event)
+
+    return {
+        "ok": True,
+        "status": "approved_and_prepared",
+        "approval": stored,
+        "event": event,
+        "kowil_note_ar": stored.get("kowil_note_ar"),
+        "kowil_note_en": stored.get("kowil_note_en"),
     }
 
 
