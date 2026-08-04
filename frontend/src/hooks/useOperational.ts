@@ -19,7 +19,9 @@ import {
 } from '@/src/utils/maintenance-workflow';
 import { onMaintenanceOpened } from '@/src/utils/operational-flow-engine';
 import { onEjarApproved } from '@/src/utils/operational-flow-engine';
+import { onUtilityPaymentApproved } from '@/src/utils/operational-flow-engine';
 import { approveEjarEvent } from '@/src/utils/ejar-sync';
+import { approveUtilityPayment } from '@/src/utils/utilities-sync';
 import { pushLocalNotification } from '@/src/utils/local-notifications';
 import {
   loadOperational,
@@ -247,6 +249,35 @@ export function useOperational() {
         }
       } else if (tenantMsg) {
         await Share.share({ message: tenantMsg });
+      }
+    }
+    if (action?.kind === 'approve_utility_payment' && action.payload?.eventId) {
+      const result = await approveUtilityPayment(action.payload.eventId);
+      const ar = getLang() === 'ar';
+      await onUtilityPaymentApproved(
+        action.payload.utility || 'electricity',
+        action.payload.billNumber || '—',
+      );
+      await pushLocalNotification({
+        id: `loc_util_approved_${action.payload.eventId}`,
+        title: ar ? 'كويل · تمت الموافقة على السداد' : 'Kowil · payment approved',
+        body: ar
+          ? (result?.approval?.kowil_note_ar
+            || 'تم تجهيز السداد بعد إذنك — لم يُخصم أي مبلغ تلقائياً.')
+          : (result?.approval?.kowil_note_en
+            || 'Payment prepared after your permission — nothing was auto-charged.'),
+        priority: 'high',
+        route: '/wallet',
+      });
+      const payUrl = action.payload.paymentUrl || result?.approval?.payment_url;
+      const summary = result?.approval?.prepared_messages?.payment_summary
+        || result?.approval?.prepared_messages?.owner;
+      if (payUrl) {
+        await Linking.openURL(payUrl).catch(() => {
+          if (summary) return Share.share({ message: summary });
+        });
+      } else if (summary) {
+        await Share.share({ message: summary });
       }
     }
     await removePendingAction(id);

@@ -237,6 +237,57 @@ export async function onEjarApproved(contractNumber: string) {
   });
 }
 
+/** Kowil received electricity/water bill or notice — ask owner before paying. */
+export async function onUtilityNoticeReceived(input: {
+  eventId: string;
+  utility: 'electricity' | 'water';
+  billNumber?: string;
+  amount?: number | null;
+  currency?: string;
+  unit?: string;
+  isBill?: boolean;
+  paymentUrl?: string;
+}) {
+  const utilityLabel = input.utility === 'water' ? 'المياه' : 'الكهرباء';
+  const bill = input.billNumber || '—';
+  const amount =
+    input.amount != null
+      ? `${Number(input.amount).toLocaleString()} ${input.currency || 'SAR'}`
+      : '—';
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'employee',
+    summaryKey: 'op.event.utilityReceived',
+    summaryParams: { utility: utilityLabel, bill },
+  });
+  await addPendingAction({
+    kind: 'approve_utility_payment',
+    labelKey: input.isBill === false ? 'op.pending.utilityNotice' : 'op.pending.utilityBill',
+    labelParams: { utility: utilityLabel, bill, amount },
+    payload: {
+      eventId: input.eventId,
+      utility: input.utility,
+      billNumber: bill,
+      amount: input.amount != null ? String(input.amount) : '',
+      currency: input.currency || 'SAR',
+      unit: input.unit || '',
+      paymentUrl: input.paymentUrl || '',
+    },
+  });
+}
+
+export async function onUtilityPaymentApproved(utility: string, billNumber: string) {
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'owner',
+    summaryKey: 'op.event.utilityApproved',
+    summaryParams: {
+      utility: utility === 'water' ? 'المياه' : 'الكهرباء',
+      bill: billNumber || '—',
+    },
+  });
+}
+
 
 export async function onRenewalSuggested(unitNumber: string, tenantName: string) {
   await appendEvent({

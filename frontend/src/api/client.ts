@@ -72,6 +72,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ event_id }),
     }),
+  utilitiesStatus: () =>
+    req<{
+      electricity: { configured: boolean; event_count: number };
+      water: { configured: boolean; event_count: number };
+    }>('/integrations/utilities/status'),
+  utilityEvents: () =>
+    req<{ events: unknown[]; tasks: unknown[] }>('/utilities/events'),
+  utilityApprovePayment: (event_id: string) =>
+    req<{ ok: boolean; status: string; approval: unknown }>('/utilities/approve-payment', {
+      method: 'POST',
+      body: JSON.stringify({ event_id }),
+    }),
 };
 
 // Types

@@ -77,6 +77,22 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
         };
       }
     } catch { /* offline / backend down — local desk still works */ }
+    // Merge electricity/water bills (Kowil suggests pay; owner must approve).
+    try {
+      const { syncUtilityNotices } = await import('@/src/utils/utilities-sync');
+      const { tasks: utilTasks } = await syncUtilityNotices(ar);
+      if (utilTasks.length) {
+        const existing = new Set(thought.tasks.map((t) => t.id));
+        thought = {
+          ...thought,
+          tasks: [...utilTasks.filter((t) => !existing.has(t.id)), ...thought.tasks],
+          lastThoughtAr: thought.lastThoughtAr
+            || 'كويل راجع فواتير الكهرباء/المياه ويقترح السداد بعد إذنك.',
+          lastThoughtEn: thought.lastThoughtEn
+            || 'Kowil reviewed electricity/water bills and suggests payment after your permission.',
+        };
+      }
+    } catch { /* offline */ }
     await saveSmartEmployee(thought);
     setEmp(thought);
   }, [openTickets, reload, ar]);

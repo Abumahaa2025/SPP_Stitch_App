@@ -97,6 +97,28 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
       [],
     ],
   },
+  electricity: {
+    serviceKey: 'electricity',
+    icon: 'zap',
+    stepCount: 4,
+    fields: [
+      [{ key: 'provider', labelKey: 'setup.electricity.field.provider', placeholderKey: 'setup.electricity.field.providerPh' }],
+      [{ key: 'accountNumber', labelKey: 'setup.electricity.field.account', placeholderKey: 'setup.electricity.field.accountPh' }],
+      [{ key: 'webhookSecret', labelKey: 'setup.electricity.field.secret', placeholderKey: 'setup.electricity.field.secretPh', secure: true }],
+      [],
+    ],
+  },
+  water: {
+    serviceKey: 'water',
+    icon: 'droplet',
+    stepCount: 4,
+    fields: [
+      [{ key: 'provider', labelKey: 'setup.water.field.provider', placeholderKey: 'setup.water.field.providerPh' }],
+      [{ key: 'accountNumber', labelKey: 'setup.water.field.account', placeholderKey: 'setup.water.field.accountPh' }],
+      [{ key: 'webhookSecret', labelKey: 'setup.water.field.secret', placeholderKey: 'setup.water.field.secretPh', secure: true }],
+      [],
+    ],
+  },
   backup: {
     serviceKey: 'sheets',
     icon: 'hard-drive',

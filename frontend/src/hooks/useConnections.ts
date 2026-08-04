@@ -7,7 +7,9 @@ export type ServiceKey =
   | 'greenApi'
   | 'email'
   | 'homeAssistant'
-  | 'ejar';
+  | 'ejar'
+  | 'electricity'
+  | 'water';
 
 export type ServiceConfig = {
   connected: boolean;
@@ -35,6 +37,8 @@ const DEFAULT: ConnectionsState = {
   email: empty(),
   homeAssistant: empty(),
   ejar: empty(),
+  electricity: empty(),
+  water: empty(),
 };
 
 export function useConnections() {
@@ -106,5 +110,7 @@ function maskSummary(key: ServiceKey, fields: Record<string, string>): string {
   if (key === 'email') return fields.fromEmail?.split('@')[0] ?? 'connected';
   if (key === 'homeAssistant') return fields.url?.replace(/^https?:\/\//, '').slice(0, 20) ?? 'connected';
   if (key === 'ejar') return fields.organizationId?.slice(-6) || fields.webhookSecret?.slice(-4) || 'ejar';
+  if (key === 'electricity') return fields.accountNumber?.slice(-4) || fields.webhookSecret?.slice(-4) || 'electricity';
+  if (key === 'water') return fields.accountNumber?.slice(-4) || fields.webhookSecret?.slice(-4) || 'water';
   return 'connected';
 }
