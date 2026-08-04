@@ -22,11 +22,11 @@ export function AlertsPage() {
       return;
     }
     if (type === "owner_approve_ejar" && payload?.renewalId) {
-      ownerApproveEjarRenewal(payload.renewalId);
+      void ownerApproveEjarRenewal(payload.renewalId);
       return;
     }
     if (type === "submit_ejar" && payload?.renewalId) {
-      submitEjarRenewal(payload.renewalId);
+      void submitEjarRenewal(payload.renewalId);
       return;
     }
     if (type === "open_contract") {

@@ -1,9 +1,14 @@
 import type { Alert, AppState, Contract, EjarRenewalCase, Tenant } from "../data/types";
+import type { EjarRenewalSubmitResult } from "../integrations/ejar";
 import { daysLeft } from "../lib/format";
 import { uid } from "../data/seed";
 
 function nowLabel() {
   return new Date().toLocaleString("ar-SA");
+}
+
+function tenantReplyPath(renewalId: string, token: string) {
+  return `/tenant-renewal/${renewalId}?token=${encodeURIComponent(token)}`;
 }
 
 /** يبني تنبيهات تجديد العقود مع اقتراح حل عملي */
@@ -55,12 +60,16 @@ export function buildRenewalAlerts(state: AppState): Alert[] {
         desc: "بانتظار موافقة المالك ثم الرفع لمنصة إيجار.",
         time: nowLabel(),
         level: "info",
-        suggestion: "بعد موافقة المالك سيتم تجهيز الطلب للرفع إلى إيجار.",
+        suggestion: state.ejar.autoSubmitOnApproval
+          ? "بعد موافقة المالك سيُرفع الطلب تلقائياً إلى إيجار عبر بوابة الربط."
+          : "بعد موافقة المالك ارفع الطلب يدوياً إلى إيجار.",
         relatedContractId: c.id,
         actions: [
           {
             id: uid("act"),
-            label: "موافقة المالك والرفع لإيجار",
+            label: state.ejar.autoSubmitOnApproval
+              ? "موافقة المالك والرفع لإيجار"
+              : "موافقة المالك",
             type: "owner_approve_ejar",
             payload: { renewalId: existing.id },
           },
@@ -68,14 +77,17 @@ export function buildRenewalAlerts(state: AppState): Alert[] {
       });
     }
 
-    if (existing?.status === "موافق_المالك") {
+    if (existing?.status === "موافق_المالك" || existing?.status === "فشل_الرفع") {
       out.push({
         id: uid("al"),
         title: `جاهز للرفع إلى إيجار — ${c.no}`,
-        desc: "المالك وافق. يمكن رفع التجديد لمنصة إيجار الآن.",
+        desc:
+          existing.status === "فشل_الرفع"
+            ? existing.lastError || "فشل الرفع السابق — يمكن إعادة المحاولة."
+            : "المالك وافق. يمكن رفع التجديد لمنصة إيجار الآن.",
         time: nowLabel(),
-        level: "info",
-        suggestion: "اضغط رفع إلى إيجار لإكمال المسار.",
+        level: existing.status === "فشل_الرفع" ? "danger" : "info",
+        suggestion: "اضغط رفع إلى إيجار لإكمال المسار عبر بوابة الربط.",
         relatedContractId: c.id,
         actions: [
           {
@@ -94,7 +106,7 @@ export function buildRenewalAlerts(state: AppState): Alert[] {
 export function startTenantRenewalNotice(
   state: AppState,
   contractId: string,
-): { renewals: EjarRenewalCase[]; alertNote: string } | null {
+): { renewals: EjarRenewalCase[]; alertNote: string; replyPath: string } | null {
   const contract = state.contracts.find((c) => c.id === contractId);
   if (!contract) return null;
   const tenant =
@@ -106,7 +118,10 @@ export function startTenantRenewalNotice(
 
   const existing = state.ejarRenewals.find((r) => r.contractId === contractId);
   const at = new Date().toISOString();
-  const note = `تم إرسال إشعار للمستأجر (${tenant.name}) بسؤال: هل ترغب بتجديد العقد؟`;
+  const replyToken = existing?.replyToken || uid("tok");
+  const caseId = existing?.id || uid("ejr");
+  const replyPath = tenantReplyPath(caseId, replyToken);
+  const note = `تم إرسال إشعار للمستأجر (${tenant.name}) بسؤال: هل ترغب بتجديد العقد؟ رابط الرد: ${replyPath}`;
 
   if (existing) {
     return {
@@ -115,17 +130,20 @@ export function startTenantRenewalNotice(
           ? {
               ...r,
               status: "تم_إشعار_المستأجر",
+              replyToken,
               notifiedAt: at,
+              lastError: undefined,
               history: [...r.history, { at, note }],
             }
           : r,
       ),
       alertNote: note,
+      replyPath,
     };
   }
 
   const created: EjarRenewalCase = {
-    id: uid("ejr"),
+    id: caseId,
     contractId: contract.id,
     contractNo: contract.no,
     tenantName: tenant.name,
@@ -133,37 +151,59 @@ export function startTenantRenewalNotice(
     propertyName: contract.property,
     endDate: contract.end,
     status: "تم_إشعار_المستأجر",
+    replyToken,
     notifiedAt: at,
     history: [{ at, note }],
   };
 
-  return { renewals: [created, ...state.ejarRenewals], alertNote: note };
+  return { renewals: [created, ...state.ejarRenewals], alertNote: note, replyPath };
 }
 
-export function simulateTenantReply(
+export function recordTenantReply(
   renewals: EjarRenewalCase[],
   renewalId: string,
   accept: boolean,
-): EjarRenewalCase[] {
+  token?: string,
+): { renewals: EjarRenewalCase[]; ok: boolean; message: string } {
+  const target = renewals.find((r) => r.id === renewalId);
+  if (!target) return { renewals, ok: false, message: "طلب التجديد غير موجود" };
+  if (token && target.replyToken && token !== target.replyToken) {
+    return { renewals, ok: false, message: "رمز الرد غير صالح" };
+  }
+  if (!["تم_إشعار_المستأجر", "بانتظار_إشعار_المستأجر"].includes(target.status)) {
+    return { renewals, ok: false, message: "لا يمكن الرد على هذه الحالة حالياً" };
+  }
+
   const at = new Date().toISOString();
-  return renewals.map((r) => {
-    if (r.id !== renewalId) return r;
-    return {
-      ...r,
-      status: accept ? "وافق_المستأجر" : "رفض_المستأجر",
-      tenantReplyAt: at,
-      history: [
-        ...r.history,
-        {
-          at,
-          note: accept
-            ? "رد المستأجر: أوافق على التجديد"
-            : "رد المستأجر: لا أرغب بالتجديد",
-        },
-      ],
-    };
-  });
+  return {
+    ok: true,
+    message: accept ? "تم تسجيل موافقة المستأجر" : "تم تسجيل رفض المستأجر",
+    renewals: renewals.map((r) => {
+      if (r.id !== renewalId) return r;
+      return {
+        ...r,
+        status: accept ? "وافق_المستأجر" : "رفض_المستأجر",
+        tenantReplyAt: at,
+        history: [
+          ...r.history,
+          {
+            at,
+            note: accept
+              ? "رد المستأجر: أوافق على التجديد"
+              : "رد المستأجر: لا أرغب بالتجديد",
+          },
+        ],
+      };
+    }),
+  };
 }
+
+/** توافق خلفي مع الاسم السابق */
+export const simulateTenantReply = (
+  renewals: EjarRenewalCase[],
+  renewalId: string,
+  accept: boolean,
+): EjarRenewalCase[] => recordTenantReply(renewals, renewalId, accept).renewals;
 
 export function ownerApproveRenewal(
   renewals: EjarRenewalCase[],
@@ -176,61 +216,65 @@ export function ownerApproveRenewal(
       ...r,
       status: "موافق_المالك",
       ownerApprovedAt: at,
+      lastError: undefined,
       history: [...r.history, { at, note: "وافق المالك على التجديد والرفع لإيجار" }],
     };
   });
 }
 
-/** محاكاة رفع لمنصة إيجار — جاهز لاستبدالها بـ API رسمي لاحقاً */
-export function submitRenewalToEjar(
+export function markRenewalSubmitting(
   renewals: EjarRenewalCase[],
   renewalId: string,
-  connected: boolean,
-): { renewals: EjarRenewalCase[]; ok: boolean; message: string } {
+): EjarRenewalCase[] {
   const at = new Date().toISOString();
-  if (!connected) {
-    return {
-      renewals,
-      ok: false,
-      message: "اربط حساب منصة إيجار أولاً من صفحة إيجار",
-    };
-  }
-
-  let ok = false;
-  const next = renewals.map((r) => {
+  return renewals.map((r) => {
     if (r.id !== renewalId) return r;
-    ok = true;
-    const ref = `EJAR-${Date.now().toString().slice(-8)}`;
     return {
       ...r,
-      status: "مرفوع_لإيجار" as const,
+      status: "مرفوع_لإيجار",
+      submittedAt: at,
+      lastError: undefined,
+      history: [...r.history, { at, note: "جاري رفع طلب التجديد إلى منصة إيجار…" }],
+    };
+  });
+}
+
+export function applyRenewalSubmitResult(
+  renewals: EjarRenewalCase[],
+  renewalId: string,
+  result: EjarRenewalSubmitResult,
+  modeLabel: string,
+): EjarRenewalCase[] {
+  const at = new Date().toISOString();
+  return renewals.map((r) => {
+    if (r.id !== renewalId) return r;
+    if (!result.ok) {
+      return {
+        ...r,
+        status: "فشل_الرفع",
+        lastError: result.message,
+        history: [
+          ...r.history,
+          { at, note: `فشل الرفع إلى إيجار (${modeLabel}): ${result.message}` },
+        ],
+      };
+    }
+    const ref = result.reference || `EJAR-${Date.now().toString().slice(-8)}`;
+    return {
+      ...r,
+      status: "مكتمل_في_إيجار",
       submittedAt: at,
       ejarRef: ref,
+      lastError: undefined,
       history: [
         ...r.history,
-        { at, note: `تم رفع طلب التجديد إلى منصة إيجار — المرجع ${ref}` },
+        {
+          at,
+          note: `تم استلام طلب التجديد في إيجار — المرجع ${ref} (${modeLabel})`,
+        },
       ],
     };
   });
-
-  // انتقل سريعاً لحالة مكتمل في المحاكاة
-  const completed = next.map((r) => {
-    if (r.id !== renewalId) return r;
-    return {
-      ...r,
-      status: "مكتمل_في_إيجار" as const,
-      history: [
-        ...r.history,
-        { at: new Date().toISOString(), note: "إيجار: تم استلام الطلب بنجاح (محاكاة الربط)" },
-      ],
-    };
-  });
-
-  return {
-    renewals: completed,
-    ok,
-    message: ok ? "تم الرفع إلى منصة إيجار بنجاح" : "تعذر العثور على طلب التجديد",
-  };
 }
 
 export function contractsNeedingRenewal(contracts: Contract[]) {

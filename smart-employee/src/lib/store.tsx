@@ -11,12 +11,21 @@ import { seedState, uid } from "../data/seed";
 import { nextMaintStatus } from "../engines";
 import type { ImportedPropertyRow } from "../engines";
 import {
+  applyRenewalSubmitResult,
   buildRenewalAlerts,
+  markRenewalSubmitting,
   ownerApproveRenewal,
-  simulateTenantReply,
+  recordTenantReply,
   startTenantRenewalNotice,
-  submitRenewalToEjar,
 } from "../engines/ejar";
+import {
+  buildCredentials,
+  clearEjarSecrets,
+  getEjarGateway,
+  readEjarSecrets,
+  saveEjarSecrets,
+  type EjarMode,
+} from "../integrations/ejar";
 import { clearDatabase, loadDatabase, saveDatabase } from "./db";
 import type {
   Agent,
@@ -32,6 +41,15 @@ import type {
   Toast,
   ToastKind,
 } from "../data/types";
+
+function resolveEjarApiKey(ejar: EjarConnection): string {
+  const stored = readEjarSecrets();
+  if (stored) return stored;
+  if (ejar.mode === "mock" && ejar.connected && ejar.facilityNo) {
+    return `mock-restored-${ejar.facilityNo}`;
+  }
+  return "";
+}
 
 interface StoreApi {
   state: AppState;
@@ -56,12 +74,20 @@ interface StoreApi {
   addAgent: (agent: Omit<Agent, "id" | "accessLink" | "status"> & { status?: Agent["status"] }) => void;
   toggleAgentPermission: (agentId: string, permission: PermissionKey) => void;
   refreshOperationalAlerts: () => void;
-  connectEjar: (input: { facilityNo: string; apiKey: string }) => void;
+  connectEjar: (input: {
+    facilityNo: string;
+    apiKey: string;
+    mode?: EjarMode;
+    baseUrl?: string;
+    autoSubmitOnApproval?: boolean;
+  }) => Promise<boolean>;
   disconnectEjar: () => void;
+  updateEjarSettings: (patch: Partial<Pick<EjarConnection, "autoSubmitOnApproval" | "baseUrl" | "mode">>) => void;
+  syncEjarNotifications: () => Promise<void>;
   notifyTenantRenewal: (contractId: string) => void;
-  tenantReplyRenewal: (renewalId: string, accept: boolean) => void;
-  ownerApproveEjarRenewal: (renewalId: string) => void;
-  submitEjarRenewal: (renewalId: string) => void;
+  tenantReplyRenewal: (renewalId: string, accept: boolean, token?: string) => boolean;
+  ownerApproveEjarRenewal: (renewalId: string) => Promise<void>;
+  submitEjarRenewal: (renewalId: string) => Promise<void>;
   resolveAlert: (alertId: string) => void;
   pushToast: (msg: string, kind?: ToastKind) => void;
 }
@@ -121,6 +147,60 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 2800);
   }, []);
+
+  const submitFromSnapshot = useCallback(
+    async (snapshot: AppState, renewalId: string) => {
+      if (!snapshot.ejar.connected) {
+        pushToast("اربط حساب منصة إيجار أولاً من صفحة إيجار", "danger");
+        return;
+      }
+      const renewal = snapshot.ejarRenewals.find((r) => r.id === renewalId);
+      if (!renewal) {
+        pushToast("طلب التجديد غير موجود", "danger");
+        return;
+      }
+      const apiKey = resolveEjarApiKey(snapshot.ejar);
+      if (!apiKey) {
+        pushToast("أعد إدخال مفتاح الربط (خاصة في الوضع الحي)", "warn");
+        return;
+      }
+
+      setState((s) =>
+        withMergedAlerts({
+          ...s,
+          ejarRenewals: markRenewalSubmitting(s.ejarRenewals, renewalId),
+        }),
+      );
+
+      const creds = buildCredentials({
+        facilityNo: snapshot.ejar.facilityNo,
+        apiKey,
+        mode: snapshot.ejar.mode,
+        baseUrl: snapshot.ejar.baseUrl,
+      });
+      const result = await getEjarGateway(snapshot.ejar.mode).submitRenewal(creds, {
+        facilityNo: creds.facilityNo,
+        contractNo: renewal.contractNo,
+        tenantName: renewal.tenantName,
+        tenantPhone: renewal.tenantPhone,
+        propertyName: renewal.propertyName,
+        endDate: renewal.endDate,
+        ownerApprovedAt: renewal.ownerApprovedAt || new Date().toISOString(),
+        tenantApprovedAt: renewal.tenantReplyAt || new Date().toISOString(),
+      });
+
+      const modeLabel = snapshot.ejar.mode === "live" ? "حي" : "محاكاة";
+      setState((s) =>
+        withMergedAlerts({
+          ...s,
+          ejar: { ...s.ejar, lastSyncAt: new Date().toISOString() },
+          ejarRenewals: applyRenewalSubmitResult(s.ejarRenewals, renewalId, result, modeLabel),
+        }),
+      );
+      pushToast(result.message, result.ok ? "ok" : "danger");
+    },
+    [pushToast],
+  );
 
   const api = useMemo<StoreApi>(
     () => ({
@@ -371,68 +451,154 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState((s) => withMergedAlerts(s));
         pushToast("تم تحديث التنبيهات والاقتراحات");
       },
-      connectEjar: ({ facilityNo, apiKey }) => {
+      connectEjar: async ({ facilityNo, apiKey, mode, baseUrl, autoSubmitOnApproval }) => {
         if (!facilityNo.trim() || !apiKey.trim()) {
           pushToast("أدخل رقم المنشأة ومفتاح الربط", "warn");
-          return;
+          return false;
         }
+        const nextMode: EjarMode = mode || state.ejar.mode || "mock";
+        const creds = buildCredentials({
+          facilityNo,
+          apiKey,
+          mode: nextMode,
+          baseUrl: baseUrl || state.ejar.baseUrl,
+        });
+        const auth = await getEjarGateway(nextMode).authenticate(creds);
+        if (!auth.ok) {
+          pushToast(auth.message, "danger");
+          return false;
+        }
+        saveEjarSecrets(apiKey.trim());
         const ejar: EjarConnection = {
           connected: true,
-          facilityNo: facilityNo.trim(),
+          facilityNo: creds.facilityNo,
           apiKeyMasked: `${apiKey.trim().slice(0, 3)}••••${apiKey.trim().slice(-2)}`,
+          mode: nextMode,
+          baseUrl: creds.baseUrl,
+          autoSubmitOnApproval:
+            autoSubmitOnApproval ?? state.ejar.autoSubmitOnApproval ?? true,
           lastSyncAt: new Date().toISOString(),
-          notes: "الربط جاهز لاستقبال إشعارات إيجار ورفع التجديدات",
+          notes:
+            nextMode === "live"
+              ? `ربط حي عبر ${creds.baseUrl}`
+              : "وضع المحاكاة — جاهز لاستبدال بـ API الرسمي",
         };
         setState((s) => ({ ...s, ejar }));
-        pushToast("تم ربط منصة إيجار");
+        pushToast(auth.message);
+        return true;
       },
       disconnectEjar: () => {
+        clearEjarSecrets();
         setState((s) => ({
           ...s,
-          ejar: { connected: false, facilityNo: "", apiKeyMasked: "", notes: "" },
+          ejar: {
+            ...s.ejar,
+            connected: false,
+            facilityNo: "",
+            apiKeyMasked: "",
+            notes: "",
+            lastSyncAt: undefined,
+          },
         }));
         pushToast("تم إلغاء ربط إيجار");
       },
+      updateEjarSettings: (patch) => {
+        setState((s) =>
+          withMergedAlerts({
+            ...s,
+            ejar: { ...s.ejar, ...patch },
+          }),
+        );
+        pushToast("تم تحديث إعدادات إيجار");
+      },
+      syncEjarNotifications: async () => {
+        if (!state.ejar.connected) {
+          pushToast("اربط حساب إيجار أولاً", "warn");
+          return;
+        }
+        const apiKey = resolveEjarApiKey(state.ejar);
+        if (!apiKey) {
+          pushToast("أعد إدخال مفتاح الربط للوضع الحي", "warn");
+          return;
+        }
+        try {
+          const creds = buildCredentials({
+            facilityNo: state.ejar.facilityNo,
+            apiKey,
+            mode: state.ejar.mode,
+            baseUrl: state.ejar.baseUrl,
+          });
+          const items = await getEjarGateway(state.ejar.mode).fetchNotifications(creds);
+          setState((s) => {
+            const imported = items.map((n) => ({
+              id: uid("al"),
+              title: n.title || "إشعار إيجار",
+              desc: n.body,
+              time: new Date(n.receivedAt || Date.now()).toLocaleString("ar-SA"),
+              level: "info" as const,
+              suggestion: "راجع مسار التجديد أو العقود المرتبطة.",
+            }));
+            return withMergedAlerts({
+              ...s,
+              ejar: { ...s.ejar, lastSyncAt: new Date().toISOString() },
+              alerts: [...imported, ...s.alerts].slice(0, 40),
+            });
+          });
+          pushToast(items.length ? `تم جلب ${items.length} إشعار من إيجار` : "لا توجد إشعارات جديدة");
+        } catch (err) {
+          pushToast(
+            err instanceof Error ? err.message : "فشل مزامنة إشعارات إيجار",
+            "danger",
+          );
+        }
+      },
       notifyTenantRenewal: (contractId) => {
+        let replyPath = "";
         setState((s) => {
           const result = startTenantRenewalNotice(s, contractId);
           if (!result) return s;
+          replyPath = result.replyPath;
           return withMergedAlerts({ ...s, ejarRenewals: result.renewals });
         });
-        pushToast("تم إرسال إشعار التجديد للمستأجر");
-      },
-      tenantReplyRenewal: (renewalId, accept) => {
-        setState((s) =>
-          withMergedAlerts({
-            ...s,
-            ejarRenewals: simulateTenantReply(s.ejarRenewals, renewalId, accept),
-          }),
+        pushToast(
+          replyPath
+            ? `تم إرسال إشعار التجديد — رابط رد المستأجر جاهز`
+            : "تم إرسال إشعار التجديد للمستأجر",
         );
-        pushToast(accept ? "تم تسجيل موافقة المستأجر" : "تم تسجيل رفض المستأجر");
       },
-      ownerApproveEjarRenewal: (renewalId) => {
-        setState((s) =>
-          withMergedAlerts({
+      tenantReplyRenewal: (renewalId, accept, token) => {
+        let ok = false;
+        let message = "";
+        setState((s) => {
+          const result = recordTenantReply(s.ejarRenewals, renewalId, accept, token);
+          ok = result.ok;
+          message = result.message;
+          if (!result.ok) return s;
+          return withMergedAlerts({ ...s, ejarRenewals: result.renewals });
+        });
+        pushToast(message || (ok ? "تم التسجيل" : "تعذر التسجيل"), ok ? "ok" : "danger");
+        return ok;
+      },
+      ownerApproveEjarRenewal: async (renewalId) => {
+        let next: AppState | null = null;
+        setState((s) => {
+          next = withMergedAlerts({
             ...s,
             ejarRenewals: ownerApproveRenewal(s.ejarRenewals, renewalId),
-          }),
-        );
-        pushToast("تمت موافقة المالك — جاهز للرفع إلى إيجار");
-      },
-      submitEjarRenewal: (renewalId) => {
-        setState((s) => {
-          const result = submitRenewalToEjar(s.ejarRenewals, renewalId, s.ejar.connected);
-          if (!result.ok) {
-            pushToast(result.message, "danger");
-            return s;
-          }
-          pushToast(result.message);
-          return withMergedAlerts({
-            ...s,
-            ejar: { ...s.ejar, lastSyncAt: new Date().toISOString() },
-            ejarRenewals: result.renewals,
           });
+          return next;
         });
+        if (!next) return;
+        const approved = next as AppState;
+        if (approved.ejar.autoSubmitOnApproval !== false && approved.ejar.connected) {
+          pushToast("تمت موافقة المالك — جاري الرفع التلقائي لإيجار");
+          await submitFromSnapshot(approved, renewalId);
+        } else {
+          pushToast("تمت موافقة المالك — جاهز للرفع إلى إيجار");
+        }
+      },
+      submitEjarRenewal: async (renewalId) => {
+        await submitFromSnapshot(state, renewalId);
       },
       resolveAlert: (alertId) => {
         setState((s) => ({
@@ -441,7 +607,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }));
       },
     }),
-    [state, loading, saving, ready, toasts, pushToast],
+    [state, loading, saving, ready, toasts, pushToast, submitFromSnapshot],
   );
 
   return <StoreContext.Provider value={api}>{children}</StoreContext.Provider>;

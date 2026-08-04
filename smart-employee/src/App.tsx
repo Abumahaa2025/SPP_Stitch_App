@@ -18,6 +18,7 @@ import { PermissionsPage } from "./pages/PermissionsPage";
 import { RentsPage } from "./pages/RentsPage";
 import { EjarPage } from "./pages/EjarPage";
 import { AlertsPage } from "./pages/AlertsPage";
+import { TenantRenewalPage } from "./pages/TenantRenewalPage";
 
 function Protected() {
   const { state } = useStore();
@@ -30,6 +31,7 @@ export default function App() {
     <LoadingGate>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/tenant-renewal/:renewalId" element={<TenantRenewalPage />} />
         <Route element={<Protected />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/owner" element={<OwnerPage />} />

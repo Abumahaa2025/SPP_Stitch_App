@@ -159,10 +159,18 @@ export interface AppUser {
   initials: string;
 }
 
+export type EjarMode = "mock" | "live";
+
 export interface EjarConnection {
   connected: boolean;
   facilityNo: string;
   apiKeyMasked: string;
+  /** mock = محاكاة محلية | live = استدعاء HTTP لـ baseUrl */
+  mode: EjarMode;
+  /** عنوان واجهة إيجار أو بوابة وسيطة */
+  baseUrl: string;
+  /** بعد موافقة المالك ارفع تلقائياً لإيجار */
+  autoSubmitOnApproval: boolean;
   lastSyncAt?: string;
   notes?: string;
 }
@@ -176,11 +184,14 @@ export interface EjarRenewalCase {
   propertyName: string;
   endDate: string;
   status: EjarRenewalStatus;
+  /** رمز رد المستأجر عبر الرابط العام */
+  replyToken?: string;
   notifiedAt?: string;
   tenantReplyAt?: string;
   ownerApprovedAt?: string;
   submittedAt?: string;
   ejarRef?: string;
+  lastError?: string;
   history: { at: string; note: string }[];
 }
 
