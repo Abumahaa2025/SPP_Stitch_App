@@ -6,7 +6,7 @@ After the first install, **JavaScript updates** ship via **EAS Update** on chann
 
 | Resource | URL |
 |----------|-----|
-| **Direct APK (stable name `spp-beta.apk`)** | https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest/download/spp-beta.apk |
+| **Direct APK (stable name `spp-beta.apk`) — install once** | https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest/download/spp-beta.apk |
 | **Releases page (pick APK if needed)** | https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest |
 | **Expo project dashboard** | https://expo.dev/accounts/abumahaa2025/projects/spp-beta |
 | **EAS Update channel `beta`** | https://expo.dev/accounts/abumahaa2025/projects/spp-beta/updates |
@@ -16,10 +16,11 @@ Project ID (linked in `frontend/app.json`): `405761ee-fac3-4b25-9784-23f7441535e
 
 ## How OTA works
 
-1. `frontend/app.json` → `updates.url` points at the Expo project above.
+1. `frontend/app.json` → `updates.url` + `requestHeaders.expo-channel-name: beta` (required for GitHub-built APKs).
 2. `frontend/eas.json` → preview profile uses **channel `beta`**.
-3. On app start, `applyExpoOtaIfAvailable()` checks channel `beta` and reloads if a new bundle exists.
+3. On app start and when returning to foreground, `applyExpoOtaIfAvailable()` checks channel `beta` and reloads if a new bundle exists.
 4. CI workflow `.github/workflows/expo-ota-update.yml` publishes to `beta` on push to `main` (requires `EXPO_TOKEN`).
+5. Native APK rebuild (when `app.json` version bumps) publishes stable `spp-beta.apk` via **Expo Beta APK (branch)**.
 
 **`EXPO_TOKEN`:** create it while logged in as **abumahaa2025** at [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens), then set GitHub repo secret `EXPO_TOKEN`. A token from another Expo account will fail with `Entity not authorized`.
 
