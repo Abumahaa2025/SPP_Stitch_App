@@ -46,7 +46,7 @@ export function GlassTabBar() {
   const pathname = usePathname() || '/';
 
   const { t, lang, isRTL } = useI18n();
-  const ar = lang === 'ar' || !!isRTL;
+  const ar = lang === 'ar';
 
   const active = resolveActiveTab(pathname);
 
@@ -64,16 +64,14 @@ export function GlassTabBar() {
         const os = raw ? JSON.parse(raw) : null;
         const name = os?.property?.name?.trim();
         if (name) {
-          await notifyPropertySaved(name, ar);
+          await notifyPropertySaved(name);
           Alert.alert(
-            ar ? 'تم حفظ العقار' : 'Property saved',
-            ar
-              ? `تم حفظ «${name}». افتح مركز البيانات لعرض الجدول.`
-              : `«${name}» is saved. Open the database center for the table.`,
+            t('opsv2.tab.propertySaved.title' as any),
+            t('opsv2.tab.propertySaved.body' as any).replace('{name}', name),
             [
-              { text: ar ? 'لاحقاً' : 'Later', style: 'cancel', onPress: () => router.replace('/owner' as any) },
+              { text: t('opsv2.tab.propertySaved.later' as any), style: 'cancel', onPress: () => router.replace('/owner' as any) },
               {
-                text: ar ? 'مركز البيانات' : 'Database center',
+                text: t('opsv2.tab.propertySaved.database' as any),
                 onPress: () => router.replace('/database' as any),
               },
             ],

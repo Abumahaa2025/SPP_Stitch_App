@@ -11,7 +11,7 @@ import { platformConnectionEn, platformConnectionAr } from './platform-connectio
 import { phaseAEn, phaseAAr } from './phase-a-keys';
 import { opsFixEn, opsFixAr } from './ops-fix-keys';
 
-type Lang = 'en' | 'ar';
+export type Lang = 'en' | 'ar';
 
 const dict = {
   en: {

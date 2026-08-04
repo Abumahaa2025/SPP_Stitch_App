@@ -273,7 +273,7 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
     setMoreFields(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     showToast(ar ? `تم التعديل بنجاح — ${name}` : `Updated successfully — ${name}`);
-    void notifyTenantSaved(name, ar, 'edit');
+    void notifyTenantSaved(name, 'edit');
     await refresh();
   };
 
@@ -284,7 +284,7 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
     setNoteTenant(null);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     showToast(ar ? `تم حفظ الملاحظة — ${name}` : `Note saved — ${name}`);
-    void notifyTenantSaved(name, ar, 'note');
+    void notifyTenantSaved(name, 'note');
     await refresh();
   };
 
@@ -413,7 +413,7 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
     setDraftExtra('');
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     showToast(ar ? `تمت الإضافة بنجاح — ${name}` : `Added successfully — ${name}`);
-    void notifyTenantSaved(name, ar, 'add');
+    void notifyTenantSaved(name, 'add');
     await refresh();
   };
 

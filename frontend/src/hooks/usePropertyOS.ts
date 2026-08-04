@@ -150,7 +150,7 @@ export function usePropertyOS(notifEnabledCount = 0) {
       property,
       startedAt: state.startedAt ?? new Date().toISOString(),
     });
-    void notifyPropertySaved(property.name, getLang() === 'ar');
+    void notifyPropertySaved(property.name);
     return property;
   }, [persist, state]);
 
