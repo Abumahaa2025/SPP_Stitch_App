@@ -2,7 +2,10 @@
 
 ## الرابط الثابت (استخدمه للتثبيت)
 
-**تحميل مباشر — اسم ملف ثابت `spp-beta.apk`:**
+**تحميل مباشر — آخر إصدار (1.0.39):**
+https://github.com/Abumahaa2025/SPP_Stitch_App/releases/download/v1.0.39/spp-beta.apk
+
+**نفس الملف عبر Latest:**
 https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest/download/spp-beta.apk
 
 **صفحة آخر إصدار (إن لم يعمل التحميل المباشر):**

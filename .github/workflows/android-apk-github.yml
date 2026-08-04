@@ -169,7 +169,7 @@ jobs:
             frontend/dist/spp-beta.apk
             frontend/dist/spp-stitch-${{ steps.meta.outputs.version }}.apk
             frontend/dist/${{ steps.meta.outputs.apk_name }}
-          prerelease: true
+          prerelease: false
           make_latest: true
           overwrite_files: true
 

@@ -127,7 +127,7 @@ jobs:
           files: |
             frontend/dist/spp-beta.apk
             frontend/dist/spp-beta-*.apk
-          prerelease: true
+          prerelease: false
           make_latest: true
           overwrite_files: true
 
