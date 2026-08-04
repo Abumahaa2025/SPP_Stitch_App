@@ -11,6 +11,7 @@ import { buildAgentPortalLink } from '@/src/utils/portal-links';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import type { PropertyAgentRecord } from '@/src/types/portal-access';
+import { AGENT_OWNER_PERM_KEYS } from '@/src/types/portal-access';
 
 type Props = {
   agent: PropertyAgentRecord;
@@ -24,9 +25,8 @@ export function AgentPortalShareCard({ agent, testID = 'agent-portal-share' }: P
   const live = buildAgentPortalLink(agent.id, agent.portalToken, { name: agent.name });
   const shareUrl = live.url;
   const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
-  const msg = `${t('opsv2.agent.title' as any)}: ${shareUrl}`;
-  const permKeys = (['contracts', 'maintenance', 'tenants', 'wallet', 'settings'] as const)
-    .filter((p) => agent.permissions[p]);
+  const msg = `${t('opsv2.agent.title' as any)}: ${shareUrl}\n\n${t('opsv2.portalInstall.shareTip' as any)}`;
+  const permKeys = AGENT_OWNER_PERM_KEYS.filter((p) => agent.permissions[p]);
 
   const shareWhatsApp = () => {
     Haptics.selectionAsync();

@@ -19,6 +19,9 @@ const SERVICES: { key: ServiceKey; route: string; titleKey: string; benefitKey: 
   { key: 'whatsapp', route: '/setup/whatsapp', titleKey: 'op.services.whatsapp.title', benefitKey: 'op.services.whatsapp.benefit', icon: 'message-circle' },
   { key: 'greenApi', route: '/setup/greenApi', titleKey: 'op.services.greenApi.title', benefitKey: 'op.services.greenApi.benefit', icon: 'radio' },
   { key: 'sheets', route: '/setup/sheets', titleKey: 'op.services.sheets.title', benefitKey: 'op.services.sheets.benefit', icon: 'database' },
+  { key: 'ejar', route: '/setup/ejar', titleKey: 'op.services.ejar.title', benefitKey: 'op.services.ejar.benefit', icon: 'file-text' },
+  { key: 'electricity', route: '/setup/electricity', titleKey: 'op.services.electricity.title', benefitKey: 'op.services.electricity.benefit', icon: 'zap' },
+  { key: 'water', route: '/setup/water', titleKey: 'op.services.water.title', benefitKey: 'op.services.water.benefit', icon: 'droplet' },
   { key: 'homeAssistant', route: '/setup/homeAssistant', titleKey: 'op.services.ha.title', benefitKey: 'op.services.ha.benefit', icon: 'home' },
   { key: 'email', route: '/setup/email', titleKey: 'op.services.email.title', benefitKey: 'op.services.email.benefit', icon: 'mail' },
 ];

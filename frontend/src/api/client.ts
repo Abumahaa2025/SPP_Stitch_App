@@ -58,6 +58,32 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   betaInfo: () => req<{ beta: boolean; gas_disabled: boolean }>('/beta/info'),
+  ejarStatus: () =>
+    req<{
+      service: string;
+      configured: boolean;
+      event_count: number;
+      last_event_at?: string | null;
+    }>('/integrations/ejar/status'),
+  ejarEvents: () =>
+    req<{ configured: boolean; events: unknown[]; tasks: unknown[] }>('/ejar/events'),
+  ejarApprove: (event_id: string) =>
+    req<{ ok: boolean; status: string; approval: unknown }>('/ejar/approve', {
+      method: 'POST',
+      body: JSON.stringify({ event_id }),
+    }),
+  utilitiesStatus: () =>
+    req<{
+      electricity: { configured: boolean; event_count: number };
+      water: { configured: boolean; event_count: number };
+    }>('/integrations/utilities/status'),
+  utilityEvents: () =>
+    req<{ events: unknown[]; tasks: unknown[] }>('/utilities/events'),
+  utilityApprovePayment: (event_id: string) =>
+    req<{ ok: boolean; status: string; approval: unknown }>('/utilities/approve-payment', {
+      method: 'POST',
+      body: JSON.stringify({ event_id }),
+    }),
 };
 
 // Types
