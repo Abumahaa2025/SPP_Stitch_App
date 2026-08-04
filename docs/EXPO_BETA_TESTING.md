@@ -20,7 +20,14 @@ Project ID (linked in `frontend/app.json`): `405761ee-fac3-4b25-9784-23f7441535e
 3. On app start, `applyExpoOtaIfAvailable()` checks channel `beta` and reloads if a new bundle exists.
 4. CI workflow `.github/workflows/expo-ota-update.yml` publishes to `beta` on push to `main` (requires `EXPO_TOKEN`).
 
+**`EXPO_TOKEN`:** create it while logged in as **abumahaa2025** at [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens), then set GitHub repo secret `EXPO_TOKEN`. A token from another Expo account will fail with `Entity not authorized`.
+
 ## Publish an update manually
+
+**GitHub (recommended):**  
+Actions → **Expo OTA Update (beta)** → **Run workflow** → branch `main` → Run.
+
+Direct link: https://github.com/Abumahaa2025/SPP_Stitch_App/actions/workflows/expo-ota-update.yml
 
 ```bash
 cd frontend

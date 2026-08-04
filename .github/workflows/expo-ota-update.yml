@@ -3,6 +3,12 @@
 name: Expo OTA Update (beta)
 
 on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'OTA update message (optional)'
+        required: false
+        default: 'Manual publish from GitHub Actions'
   push:
     branches: [main]
     paths:
@@ -46,7 +52,10 @@ jobs:
           EXPO_PUBLIC_BETA_MODE: 'true'
           EXPO_PUBLIC_BACKEND_URL: https://spp-beta-api.onrender.com
         run: |
-          MSG="main @ ${GITHUB_SHA::7} — $(date -u +%Y-%m-%dT%H:%MZ)"
+          MSG="${{ github.event.inputs.message }}"
+          if [ -z "$MSG" ]; then
+            MSG="main @ ${GITHUB_SHA::7} — $(date -u +%Y-%m-%dT%H:%MZ)"
+          fi
           eas update --channel beta --non-interactive --message "$MSG"
 
       - name: Summary
