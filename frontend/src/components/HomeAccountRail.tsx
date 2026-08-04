@@ -1,9 +1,11 @@
 /**
- * Home account rail — vertical beside the page (physical right), not a top strip.
+ * Home account rail — single account control with dropdown:
+ * permissions · profile · operations · control.
+ * Additive GlassCard UI; home layout padding uses HOME_ACCOUNT_RAIL_WIDTH.
  */
 import React, { useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Modal, Switch, Linking, Platform, Share,
+  View, Text, StyleSheet, Pressable, Modal, Switch, Linking, Platform, Share, ScrollView,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -18,14 +20,14 @@ import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { useWorkspacePadding } from '@/src/hooks/use-workspace-padding';
 import type { AgentPermissions, PropertyAgentRecord } from '@/src/types/portal-access';
-import { colors, spacing, typography, radius } from '@/src/theme';
+import { colors, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
 const DEFAULT_PERMS: AgentPermissions = {
   contracts: true, maintenance: true, tenants: true, wallet: false, settings: false,
 };
 
-type RailKey = 'profile' | null;
+type MenuView = 'menu' | 'permissions';
 
 export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: string }) {
   const { t, isRTL, lang } = useI18n();
@@ -36,7 +38,8 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
   const { countEnabled } = useNotificationPrefs();
   const { state: os } = usePropertyOS(countEnabled);
   const { agents, addAgent } = usePortalAccess();
-  const [open, setOpen] = useState<RailKey>(null);
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState<MenuView>('menu');
   const [agentName, setAgentName] = useState('');
   const [agentPhone, setAgentPhone] = useState('');
   const [agentEmail, setAgentEmail] = useState('');
@@ -47,10 +50,14 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
     return os.property?.name?.trim() || (ar ? 'الحساب' : 'Account');
   }, [os.property?.name, ar]);
 
-  const close = () => setOpen(null);
+  const close = () => {
+    setOpen(false);
+    setView('menu');
+  };
 
   const go = (route: string) => {
     Haptics.selectionAsync();
+    close();
     router.push(route as any);
   };
 
@@ -86,6 +93,41 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
 
   const top = insets.top + wsPad.paddingTop + 56;
 
+  const menuItems: {
+    key: string;
+    icon: keyof typeof Feather.glyphMap;
+    label: string;
+    onPress: () => void;
+  }[] = [
+    {
+      key: 'permissions',
+      icon: 'shield',
+      label: ar ? 'إدارة الصلاحيات' : 'Permissions',
+      onPress: () => {
+        Haptics.selectionAsync();
+        setView('permissions');
+      },
+    },
+    {
+      key: 'profile',
+      icon: 'user',
+      label: ar ? 'بيانات حساب المستخدم' : 'Account profile',
+      onPress: () => go('/profile'),
+    },
+    {
+      key: 'operations',
+      icon: 'briefcase',
+      label: ar ? 'إدارة العمليات' : 'Operations',
+      onPress: () => go('/owner'),
+    },
+    {
+      key: 'control',
+      icon: 'sliders',
+      label: ar ? 'التحكم' : 'Control',
+      onPress: () => go('/settings'),
+    },
+  ];
+
   return (
     <>
       <View
@@ -93,122 +135,163 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
         testID={testID}
         pointerEvents="box-none"
       >
-        <RailIcon
-          icon="user"
-          label={displayName}
-          active={open === 'profile'}
-          onPress={() => { Haptics.selectionAsync(); setOpen('profile'); }}
-          testID={`${testID}-profile`}
-        />
-        <RailIcon
-          icon="link"
-          label={ar ? 'روابط' : 'Links'}
-          onPress={() => go('/operational/portals')}
-          testID={`${testID}-links`}
-        />
-        <RailIcon
-          icon="database"
-          label={ar ? 'بيانات' : 'Data'}
-          onPress={() => go('/database')}
-          testID={`${testID}-database`}
-        />
-        <RailIcon
-          icon="settings"
-          label={ar ? 'إعدادات' : 'Settings'}
-          onPress={() => go('/settings')}
-          testID={`${testID}-settings`}
-        />
+        <Pressable
+          testID={`${testID}-account`}
+          onPress={() => {
+            Haptics.selectionAsync();
+            setView('menu');
+            setOpen(true);
+          }}
+          style={[styles.railBtn, open && styles.railBtnOn]}
+        >
+          <Feather name="user" size={16} color={open ? colors.bg : colors.gold} />
+          <Text style={[styles.railLabel, open && styles.railLabelOn]} numberOfLines={1}>
+            {ar ? 'الحساب' : 'Account'}
+          </Text>
+          <Feather
+            name={open ? 'chevron-up' : 'chevron-down'}
+            size={12}
+            color={open ? colors.bg : colors.gold}
+          />
+        </Pressable>
       </View>
 
-      <Modal visible={open === 'profile'} transparent animationType="fade" onRequestClose={close}>
-        <View style={styles.modalWrap}>
-          <GlassCard padding={18} radiusToken="lg" edge="gold">
-            <Text style={[styles.title, ar && styles.rtl]}>{ar ? 'الملف الشخصي' : 'Profile'}</Text>
-            <Text style={[styles.sub, ar && styles.rtl]}>{displayName}</Text>
-            <Pressable style={styles.secondaryBtn} onPress={() => { close(); go('/profile'); }}>
-              <Text style={styles.secondaryBtnText}>{ar ? 'فتح الملف الشخصي' : 'Open profile'}</Text>
-            </Pressable>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
+        <Pressable style={styles.modalWrap} onPress={close} testID={`${testID}-backdrop`}>
+          <Pressable
+            style={[styles.dropdownAnchor, { top: top + 64, right: 6 + (wsPad.paddingRight || 0) }]}
+            onPress={(e) => e.stopPropagation?.()}
+          >
+            <GlassCard padding={14} radiusToken="lg" edge="gold" style={styles.dropdownCard}>
+              {view === 'menu' ? (
+                <>
+                  <Text style={[styles.title, ar && styles.rtl]} numberOfLines={1}>
+                    {displayName}
+                  </Text>
+                  <Text style={[styles.sub, ar && styles.rtl]}>
+                    {ar ? 'قائمة الحساب' : 'Account menu'}
+                  </Text>
+                  <View style={styles.menuList}>
+                    {menuItems.map((item) => (
+                      <Pressable
+                        key={item.key}
+                        testID={`${testID}-item-${item.key}`}
+                        onPress={item.onPress}
+                        style={[styles.menuRow, ar && styles.rowRtl]}
+                      >
+                        <View style={[styles.menuIconWrap, ar && { marginLeft: 10, marginRight: 0 }]}>
+                          <Feather name={item.icon} size={15} color={colors.gold} />
+                        </View>
+                        <Text style={[styles.menuLabel, ar && styles.rtl]}>{item.label}</Text>
+                        <Feather
+                          name={ar ? 'chevron-left' : 'chevron-right'}
+                          size={14}
+                          color={colors.textMuted}
+                        />
+                      </Pressable>
+                    ))}
+                  </View>
+                </>
+              ) : (
+                <ScrollView
+                  style={styles.permScroll}
+                  contentContainerStyle={{ paddingBottom: 8 }}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <Pressable
+                    style={[styles.backRow, ar && styles.rowRtl]}
+                    onPress={() => setView('menu')}
+                    testID={`${testID}-back`}
+                  >
+                    <Feather
+                      name={ar ? 'chevron-right' : 'chevron-left'}
+                      size={16}
+                      color={colors.gold}
+                    />
+                    <Text style={styles.backText}>{ar ? 'رجوع' : 'Back'}</Text>
+                  </Pressable>
 
-            <Text style={[styles.section, ar && styles.rtl, { marginTop: 14 }]}>
-              {ar ? 'إضافة وكيل + الصلاحيات' : 'Add agent + permissions'}
-            </Text>
-            <KeyboardAwareTextInput
-              value={agentName}
-              onChangeText={setAgentName}
-              placeholder={ar ? 'اسم الوكيل' : 'Agent name'}
-              placeholderTextColor={colors.textSubtle}
-              style={[styles.input, ar && styles.rtl]}
-            />
-            <KeyboardAwareTextInput
-              value={agentPhone}
-              onChangeText={setAgentPhone}
-              placeholder={ar ? 'جوال الوكيل' : 'Agent phone'}
-              placeholderTextColor={colors.textSubtle}
-              keyboardType="phone-pad"
-              style={[styles.input, ar && styles.rtl]}
-            />
-            <KeyboardAwareTextInput
-              value={agentEmail}
-              onChangeText={setAgentEmail}
-              placeholder={ar ? 'بريد الوكيل' : 'Agent email'}
-              placeholderTextColor={colors.textSubtle}
-              keyboardType="email-address"
-              style={[styles.input, ar && styles.rtl]}
-            />
-            {(['contracts', 'maintenance', 'tenants', 'wallet', 'settings'] as const).map((p) => (
-              <View key={p} style={[styles.permRow, ar && styles.rowRtl]}>
-                <Text style={styles.permLabel}>{t(`opsv2.portals.perm.${p}` as any)}</Text>
-                <Switch
-                  value={perms[p]}
-                  onValueChange={(v) => setPerms((prev) => ({ ...prev, [p]: v }))}
-                  trackColor={{ true: colors.emerald }}
-                />
-              </View>
-            ))}
-            <Pressable style={styles.primary} onPress={createAgent}>
-              <Text style={styles.primaryText}>{ar ? 'إنشاء وكيل وإرسال رابط' : 'Create agent & link'}</Text>
-            </Pressable>
-            {lastAgent ? (
-              <View style={{ marginTop: 12 }}>
-                <AgentPortalShareCard agent={lastAgent} />
-                <Pressable style={styles.secondaryBtn} onPress={() => shareAgent(lastAgent)}>
-                  <Text style={styles.secondaryBtnText}>{ar ? 'إرسال الرابط' : 'Send link'}</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {agents.length > 0 ? (
-              <Text style={[styles.dim, ar && styles.rtl, { marginTop: 10 }]}>
-                {ar ? `وكلاء مسجّلون: ${agents.length}` : `Agents on file: ${agents.length}`}
-              </Text>
-            ) : null}
-            <Pressable style={[styles.secondaryBtn, { marginTop: 10 }]} onPress={close}>
-              <Text style={styles.secondaryBtnText}>{ar ? 'إغلاق' : 'Close'}</Text>
-            </Pressable>
-          </GlassCard>
-        </View>
+                  <Text style={[styles.title, ar && styles.rtl]}>
+                    {ar ? 'إدارة الصلاحيات' : 'Permissions'}
+                  </Text>
+                  <Text style={[styles.sub, ar && styles.rtl]}>
+                    {ar ? 'إضافة وكيل وتحديد صلاحياته' : 'Add an agent and set permissions'}
+                  </Text>
+
+                  <Pressable
+                    style={styles.secondaryBtn}
+                    onPress={() => go('/operational/portals')}
+                    testID={`${testID}-all-portals`}
+                  >
+                    <Text style={styles.secondaryBtnText}>
+                      {ar ? 'إدارة كل الروابط والبوابات' : 'Manage all portal links'}
+                    </Text>
+                  </Pressable>
+
+                  <Text style={[styles.section, ar && styles.rtl, { marginTop: 14 }]}>
+                    {ar ? 'إضافة وكيل + الصلاحيات' : 'Add agent + permissions'}
+                  </Text>
+                  <KeyboardAwareTextInput
+                    value={agentName}
+                    onChangeText={setAgentName}
+                    placeholder={ar ? 'اسم الوكيل' : 'Agent name'}
+                    placeholderTextColor={colors.textSubtle}
+                    style={[styles.input, ar && styles.rtl]}
+                  />
+                  <KeyboardAwareTextInput
+                    value={agentPhone}
+                    onChangeText={setAgentPhone}
+                    placeholder={ar ? 'جوال الوكيل' : 'Agent phone'}
+                    placeholderTextColor={colors.textSubtle}
+                    keyboardType="phone-pad"
+                    style={[styles.input, ar && styles.rtl]}
+                  />
+                  <KeyboardAwareTextInput
+                    value={agentEmail}
+                    onChangeText={setAgentEmail}
+                    placeholder={ar ? 'بريد الوكيل' : 'Agent email'}
+                    placeholderTextColor={colors.textSubtle}
+                    keyboardType="email-address"
+                    style={[styles.input, ar && styles.rtl]}
+                  />
+                  {(['contracts', 'maintenance', 'tenants', 'wallet', 'settings'] as const).map((p) => (
+                    <View key={p} style={[styles.permRow, ar && styles.rowRtl]}>
+                      <Text style={styles.permLabel}>{t(`opsv2.portals.perm.${p}` as any)}</Text>
+                      <Switch
+                        value={perms[p]}
+                        onValueChange={(v) => setPerms((prev) => ({ ...prev, [p]: v }))}
+                        trackColor={{ true: colors.emerald }}
+                      />
+                    </View>
+                  ))}
+                  <Pressable style={styles.primary} onPress={createAgent} testID={`${testID}-create-agent`}>
+                    <Text style={styles.primaryText}>
+                      {ar ? 'إنشاء وكيل وإرسال رابط' : 'Create agent & link'}
+                    </Text>
+                  </Pressable>
+                  {lastAgent ? (
+                    <View style={{ marginTop: 12 }}>
+                      <AgentPortalShareCard agent={lastAgent} />
+                      <Pressable style={styles.secondaryBtn} onPress={() => shareAgent(lastAgent)}>
+                        <Text style={styles.secondaryBtnText}>
+                          {ar ? 'إرسال الرابط' : 'Send link'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  {agents.length > 0 ? (
+                    <Text style={[styles.dim, ar && styles.rtl, { marginTop: 10 }]}>
+                      {ar ? `وكلاء مسجّلون: ${agents.length}` : `Agents on file: ${agents.length}`}
+                    </Text>
+                  ) : null}
+                </ScrollView>
+              )}
+            </GlassCard>
+          </Pressable>
+        </Pressable>
       </Modal>
     </>
-  );
-}
-
-function RailIcon({
-  icon, label, onPress, active, testID,
-}: {
-  icon: keyof typeof Feather.glyphMap;
-  label: string;
-  onPress: () => void;
-  active?: boolean;
-  testID?: string;
-}) {
-  return (
-    <Pressable
-      testID={testID}
-      onPress={onPress}
-      style={[styles.railBtn, active && styles.railBtnOn]}
-    >
-      <Feather name={icon} size={16} color={active ? colors.bg : colors.gold} />
-      <Text style={[styles.railLabel, active && styles.railLabelOn]} numberOfLines={1}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -226,7 +309,7 @@ const styles = StyleSheet.create({
   railBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
+    gap: 2,
     paddingVertical: 10,
     paddingHorizontal: 4,
     borderRadius: radius.md,
@@ -242,9 +325,56 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   railLabelOn: { color: colors.bg },
-  modalWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.72)', justifyContent: 'center', padding: 18 },
-  title: { color: colors.text, fontSize: 17, fontWeight: typography.weight.semibold },
-  sub: { color: colors.textDim, fontSize: 13, marginTop: 6, lineHeight: 19 },
+  modalWrap: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  dropdownAnchor: {
+    position: 'absolute',
+    width: 280,
+    maxWidth: '88%',
+  },
+  dropdownCard: {
+    maxHeight: 520,
+  },
+  title: { color: colors.text, fontSize: 16, fontWeight: typography.weight.semibold },
+  sub: { color: colors.textDim, fontSize: 12, marginTop: 4, lineHeight: 18, marginBottom: 10 },
+  menuList: { gap: 6 },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  menuIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.goldEdge,
+    marginRight: 0,
+  },
+  menuLabel: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: typography.weight.semibold,
+  },
+  backRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  backText: { color: colors.gold, fontSize: 13, fontWeight: typography.weight.semibold },
+  permScroll: { maxHeight: 460 },
   section: { color: colors.gold, fontSize: 12, fontWeight: typography.weight.semibold, marginBottom: 8 },
   input: {
     marginTop: 8,
