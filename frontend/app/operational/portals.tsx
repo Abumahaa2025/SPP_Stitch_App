@@ -14,6 +14,7 @@ import { PortalShareCard } from '@/src/components/PortalShareCard';
 import { AgentPortalShareCard } from '@/src/components/AgentPortalShareCard';
 import { TechPortalShareCard } from '@/src/components/TechPortalShareCard';
 import { PhaseSaveResult } from '@/src/components/PhaseSaveResult';
+import { OwnerPortalDeskPanel } from '@/src/components/OwnerPortalDeskPanel';
 import { JourneyGuide } from '@/src/components/JourneyGuide';
 import { OperationHint } from '@/src/components/OperationHint';
 import { usePropertyOS, buildTechnicianPortal } from '@/src/hooks/usePropertyOS';
@@ -110,6 +111,8 @@ export default function PortalsManagementScreen() {
       />
 
       <OperationHint feature="services" />
+
+      <OwnerPortalDeskPanel />
 
       <JourneyGuide
         where={t('journey.portals.guide.where' as any)}

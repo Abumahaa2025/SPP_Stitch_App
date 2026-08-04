@@ -280,14 +280,23 @@ export function useOperational() {
         await Share.share({ message: summary });
       }
     }
+    if (action?.kind === 'approve_tenant_payment' && action.payload?.paymentId) {
+      const { confirmTenantPayment } = await import('@/src/utils/portal-desk-store');
+      await confirmTenantPayment(action.payload.paymentId, { ar: getLang() === 'ar' });
+    }
     await removePendingAction(id);
     await reload();
   }, [reload, state.pendingActions]);
 
   const dismissAction = useCallback(async (id: string) => {
+    const action = state.pendingActions.find((a) => a.id === id);
+    if (action?.kind === 'approve_tenant_payment' && action.payload?.paymentId) {
+      const { rejectTenantPayment } = await import('@/src/utils/portal-desk-store');
+      await rejectTenantPayment(action.payload.paymentId);
+    }
     await removePendingAction(id);
     await reload();
-  }, [reload]);
+  }, [reload, state.pendingActions]);
 
   const recentEvents = useMemo(() => state.events.slice(0, 8), [state.events]);
   const openTickets = useMemo(

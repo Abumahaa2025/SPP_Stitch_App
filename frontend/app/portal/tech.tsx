@@ -11,6 +11,7 @@ import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
 import { PortalInstallHint } from '@/src/components/PortalInstallHint';
+import { LimitedPortalContact } from '@/src/components/LimitedPortalContact';
 import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
 import { usePropertyOS } from '@/src/hooks/usePropertyOS';
@@ -18,6 +19,7 @@ import { useOperational } from '@/src/hooks/useOperational';
 import { useTechnicians } from '@/src/hooks/useTechnicians';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import type { MaintenanceTicket } from '@/src/types/operational';
+import { techThreadId } from '@/src/types/portal-desk';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -196,6 +198,14 @@ export default function TechPortalScreen() {
         />
       ) : null}
       <PortalInstallHint role="tech" />
+      {tech ? (
+        <LimitedPortalContact
+          actor="tech"
+          actorId={tech.id}
+          actorName={tech.name}
+          threadId={techThreadId(tech.id)}
+        />
+      ) : null}
 
       {guestMode ? (
         <GlassCard padding={16} radiusToken="md" edge="emerald" style={{ marginBottom: spacing.md }}>

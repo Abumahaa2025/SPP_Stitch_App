@@ -165,24 +165,16 @@ export type PendingActionKind =
 
   | 'approve_ejar_notice'
 
-  | 'approve_utility_payment';
-
-
+  | 'approve_utility_payment'
+  | 'approve_tenant_payment';
 
 export type PendingAction = {
-
   id: string;
-
   kind: PendingActionKind;
-
   labelKey: string;
-
   labelParams?: Record<string, string>;
-
   createdAt: string;
-
   payload?: Record<string, string>;
-
 };
 
 
