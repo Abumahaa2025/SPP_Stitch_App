@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
-      contents: read
+      contents: write
     env:
       CI: true
       NODE_ENV: production
@@ -74,6 +74,7 @@ jobs:
           echo "package=$PKG" >> "$GITHUB_OUTPUT"
           echo "short=$SHORT" >> "$GITHUB_OUTPUT"
           echo "apk_name=spp-stitch-${SHORT}.apk" >> "$GITHUB_OUTPUT"
+          echo "release_tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Resolved package=$PKG version=$VERSION short=$SHORT"
 
       - name: Prebuild Android (clean native project)
@@ -138,10 +139,35 @@ jobs:
           test -f "$SRC"
           mkdir -p dist
           NAME="${{ steps.meta.outputs.apk_name }}"
+          VERSION="${{ steps.meta.outputs.version }}"
           cp "$SRC" "dist/${NAME}"
           cp "$SRC" dist/spp-stitch.apk
+          cp "$SRC" "dist/spp-stitch-${VERSION}.apk"
+          cp "$SRC" dist/spp-beta.apk
           ls -la dist/
           echo "apk_path=frontend/dist/${NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release (stable spp-beta.apk)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.meta.outputs.release_tag }}
+          name: SPP Stitch ${{ steps.meta.outputs.version }} — Beta APK
+          body: |
+            **Direct install (Android):**
+            https://github.com/${{ github.repository }}/releases/download/${{ steps.meta.outputs.release_tag }}/spp-beta.apk
+
+            Latest redirect:
+            https://github.com/${{ github.repository }}/releases/latest/download/spp-beta.apk
+
+            Package: `${{ steps.meta.outputs.package }}` · Version `${{ steps.meta.outputs.version }}`
+            OTA channel: `beta` (reopen app after install).
+          files: |
+            frontend/dist/spp-beta.apk
+            frontend/dist/spp-stitch-${{ steps.meta.outputs.version }}.apk
+            frontend/dist/${{ steps.meta.outputs.apk_name }}
+          prerelease: true
+          make_latest: true
+          overwrite_files: true
 
       - name: Verify standalone SPP APK (bundle + package)
         run: |
@@ -167,6 +193,7 @@ jobs:
           echo "- applicationId: \`${{ steps.meta.outputs.package }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Version: \`${{ steps.meta.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Artifact: **${{ steps.meta.outputs.apk_name }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Release: https://github.com/${{ github.repository }}/releases/download/${{ steps.meta.outputs.release_tag }}/spp-beta.apk" >> "$GITHUB_STEP_SUMMARY"
           echo "- Note: ${{ github.event.inputs.note }}" >> "$GITHUB_STEP_SUMMARY"
           echo "- Verified: embedded JS bundle + MainActivity + no Emergent shell" >> "$GITHUB_STEP_SUMMARY"
 
