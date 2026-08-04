@@ -6,7 +6,8 @@ After the first install, **JavaScript updates** ship via **EAS Update** on chann
 
 | Resource | URL |
 |----------|-----|
-| **Direct APK (latest release)** | https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest/download/spp-beta.apk |
+| **Direct APK (stable name `spp-beta.apk`)** | https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest/download/spp-beta.apk |
+| **Releases page (pick APK if needed)** | https://github.com/Abumahaa2025/SPP_Stitch_App/releases/latest |
 | **Expo project dashboard** | https://expo.dev/accounts/abumahaa2025/projects/spp-beta |
 | **EAS Update channel `beta`** | https://expo.dev/accounts/abumahaa2025/projects/spp-beta/updates |
 | **Backend (beta)** | https://spp-beta-api.onrender.com |

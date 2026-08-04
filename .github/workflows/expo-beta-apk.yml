@@ -12,14 +12,14 @@ on:
         description: 'Branch with frontend/ Expo app'
         required: false
         default: 'main'
+      release_tag:
+        description: 'GitHub Release tag (use v + app.json version, e.g. v1.0.39)'
+        required: false
+        default: 'v1.0.39'
       note:
         description: 'Build note (optional)'
         required: false
-        default: 'Beta 12 — Late payments cards (monthly + tenant totals)'
-      release_tag:
-        description: 'GitHub Release tag'
-        required: false
-        default: 'v1.0.0-beta.12'
+        default: 'SPP Beta — stable spp-beta.apk + OTA channel beta'
 
 jobs:
   build:
@@ -113,15 +113,17 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.release_tag }}
-          name: Beta 12
+          name: SPP Beta ${{ github.event.inputs.release_tag }}
           body: |
-            SPP Beta 12 — Late payments: collapsible month cards, tenant fields, per-tenant totals.
+            Android beta APK for **SPP Stitch** (`ai.spp.stitch`).
 
-            **Direct install (Android / Chrome):**
+            **Direct install (stable filename):**
             https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.release_tag }}/spp-beta.apk
 
-            Backend: structured `late_payments` from Render (commit f37d146+).
-            Installs over previous beta versions without uninstalling. User data is preserved.
+            Same file via latest redirect:
+            https://github.com/${{ github.repository }}/releases/latest/download/spp-beta.apk
+
+            JS/UI updates after install: Expo EAS Update channel `beta` (reopen app).
           files: |
             frontend/dist/spp-beta.apk
             frontend/dist/spp-beta-*.apk
