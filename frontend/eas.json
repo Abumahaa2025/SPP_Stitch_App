@@ -31,14 +31,6 @@
       }
     }
   },
-  "update": {
-    "beta": {
-      "channel": "beta"
-    },
-    "production": {
-      "channel": "production"
-    }
-  },
   "submit": {
     "production": {}
   }
