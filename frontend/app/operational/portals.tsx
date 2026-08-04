@@ -292,13 +292,34 @@ export default function PortalsManagementScreen() {
           <Text style={[styles.dim, isRTL && styles.rtl]}>
             {t('opsv2.portals.guardHint' as any)}
           </Text>
-          <Pressable
-            style={styles.actionBtn}
-            onPress={() => router.push(inAppGuardPortal(g.id, g.portalToken) as any)}
-            testID={`open-guard-${g.id}`}
-          >
-            <Text style={styles.actionText}>{t('opsv2.portals.openGuardPortal' as any)}</Text>
-          </Pressable>
+          {g.portalUrl ? (
+            <Text style={[styles.link, { marginTop: 6 }]} selectable numberOfLines={2}>{g.portalUrl}</Text>
+          ) : null}
+          <Text style={[styles.dim, isRTL && styles.rtl, { marginTop: 4 }]}>
+            {t('opsv2.portals.guardInstallHint' as any)}
+          </Text>
+          <View style={[styles.actions, isRTL && styles.rowRtl]}>
+            <Pressable
+              style={styles.actionBtn}
+              onPress={() => router.push(inAppGuardPortal(g.id, g.portalToken) as any)}
+              testID={`open-guard-${g.id}`}
+            >
+              <Text style={styles.actionText}>{t('opsv2.portals.openGuardPortal' as any)}</Text>
+            </Pressable>
+            {g.portalUrl ? (
+              <Pressable
+                style={styles.actionBtn}
+                onPress={() => shareWhatsApp(
+                  g.phone,
+                  `${t('opsv2.guard.title' as any)}: ${g.portalUrl}\n\n${t('opsv2.portalInstall.shareTip' as any)}`,
+                )}
+              >
+                <Text style={[styles.actionText, { color: colors.gold }]}>
+                  {t('opsv2.portals.shareGuard' as any)}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
         </GlassCard>
       ))}
 

@@ -159,6 +159,18 @@ export const opsV2En = {
   'opsv2.guard.openFollowups': 'Assigned follow-ups',
   'opsv2.guard.handAgent': 'Hand to agent',
 
+  'opsv2.portalInstall.title': 'Install this portal as an app',
+  'opsv2.portalInstall.body': 'Save your {role} link on the home screen — open it anytime like an app, without hunting in WhatsApp.',
+  'opsv2.portalInstall.showSteps': 'How to install',
+  'opsv2.portalInstall.hideSteps': 'Hide steps',
+  'opsv2.portalInstall.role.tenant': 'tenant portal',
+  'opsv2.portalInstall.role.tech': 'technician portal',
+  'opsv2.portalInstall.role.agent': 'agent portal',
+  'opsv2.portalInstall.role.guard': 'guard portal',
+  'opsv2.portalInstall.shareTip': 'When you open the link: install it as an app on your phone (Add to Home Screen) so it opens like an app anytime.',
+  'opsv2.portals.shareGuard': 'Send guard link',
+  'opsv2.portals.guardInstallHint': 'The guard sees install-as-app steps when opening the link.',
+
   // Role badges — Batch 2 · portal role clarity
   'role.badge.agent': 'Signed in as agent',
   'role.badge.tech': 'Signed in as technician',
@@ -384,6 +396,18 @@ export const opsV2Ar = {
   'opsv2.guard.sub': 'متابعات مع الوكيل العقاري والمالك.',
   'opsv2.guard.openFollowups': 'المتابعات المعيّنة',
   'opsv2.guard.handAgent': 'حوّل للوكيل',
+
+  'opsv2.portalInstall.title': 'ثبّت هذه البوابة كتطبيق',
+  'opsv2.portalInstall.body': 'احفظ رابط {role} على الشاشة الرئيسية — تفتحه كأي تطبيق دون البحث في واتساب.',
+  'opsv2.portalInstall.showSteps': 'خطوات التثبيت',
+  'opsv2.portalInstall.hideSteps': 'إخفاء الخطوات',
+  'opsv2.portalInstall.role.tenant': 'بوابة المستأجر',
+  'opsv2.portalInstall.role.tech': 'بوابة الفني',
+  'opsv2.portalInstall.role.agent': 'بوابة الوكيل',
+  'opsv2.portalInstall.role.guard': 'بوابة الحارس',
+  'opsv2.portalInstall.shareTip': 'عند فتح الرابط: ثبّته كتطبيق على جوالك (إضافة إلى الشاشة الرئيسية) ليفتح كأي تطبيق في أي وقت.',
+  'opsv2.portals.shareGuard': 'إرسال رابط الحارس',
+  'opsv2.portals.guardInstallHint': 'عند فتح الرابط يظهر للحارس توضيح تثبيته كتطبيق على الجوال.',
 
   // شارات الأدوار — وضوح الجلسة
   'role.badge.agent': 'مسجَّل الدخول كوكيل',

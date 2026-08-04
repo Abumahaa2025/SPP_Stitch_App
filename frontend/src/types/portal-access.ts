@@ -76,6 +76,8 @@ export type PropertyGuardRecord = {
   pairedAgentId?: string;
   /** In-app portal token (generated on create; backfilled on load if missing). */
   portalToken: string;
+  /** HTTPS bridge share URL (WhatsApp-clickable). */
+  portalUrl?: string;
 };
 
 export type FollowUpActor = 'owner' | 'agent' | 'guard';

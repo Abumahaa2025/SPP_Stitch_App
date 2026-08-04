@@ -10,6 +10,7 @@ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+import { PortalInstallHint } from '@/src/components/PortalInstallHint';
 import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
 import { usePropertyOS } from '@/src/hooks/usePropertyOS';
@@ -194,6 +195,7 @@ export default function TechPortalScreen() {
           scope={`${t('maint.techJobs' as any)}: ${tech.completedJobs ?? 0} · ${t('maint.techRating' as any)}: ${tech.avgRating ?? '—'}`}
         />
       ) : null}
+      <PortalInstallHint role="tech" />
 
       {guestMode ? (
         <GlassCard padding={16} radiusToken="md" edge="emerald" style={{ marginBottom: spacing.md }}>

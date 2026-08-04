@@ -10,6 +10,7 @@ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+import { PortalInstallHint } from '@/src/components/PortalInstallHint';
 import { usePortalAccess } from '@/src/hooks/usePortalAccess';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
@@ -61,6 +62,7 @@ export default function GuardPortalScreen() {
         showBack
       />
       <ActingAsBadge role="guard" displayName={guard.name} scope={pairedAgent?.name} />
+      <PortalInstallHint role="guard" />
 
       <ScrollView contentContainerStyle={{ paddingBottom: spacing['2xl'], gap: spacing.md }}>
         <GlassCard padding={14} radiusToken="md" edge="emerald">

@@ -14,7 +14,7 @@ import {
   DEFAULT_AGENT_PERMISSIONS,
   normalizeAgentPermissions,
 } from '@/src/types/portal-access';
-import { buildAgentPortalLink, inAppAgentPortal } from '@/src/utils/portal-links';
+import { buildAgentPortalLink, buildGuardPortalLink, inAppAgentPortal } from '@/src/utils/portal-links';
 
 const KEY = 'spp.portalAccess';
 
@@ -61,9 +61,13 @@ function normalizeState(raw: Partial<PortalAccessState>): { state: PortalAccessS
   }));
   const guards = (raw.guards || []).map((g) => {
     if (!g.portalToken) dirty = true;
+    const portalToken = g.portalToken || uid('gtok').slice(-12);
+    const portalUrl = g.portalUrl || buildGuardPortalLink(g.id, portalToken, { name: g.name }).url;
+    if (!g.portalUrl) dirty = true;
     return {
       ...g,
-      portalToken: g.portalToken || uid('gtok').slice(-12),
+      portalToken,
+      portalUrl,
       linkActive: g.linkActive !== false,
     };
   });
@@ -143,13 +147,17 @@ export async function addGuard(
   input: { name: string; phone: string; notes?: string; pairedAgentId?: string },
 ): Promise<PropertyGuardRecord> {
   const s = await loadPortalAccess();
+  const id = uid('guard');
+  const token = uid('gtok').slice(-12);
+  const built = buildGuardPortalLink(id, token, { name: input.name.trim() });
   const guard: PropertyGuardRecord = {
-    id: uid('guard'),
+    id,
     name: input.name.trim(),
     phone: input.phone.trim(),
     notes: input.notes?.trim(),
     pairedAgentId: input.pairedAgentId,
-    portalToken: uid('gtok').slice(-12),
+    portalToken: token,
+    portalUrl: built.url,
     createdAt: new Date().toISOString(),
     linkActive: true,
   };
@@ -256,8 +264,6 @@ export function inAppAgentFollowUpsRoute(agentId: string, token: string) {
   return `/portal/agent-followups?id=${encodeURIComponent(agentId)}&t=${encodeURIComponent(token)}`;
 }
 
-export function inAppGuardPortal(guardId: string, token: string) {
-  return `/portal/guard?id=${encodeURIComponent(guardId)}&t=${encodeURIComponent(token)}`;
-}
+export { inAppGuardPortal } from '@/src/utils/portal-links';
 
 export { DEFAULT_AGENT_PERMISSIONS, normalizeAgentPermissions };

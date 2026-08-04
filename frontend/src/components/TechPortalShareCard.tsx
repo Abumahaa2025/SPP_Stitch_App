@@ -24,7 +24,7 @@ export function TechPortalShareCard({ tech, testID = 'tech-portal-share' }: Prop
   const live = buildTechPortalLink(tech.portalToken, tech.id, { name: tech.name });
   const shareUrl = live.url;
   const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
-  const msg = `${t('op.tech.title')}: ${shareUrl}`;
+  const msg = `${t('op.tech.title')}: ${shareUrl}\n\n${t('opsv2.portalInstall.shareTip' as any)}`;
 
   const shareWhatsApp = () => {
     Haptics.selectionAsync();

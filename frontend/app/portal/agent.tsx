@@ -8,6 +8,7 @@ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+import { PortalInstallHint } from '@/src/components/PortalInstallHint';
 import { usePortalAccess } from '@/src/hooks/usePortalAccess';
 import { setActiveAgentSession } from '@/src/components/AgentPermissionGate';
 import { inAppAgentFollowUpsRoute } from '@/src/utils/portal-access-store';
@@ -63,6 +64,7 @@ export default function AgentPortalScreen() {
       />
 
       <ActingAsBadge role="agent" displayName={agent.name} scope={agent.email} />
+      <PortalInstallHint role="agent" />
 
       <GlassCard padding={16} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }}>
         <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.agent.permsTitle' as any)}</Text>

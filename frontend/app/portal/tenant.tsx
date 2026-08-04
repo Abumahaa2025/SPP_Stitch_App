@@ -8,6 +8,7 @@ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+import { PortalInstallHint } from '@/src/components/PortalInstallHint';
 import { MaintenanceJourney } from '@/src/components/maintenance/MaintenanceJourney';
 import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
@@ -91,6 +92,7 @@ export default function TenantPortalScreen() {
         displayName={tenant.name}
         scope={`${t('op.tenant.unit')} ${unitLabel} · ${propertyLabel}`}
       />
+      <PortalInstallHint role="tenant" />
 
       <GlassCard padding={18} radiusToken="md" edge="gold">
         <Text style={[styles.section, isRTL && styles.rtl]}>{t('op.tenant.unit')}</Text>
