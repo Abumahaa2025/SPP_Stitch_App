@@ -72,7 +72,7 @@ export function GlassTabBar() {
               { text: t('opsv2.tab.propertySaved.later' as any), style: 'cancel', onPress: () => router.replace('/owner' as any) },
               {
                 text: t('opsv2.tab.propertySaved.database' as any),
-                onPress: () => router.replace('/database' as any),
+                onPress: () => router.replace('/operational/base?tab=registry' as any),
               },
             ],
           );

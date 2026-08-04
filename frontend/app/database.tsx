@@ -1,8 +1,8 @@
 /**
- * Database center — home of the official tenant registry (moved, not copied).
+ * Database center — redirected into Data & operations hub (official registry tab).
  */
-import { TenantOfficialRegistry } from '@/src/components/TenantOfficialRegistry';
+import { Redirect } from 'expo-router';
 
 export default function DatabaseCenterScreen() {
-  return <TenantOfficialRegistry variant="database" testID="database-center" />;
+  return <Redirect href="/operational/base?tab=registry" />;
 }

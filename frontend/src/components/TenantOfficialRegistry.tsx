@@ -137,10 +137,16 @@ function statusCell(ar: boolean, rows: PaymentLedgerEntry[]) {
 type Props = {
   /** database = home of official registry (default). */
   variant?: 'database' | 'legacy';
+  /** When true, omit outer ScreenScaffold/header (hosted inside ops base). */
+  embedded?: boolean;
   testID?: string;
 };
 
-export function TenantOfficialRegistry({ variant = 'database', testID = 'database-center' }: Props) {
+export function TenantOfficialRegistry({
+  variant = 'database',
+  embedded = false,
+  testID = 'database-center',
+}: Props) {
   const { isRTL, lang } = useI18n();
   const ar = lang === 'ar' || !!isRTL;
   const router = useRouter();
@@ -437,18 +443,8 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
     setExpandedId((cur) => (cur === t.id ? null : t.id));
   };
 
-  return (
-    <ScreenScaffold testID={testID}>
-      <StoryScreenHeader
-        question={variant === 'database'
-          ? (ar ? 'مركز البيانات' : 'Database center')
-          : (ar ? 'قاعدة المستأجرين الرسمية' : 'Official tenant registry')}
-        hint={ar
-          ? `${os.property?.name || 'SPP'} — سجل رسمي · جدول إكسل · بحث بالاسم/الوحدة/الجوال`
-          : `${os.property?.name || 'SPP'} — official registry · Excel table · search name/unit/phone`}
-        showBack
-      />
-
+  const body = (
+    <>
       {os.property ? (
         <GlassCard padding={14} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }}>
           <Text style={[styles.name, isRTL && styles.rtl]}>{os.property.name}</Text>
@@ -824,6 +820,25 @@ export function TenantOfficialRegistry({ variant = 'database', testID = 'databas
           <Text style={styles.toastText}>{toast}</Text>
         </View>
       ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return <View testID={testID}>{body}</View>;
+  }
+
+  return (
+    <ScreenScaffold testID={testID}>
+      <StoryScreenHeader
+        question={variant === 'database'
+          ? (ar ? 'مركز البيانات' : 'Database center')
+          : (ar ? 'قاعدة المستأجرين الرسمية' : 'Official tenant registry')}
+        hint={ar
+          ? `${os.property?.name || 'SPP'} — سجل رسمي · جدول إكسل · بحث بالاسم/الوحدة/الجوال`
+          : `${os.property?.name || 'SPP'} — official registry · Excel table · search name/unit/phone`}
+        showBack
+      />
+      {body}
     </ScreenScaffold>
   );
 }

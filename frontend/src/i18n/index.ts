@@ -1206,7 +1206,7 @@ const dict = {
     'tenant.detail.noMaint': 'No maintenance tickets for this unit.',
 
     'more.opsBase': 'Data & operations',
-    'more.opsBase.hint': 'Properties, units, tenants, and ledgers',
+    'more.opsBase.hint': 'Tenants, official registry, properties, and ledgers',
     'more.roles': 'Permissions',
     'more.roles.hint': 'Team roles and invite links',
     'more.maintenance': 'Maintenance',
@@ -2892,7 +2892,7 @@ const dict = {
     'tenant.detail.noMaint': 'لا توجد بلاغات صيانة لهذه الوحدة.',
 
     'more.opsBase': 'مركز البيانات والعمليات',
-    'more.opsBase.hint': 'العقارات والوحدات والمستأجرون والقيود',
+    'more.opsBase.hint': 'المستأجرون وقاعدة المستأجرين الرسمية والعقارات والقيود',
     'more.roles': 'إدارة الصلاحيات',
     'more.roles.hint': 'أدوار الفريق وروابط الدعوة',
     'more.maintenance': 'الصيانة',
