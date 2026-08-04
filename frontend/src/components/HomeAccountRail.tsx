@@ -1,7 +1,7 @@
 /**
- * Home account rail — single Account dropdown (no device settings).
- * Menu: profile · operations · permissions · Kowil control desk
- *   (tenant / guard / agent portal links).
+ * Home side rail — separate buttons (not merged into Account):
+ * Account (profile) · Operations · Permissions · Control desk
+ *   (tenant / guard / agent portal links under Control).
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -180,57 +180,62 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
 
   const top = insets.top + wsPad.paddingTop + 56;
 
-  const menuItems: {
+  const openPanel = (next: MenuView) => {
+    Haptics.selectionAsync();
+    setView(next);
+    setShowGuardForm(false);
+    setOpen(true);
+  };
+
+  const railTools: {
     key: string;
     icon: keyof typeof Feather.glyphMap;
     label: string;
-    hint: string;
+    active: boolean;
     onPress: () => void;
   }[] = [
     {
-      key: 'profile',
+      key: 'account',
       icon: 'user',
-      label: ar ? 'بيانات حساب المستخدم' : 'Account profile',
-      hint: ar ? 'الاسم والبريد والملف' : 'Name, email, profile',
-      onPress: () => go('/profile'),
+      label: ar ? 'الحساب' : 'Account',
+      active: open && view === 'menu',
+      onPress: () => openPanel('menu'),
     },
     {
       key: 'operations',
       icon: 'briefcase',
-      label: ar ? 'إدارة العمليات' : 'Operations',
-      hint: ar ? 'تشغيل العقار اليومي' : 'Daily property operations',
-      onPress: () => go('/owner'),
+      label: ar ? 'العمليات' : 'Ops',
+      active: false,
+      onPress: () => {
+        Haptics.selectionAsync();
+        close();
+        router.push('/owner' as any);
+      },
     },
     {
       key: 'permissions',
       icon: 'shield',
-      label: ar ? 'إدارة الصلاحيات' : 'Permissions',
-      hint: ar ? 'صلاحيات الوكلاء' : 'Agent scopes',
-      onPress: () => {
-        Haptics.selectionAsync();
-        setView('permissions');
-      },
+      label: ar ? 'الصلاحيات' : 'Perms',
+      active: open && view === 'permissions',
+      onPress: () => openPanel('permissions'),
     },
     {
       key: 'control',
       icon: 'cpu',
-      label: ar ? 'إدارة التحكم' : 'Control desk',
-      hint: ar ? 'روابط المستأجر · الحارس · الوكلاء · كويل' : 'Tenant · guard · agents · Kowil',
-      onPress: () => {
-        Haptics.selectionAsync();
-        setView('control');
-      },
+      label: ar ? 'التحكم' : 'Control',
+      active: open && view === 'control',
+      onPress: () => openPanel('control'),
     },
   ];
 
   const Back = () => (
     <Pressable
       style={[styles.backRow, ar && styles.rowRtl]}
-      onPress={() => { setView('menu'); setShowGuardForm(false); }}
+      onPress={close}
       testID={`${testID}-back`}
     >
       <Feather name={ar ? 'chevron-right' : 'chevron-left'} size={16} color={colors.gold} />
-      <Text style={styles.backText}>{ar ? 'رجوع' : 'Back'}</Text>
+      <Text style={styles.backText}>{ar ? 'إغلاق' : 'Close'}</Text>
     </Pressable>
   );
 
@@ -302,25 +307,28 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
         testID={testID}
         pointerEvents="box-none"
       >
-        <Pressable
-          testID={`${testID}-account`}
-          onPress={() => {
-            Haptics.selectionAsync();
-            setView('menu');
-            setOpen(true);
-          }}
-          style={[styles.railBtn, open && styles.railBtnOn]}
-        >
-          <Feather name="user" size={16} color={open ? colors.bg : colors.gold} />
-          <Text style={[styles.railLabel, open && styles.railLabelOn]} numberOfLines={1}>
-            {ar ? 'الحساب' : 'Account'}
-          </Text>
-          <Feather
-            name={open ? 'chevron-up' : 'chevron-down'}
-            size={12}
-            color={open ? colors.bg : colors.gold}
-          />
-        </Pressable>
+        {railTools.map((tool) => (
+          <Pressable
+            key={tool.key}
+            testID={`${testID}-${tool.key}`}
+            onPress={tool.onPress}
+            style={[styles.railBtn, tool.active && styles.railBtnOn]}
+            accessibilityRole="button"
+            accessibilityLabel={tool.label}
+          >
+            <Feather
+              name={tool.icon}
+              size={15}
+              color={tool.active ? colors.bg : colors.gold}
+            />
+            <Text
+              style={[styles.railLabel, tool.active && styles.railLabelOn]}
+              numberOfLines={1}
+            >
+              {tool.label}
+            </Text>
+          </Pressable>
+        ))}
       </View>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
@@ -340,31 +348,32 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
                   </Text>
                   <Text style={[styles.sub, ar && styles.rtl]}>
                     {ar
-                      ? 'إعدادات الجهاز منفصلة — هنا حسابك والتحكم بروابط كويل'
-                      : 'Device settings stay elsewhere — account & Kowil link control here'}
+                      ? 'بيانات الحساب فقط — العمليات والصلاحيات والتحكم أزرار منفصلة تحت الحساب'
+                      : 'Account profile only — Ops, Permissions, and Control are separate buttons under Account'}
                   </Text>
                   <View style={styles.menuList}>
-                    {menuItems.map((item) => (
-                      <Pressable
-                        key={item.key}
-                        testID={`${testID}-item-${item.key}`}
-                        onPress={item.onPress}
-                        style={[styles.menuRow, ar && styles.rowRtl]}
-                      >
-                        <View style={styles.menuIconWrap}>
-                          <Feather name={item.icon} size={15} color={colors.gold} />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.menuLabel, ar && styles.rtl]}>{item.label}</Text>
-                          <Text style={[styles.menuHint, ar && styles.rtl]}>{item.hint}</Text>
-                        </View>
-                        <Feather
-                          name={ar ? 'chevron-left' : 'chevron-right'}
-                          size={14}
-                          color={colors.textMuted}
-                        />
-                      </Pressable>
-                    ))}
+                    <Pressable
+                      testID={`${testID}-item-profile`}
+                      onPress={() => go('/profile')}
+                      style={[styles.menuRow, ar && styles.rowRtl]}
+                    >
+                      <View style={styles.menuIconWrap}>
+                        <Feather name="user" size={15} color={colors.gold} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.menuLabel, ar && styles.rtl]}>
+                          {ar ? 'بيانات حساب المستخدم' : 'Account profile'}
+                        </Text>
+                        <Text style={[styles.menuHint, ar && styles.rtl]}>
+                          {ar ? 'الاسم والبريد والملف' : 'Name, email, profile'}
+                        </Text>
+                      </View>
+                      <Feather
+                        name={ar ? 'chevron-left' : 'chevron-right'}
+                        size={14}
+                        color={colors.textMuted}
+                      />
+                    </Pressable>
                   </View>
                 </>
               ) : null}
@@ -594,8 +603,8 @@ export function HomeAccountRail({ testID = 'home-account-rail' }: { testID?: str
   );
 }
 
-/** Width reserved so home content does not sit under the side rail. */
-export const HOME_ACCOUNT_RAIL_WIDTH = 72;
+/** Width reserved so home content does not sit under the side rail (4 stacked buttons). */
+export const HOME_ACCOUNT_RAIL_WIDTH = 76;
 
 const styles = StyleSheet.create({
   rail: {
