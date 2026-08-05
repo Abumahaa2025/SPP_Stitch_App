@@ -2664,3 +2664,7 @@ async def _startup():
 async def shutdown_db_client():
     if _mongo_client:
         _mongo_client.close()
+        
+@app.get("/")
+def read_root():
+    return {"status": "online", "message": "SPP Backend with Gemini API is working!"}
