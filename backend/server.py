@@ -1,3 +1,4 @@
+import google.generativeai as genai
 """SPP Backend — AI Operating System for Real Estate.
 
 Modular AI layer (currently GPT-5.2 via Emergent Universal Key) powering:
@@ -102,7 +103,7 @@ _memory_db: Dict[str, List[dict]] = {}
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
-
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 # ---------------------------------------------------------------------------
 # Mongo (optional — required only when SPP_*_SOURCE=mongo without GAS)
 # ---------------------------------------------------------------------------
