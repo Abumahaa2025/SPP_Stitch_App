@@ -1,4 +1,3 @@
-import google.generativeai as genai
 """SPP Backend — AI Operating System for Real Estate.
 
 Modular AI layer (currently GPT-5.2 via Emergent Universal Key) powering:
@@ -10,20 +9,30 @@ Modular AI layer (currently GPT-5.2 via Emergent Universal Key) powering:
 """
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request
-from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse
-from dotenv import load_dotenv
+from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse, JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
-import json
 import time
 import asyncio
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
+
+import secure_env
+from secure_env import (
+    configure_secure_logging,
+    emergent_llm_key,
+    get_secret,
+    load_secure_env,
+    mongo_db_name,
+    mongo_url,
+    redact,
+    safe_client_message,
+)
 
 from adapters.gas_client import GasClientError
 from adapters.live_data import domain_source, get_gas_client, resolve_domain, beta_mode_enabled
@@ -102,8 +111,19 @@ from adapters.llm import LLMRequest, LLMService
 _memory_db: Dict[str, List[dict]] = {}
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+load_secure_env()
+configure_secure_logging()
+
+# Optional Gemini — key only from environment / .env (never hardcode).
+_GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
+if _GEMINI_API_KEY:
+    try:
+        import google.generativeai as genai  # type: ignore
+
+        genai.configure(api_key=_GEMINI_API_KEY)
+    except Exception:
+        logging.getLogger(__name__).warning("Gemini SDK unavailable; continuing without it")
+
 # ---------------------------------------------------------------------------
 # Mongo (optional — required only when SPP_*_SOURCE=mongo without GAS)
 # ---------------------------------------------------------------------------
@@ -114,9 +134,9 @@ _MONGO_TIMEOUT_MS = 3000
 
 def _get_db():
     global _mongo_client
-    name = os.environ.get("DB_NAME", "spp")
+    name = mongo_db_name()
     if _mongo_client is None:
-        url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+        url = mongo_url()
         _mongo_client = AsyncIOMotorClient(
             url,
             serverSelectionTimeoutMS=_MONGO_TIMEOUT_MS,
@@ -155,7 +175,7 @@ api_router = APIRouter(prefix="/api")
 # ---------------------------------------------------------------------------
 # AI Layer (swappable). Currently OpenAI GPT-5.2 via Emergent LLM key.
 # ---------------------------------------------------------------------------
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+EMERGENT_LLM_KEY = emergent_llm_key()
 AI_PROVIDER = "openai"
 AI_MODEL = "gpt-5.2"
 
@@ -1658,7 +1678,7 @@ async def approve_decision(req: DecisionApproveRequest):
     except RuntimeError as exc:
         raise HTTPException(
             503,
-            {"code": "approval_store_unavailable", "message": str(exc)},
+            {"code": "approval_store_unavailable", "message": "Approval store temporarily unavailable"},
         ) from exc
     if not ai_state:
         raise HTTPException(
@@ -1683,7 +1703,7 @@ async def approve_decision(req: DecisionApproveRequest):
         status_code = 422 if exc.code == "decision_data_incomplete" else 409
         raise HTTPException(
             status_code,
-            {"code": exc.code, "message": str(exc)},
+            {"code": exc.code, "message": redact(str(exc))},
         ) from exc
 
     try:
@@ -1691,7 +1711,7 @@ async def approve_decision(req: DecisionApproveRequest):
     except RuntimeError as exc:
         raise HTTPException(
             503,
-            {"code": "approval_store_unavailable", "message": str(exc)},
+            {"code": "approval_store_unavailable", "message": "Approval store temporarily unavailable"},
         ) from exc
 
     return {
@@ -2540,7 +2560,15 @@ async def upload_create_pdf(req: UploadPdfRequest):
         result = await asyncio.to_thread(create_gas_owner_pdf, req.analysis_id)
         return result
     except Exception as exc:
-        raise HTTPException(502, str(exc)) from exc
+        logging.getLogger(__name__).warning("upload_create_pdf failed: %s", redact(str(exc)))
+        raise HTTPException(
+            502,
+            safe_client_message(
+                code="pdf_generation_failed",
+                public_message="Could not generate PDF right now. Please try again later.",
+                exc=exc,
+            ),
+        ) from exc
 
 
 @api_router.get("/upload/last-applied")
@@ -2611,6 +2639,39 @@ async def ai_respond(req: AIRespondRequest):
 # App wiring
 # ---------------------------------------------------------------------------
 app.include_router(api_router)
+
+
+@app.exception_handler(HTTPException)
+async def _http_exception_handler(request: Request, exc: HTTPException):
+    """Ensure HTTPException details never echo secrets/paths."""
+    detail = exc.detail
+    if isinstance(detail, str):
+        detail = redact(detail)
+    elif isinstance(detail, dict):
+        detail = {
+            k: (redact(v) if isinstance(v, str) else v)
+            for k, v in detail.items()
+        }
+    return JSONResponse(status_code=exc.status_code, content={"ok": False, "detail": detail})
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all: log redacted internals; return a generic client payload."""
+    logging.getLogger(__name__).exception(
+        "Unhandled error on %s %s: %s",
+        request.method,
+        request.url.path,
+        redact(str(exc)),
+    )
+    return JSONResponse(
+        status_code=500,
+        content=safe_client_message(
+            code="internal_error",
+            public_message="An unexpected error occurred. Please try again.",
+            exc=exc,
+        ),
+    )
 
 
 @app.get("/portal/open", response_class=HTMLResponse)
