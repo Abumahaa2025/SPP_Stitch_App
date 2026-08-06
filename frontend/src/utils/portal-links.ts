@@ -13,7 +13,11 @@ import * as ExpoLinking from 'expo-linking';
 export const PORTAL_BRIDGE_PAGES_URL =
   'https://abumahaa2025.github.io/SPP_Stitch_App/portal-open.html';
 
-/** githack mirror of the same file — also served as text/html, no deploy needed. */
+/**
+ * githack mirror of the same file — served as text/html without any deploy, but
+ * browsers navigating to it get a one-tap "One more step" notice first, so it is
+ * only the last-resort host.
+ */
 export const PORTAL_BRIDGE_CDN_URL =
   'https://raw.githack.com/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html';
 
@@ -32,12 +36,15 @@ export const LEGACY_PORTAL_BRIDGE_URLS = [
   'https://raw.githubusercontent.com/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
 ];
 
-/** Preference order for the shared HTTPS bridge. */
+/** Preference order for the shared HTTPS bridge — first-party hosts first. */
 const BRIDGE_CANDIDATES = [
   PORTAL_BRIDGE_PAGES_URL,
-  PORTAL_BRIDGE_CDN_URL,
   PORTAL_BRIDGE_API_URL,
+  PORTAL_BRIDGE_CDN_URL,
 ];
+
+/** Marker proving a host returned the bridge page itself, not an error page. */
+const BRIDGE_MARKER = 'portalManifest';
 
 let activeBridge = PORTAL_BRIDGE_URL;
 let bridgeProbe: Promise<string> | null = null;
@@ -47,11 +54,12 @@ export function portalBridgeUrl() {
   return activeBridge;
 }
 
-async function servesHtml(url: string) {
+async function servesBridge(url: string) {
   try {
     const res = await fetch(`${url}?probe=1`);
     if (!res.ok) return false;
-    return (res.headers.get('content-type') || '').toLowerCase().includes('text/html');
+    if (!(res.headers.get('content-type') || '').toLowerCase().includes('text/html')) return false;
+    return (await res.text()).includes(BRIDGE_MARKER);
   } catch {
     return false;
   }
@@ -65,7 +73,7 @@ export function ensurePortalBridge(): Promise<string> {
   if (!bridgeProbe) {
     bridgeProbe = (async () => {
       for (const candidate of BRIDGE_CANDIDATES) {
-        if (await servesHtml(candidate)) {
+        if (await servesBridge(candidate)) {
           activeBridge = candidate;
           return activeBridge;
         }
