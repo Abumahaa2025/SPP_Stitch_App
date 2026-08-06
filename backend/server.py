@@ -9,20 +9,34 @@ Modular AI layer (currently GPT-5.2 via Emergent Universal Key) powering:
 """
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request
+
 from fastapi.responses import StreamingResponse, HTMLResponse
 from dotenv import load_dotenv
+from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse, JSONResponse
+
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import uuid
-import json
 import time
 import asyncio
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
+
+import secure_env
+from secure_env import (
+    configure_secure_logging,
+    emergent_llm_key,
+    get_secret,
+    load_secure_env,
+    mongo_db_name,
+    mongo_url,
+    redact,
+    safe_client_message,
+)
 
 from adapters.gas_client import GasClientError
 from adapters.live_data import domain_source, get_gas_client, resolve_domain, beta_mode_enabled
@@ -48,6 +62,34 @@ from adapters.decision_approvals import (
 )
 from adapters.mappers.properties import map_properties_from_app_data
 from adapters.mappers.reports import map_reports_from_app_data
+
+from adapters.ejar_client import ejar_enabled, verify_webhook_secret, status_payload as ejar_status_payload
+from adapters.ejar_events import (
+    normalize_ejar_payload,
+    build_notifications as build_ejar_notifications,
+    build_decision as build_ejar_decision,
+    build_kowil_task,
+    build_approval_record as build_ejar_approval_record,
+)
+from adapters.utilities_client import (
+    utility_enabled,
+    verify_webhook_secret as verify_utility_webhook_secret,
+    status_payload as utility_status_payload,
+    combined_status as utilities_combined_status,
+)
+from adapters.utilities_events import (
+    normalize_utility_payload,
+    build_notifications as build_utility_notifications,
+    build_decision as build_utility_decision,
+    build_kowil_task as build_utility_kowil_task,
+    build_approval_record as build_utility_approval_record,
+)
+from adapters.platform_inbox_client import verify_webhook_secret as verify_platform_webhook_secret, channel_enabled
+from adapters.platform_inbox_events import (
+    normalize_platform_payload,
+    build_kowil_task as build_platform_kowil_task,
+    build_approval_record as build_platform_approval_record,
+)
 from adapters.mappers.tenants import map_tenants_from_app_data
 from beta_seed import beta_dataset, verify_beta_login, BETA_ACCOUNTS
 from adapters.upload_analysis import analyze_upload_portfolio
@@ -86,7 +128,18 @@ from adapters.integrations import (
 _memory_db: Dict[str, List[dict]] = {}
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / ".env")
+load_secure_env()
+configure_secure_logging()
+
+# Optional Gemini — key only from environment / .env (never hardcode).
+_GEMINI_API_KEY = get_secret("GEMINI_API_KEY")
+if _GEMINI_API_KEY:
+    try:
+        import google.generativeai as genai  # type: ignore
+
+        genai.configure(api_key=_GEMINI_API_KEY)
+    except Exception:
+        logging.getLogger(__name__).warning("Gemini SDK unavailable; continuing without it")
 
 # ---------------------------------------------------------------------------
 # Mongo (optional — required only when SPP_*_SOURCE=mongo without GAS)
@@ -98,9 +151,9 @@ _MONGO_TIMEOUT_MS = 3000
 
 def _get_db():
     global _mongo_client
-    name = os.environ.get("DB_NAME", "spp")
+    name = mongo_db_name()
     if _mongo_client is None:
-        url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+        url = mongo_url()
         _mongo_client = AsyncIOMotorClient(
             url,
             serverSelectionTimeoutMS=_MONGO_TIMEOUT_MS,
@@ -139,7 +192,7 @@ api_router = APIRouter(prefix="/api")
 # ---------------------------------------------------------------------------
 # AI Layer (swappable). Currently OpenAI GPT-5.2 via Emergent LLM key.
 # ---------------------------------------------------------------------------
-EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY")
+EMERGENT_LLM_KEY = emergent_llm_key()
 AI_PROVIDER = "openai"
 AI_MODEL = "gpt-5.2"
 
@@ -1033,11 +1086,269 @@ async def _list_reports_live() -> List[dict]:
     return await resolve_domain("REPORTS", _gas_reports, _mongo_reports)
 
 
+async def _list_ejar_notifications() -> List[dict]:
+    """Ejar fan-out notifications stored alongside other NotifT rows."""
+    if _use_memory_store():
+        return [n for n in (_memory_db.get("notifications") or []) if n.get("source") == "ejar"]
+    if not _mongo_available:
+        return []
+    try:
+        cursor = _get_db()["notifications"].find({"source": "ejar"}).sort("at", -1).limit(40)
+        return [_strip_id(doc) async for doc in cursor]
+    except Exception as exc:
+        logger.warning("Ejar notifications list failed: %s", exc)
+        return []
+
+
+async def _list_utility_notifications() -> List[dict]:
+    if _use_memory_store():
+        return [
+            n for n in (_memory_db.get("notifications") or [])
+            if n.get("source") in ("electricity", "water")
+        ]
+    if not _mongo_available:
+        return []
+    try:
+        cursor = _get_db()["notifications"].find(
+            {"source": {"$in": ["electricity", "water"]}}
+        ).sort("at", -1).limit(40)
+        return [_strip_id(doc) async for doc in cursor]
+    except Exception as exc:
+        logger.warning("Utility notifications list failed: %s", exc)
+        return []
+
+
 async def _list_notifications_live() -> List[dict]:
+    ejar_notifs = await _list_ejar_notifications()
+    util_notifs = await _list_utility_notifications()
+    official = [*ejar_notifs, *util_notifs]
     ai_state = await _load_ai_state()
     if ai_state:
-        return derive_notifications_from_ai_state(ai_state)
-    return await resolve_domain("ALERTS", _gas_notifications, _mongo_notifications)
+        base = derive_notifications_from_ai_state(ai_state)
+        return [*official, *base]
+    domain = await resolve_domain("ALERTS", _gas_notifications, _mongo_notifications)
+    return [*official, *(domain or [])]
+
+
+async def _persist_ejar_event(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Upsert one Ejar event (memory or Mongo)."""
+    eid = event.get("id")
+    if _use_memory_store() or (beta_mode_enabled() and not _mongo_available):
+        store = _memory_db.setdefault("ejar_events", [])
+        store = [e for e in store if e.get("id") != eid]
+        store.insert(0, event)
+        _memory_db["ejar_events"] = store[:100]
+        return event
+    if not _mongo_available:
+        # Still accept in-process for webhook demos without Mongo.
+        store = _memory_db.setdefault("ejar_events", [])
+        store = [e for e in store if e.get("id") != eid]
+        store.insert(0, event)
+        _memory_db["ejar_events"] = store[:100]
+        return event
+    try:
+        await _get_db()["ejar_events"].update_one(
+            {"_id": eid},
+            {"$set": {**event, "_id": eid}},
+            upsert=True,
+        )
+        return event
+    except Exception as exc:
+        logger.warning("Ejar event persist failed: %s", exc)
+        store = _memory_db.setdefault("ejar_events", [])
+        store.insert(0, event)
+        _memory_db["ejar_events"] = store[:100]
+        return event
+
+
+async def _persist_ejar_notifications(notifications: List[dict]) -> None:
+    if not notifications:
+        return
+    if _use_memory_store() or not _mongo_available:
+        store = list(_memory_db.get("notifications") or [])
+        by_id = {n.get("id"): n for n in store if n.get("id")}
+        for n in notifications:
+            by_id[n["id"]] = n
+        _memory_db["notifications"] = list(by_id.values())
+        return
+    try:
+        coll = _get_db()["notifications"]
+        for n in notifications:
+            await coll.update_one({"_id": n["id"]}, {"$set": {**n, "_id": n["id"]}}, upsert=True)
+    except Exception as exc:
+        logger.warning("Ejar notifications persist failed: %s", exc)
+
+
+async def _list_ejar_events(limit: int = 40) -> List[dict]:
+    if _use_memory_store() or _memory_db.get("ejar_events"):
+        return list(_memory_db.get("ejar_events") or [])[:limit]
+    if not _mongo_available:
+        return []
+    try:
+        cursor = _get_db()["ejar_events"].find({}).sort("received_at", -1).limit(limit)
+        return [_strip_id(doc) async for doc in cursor]
+    except Exception as exc:
+        logger.warning("Ejar events list failed: %s", exc)
+        return list(_memory_db.get("ejar_events") or [])[:limit]
+
+
+async def _get_ejar_event(event_id: str) -> Optional[dict]:
+    for e in _memory_db.get("ejar_events") or []:
+        if e.get("id") == event_id:
+            return e
+    if not _mongo_available:
+        return None
+    try:
+        doc = await _get_db()["ejar_events"].find_one({"_id": event_id})
+        return _strip_id(doc) if doc else None
+    except Exception:
+        return None
+
+
+async def _persist_ejar_approval(record: Dict[str, Any]) -> Dict[str, Any]:
+    aid = record.get("_id") or record.get("approval_id")
+    if _use_memory_store() or not _mongo_available:
+        store = _memory_db.setdefault("ejar_approvals", [])
+        store = [a for a in store if a.get("_id") != aid and a.get("approval_id") != aid]
+        store.insert(0, record)
+        _memory_db["ejar_approvals"] = store[:50]
+        return record
+    try:
+        await _get_db()["ejar_approvals"].update_one(
+            {"_id": aid},
+            {"$setOnInsert": {**record, "_id": aid}},
+            upsert=True,
+        )
+        stored = await _get_db()["ejar_approvals"].find_one({"_id": aid})
+        return _strip_id(stored) if stored else record
+    except Exception as exc:
+        logger.warning("Ejar approval persist failed: %s", exc)
+        store = _memory_db.setdefault("ejar_approvals", [])
+        store.insert(0, record)
+        _memory_db["ejar_approvals"] = store[:50]
+        return record
+
+
+async def _persist_utility_event(event: Dict[str, Any]) -> Dict[str, Any]:
+    eid = event.get("id")
+    store = _memory_db.setdefault("utility_events", [])
+    store = [e for e in store if e.get("id") != eid]
+    store.insert(0, event)
+    _memory_db["utility_events"] = store[:120]
+    if _mongo_available and not _use_memory_store():
+        try:
+            await _get_db()["utility_events"].update_one(
+                {"_id": eid},
+                {"$set": {**event, "_id": eid}},
+                upsert=True,
+            )
+        except Exception as exc:
+            logger.warning("Utility event persist failed: %s", exc)
+    return event
+
+
+async def _persist_utility_notifications(notifications: List[dict]) -> None:
+    if not notifications:
+        return
+    if _use_memory_store() or not _mongo_available:
+        store = list(_memory_db.get("notifications") or [])
+        by_id = {n.get("id"): n for n in store if n.get("id")}
+        for n in notifications:
+            by_id[n["id"]] = n
+        _memory_db["notifications"] = list(by_id.values())
+        return
+    try:
+        coll = _get_db()["notifications"]
+        for n in notifications:
+            await coll.update_one({"_id": n["id"]}, {"$set": {**n, "_id": n["id"]}}, upsert=True)
+    except Exception as exc:
+        logger.warning("Utility notifications persist failed: %s", exc)
+
+
+async def _list_utility_events(kind: Optional[str] = None, limit: int = 40) -> List[dict]:
+    rows = list(_memory_db.get("utility_events") or [])
+    if kind:
+        rows = [e for e in rows if e.get("utility") == kind]
+    if rows or _use_memory_store() or not _mongo_available:
+        return rows[:limit]
+    try:
+        query = {"utility": kind} if kind else {}
+        cursor = _get_db()["utility_events"].find(query).sort("received_at", -1).limit(limit)
+        return [_strip_id(doc) async for doc in cursor]
+    except Exception as exc:
+        logger.warning("Utility events list failed: %s", exc)
+        return rows[:limit]
+
+
+async def _get_utility_event(event_id: str) -> Optional[dict]:
+    for e in _memory_db.get("utility_events") or []:
+        if e.get("id") == event_id:
+            return e
+    if not _mongo_available:
+        return None
+    try:
+        doc = await _get_db()["utility_events"].find_one({"_id": event_id})
+        return _strip_id(doc) if doc else None
+    except Exception:
+        return None
+
+
+async def _persist_utility_approval(record: Dict[str, Any]) -> Dict[str, Any]:
+    aid = record.get("_id") or record.get("approval_id")
+    store = _memory_db.setdefault("utility_approvals", [])
+    store = [a for a in store if a.get("_id") != aid and a.get("approval_id") != aid]
+    store.insert(0, record)
+    _memory_db["utility_approvals"] = store[:50]
+    if _mongo_available and not _use_memory_store():
+        try:
+            await _get_db()["utility_approvals"].update_one(
+                {"_id": aid},
+                {"$setOnInsert": {**record, "_id": aid}},
+                upsert=True,
+            )
+        except Exception as exc:
+            logger.warning("Utility approval persist failed: %s", exc)
+    return record
+
+
+async def _persist_platform_event(event: Dict[str, Any]) -> Dict[str, Any]:
+    eid = event.get("id")
+    store = _memory_db.setdefault("platform_events", [])
+    store = [e for e in store if e.get("id") != eid]
+    store.insert(0, event)
+    _memory_db["platform_events"] = store[:120]
+    return event
+
+
+async def _list_platform_events(limit: int = 40) -> List[dict]:
+    return list(_memory_db.get("platform_events") or [])[:limit]
+
+
+async def _get_platform_event(event_id: str) -> Optional[dict]:
+    for e in _memory_db.get("platform_events") or []:
+        if e.get("id") == event_id:
+            return e
+    return None
+
+
+async def _persist_platform_approval(record: Dict[str, Any]) -> Dict[str, Any]:
+    aid = record.get("_id") or record.get("approval_id")
+    store = _memory_db.setdefault("platform_approvals", [])
+    store = [a for a in store if a.get("_id") != aid and a.get("approval_id") != aid]
+    store.insert(0, record)
+    _memory_db["platform_approvals"] = store[:50]
+    return record
+
+async def _list_notifications_live() -> List[dict]:
+    ejar_notifs = await _list_ejar_notifications()
+    util_notifs = await _list_utility_notifications()
+    official = [*ejar_notifs, *util_notifs]
+    ai_state = await _load_ai_state()
+    if ai_state:
+        base = derive_notifications_from_ai_state(ai_state)
+        return [*official, *base]
+    domain = await resolve_domain("ALERTS", _gas_notifications, _mongo_notifications)
+    return [*official, *(domain or [])]
 
 
 async def _get_property_live(pid: str) -> Optional[dict]:
@@ -1436,7 +1747,7 @@ async def approve_decision(req: DecisionApproveRequest):
     except RuntimeError as exc:
         raise HTTPException(
             503,
-            {"code": "approval_store_unavailable", "message": str(exc)},
+            {"code": "approval_store_unavailable", "message": "Approval store temporarily unavailable"},
         ) from exc
     if not ai_state:
         raise HTTPException(
@@ -1461,7 +1772,7 @@ async def approve_decision(req: DecisionApproveRequest):
         status_code = 422 if exc.code == "decision_data_incomplete" else 409
         raise HTTPException(
             status_code,
-            {"code": exc.code, "message": str(exc)},
+            {"code": exc.code, "message": redact(str(exc))},
         ) from exc
 
     try:
@@ -1469,7 +1780,7 @@ async def approve_decision(req: DecisionApproveRequest):
     except RuntimeError as exc:
         raise HTTPException(
             503,
-            {"code": "approval_store_unavailable", "message": str(exc)},
+            {"code": "approval_store_unavailable", "message": "Approval store temporarily unavailable"},
         ) from exc
 
     return {
@@ -1657,6 +1968,278 @@ async def get_owner():
     doc = await _safe_mongo_find_one("owners")
     return doc or {"id": "own_1", "name": "", "portfolio_value": 0, "properties": 0}
 
+
+class EjarApproveRequest(BaseModel):
+    event_id: str
+
+
+@api_router.get("/integrations/ejar/status")
+async def ejar_integration_status():
+    """Connection status for منصة إيجار — degrades when unset."""
+    events = await _list_ejar_events(limit=1)
+    last = events[0].get("received_at") if events else None
+    all_events = await _list_ejar_events(limit=100)
+    return ejar_status_payload(event_count=len(all_events), last_event_at=last)
+
+
+@api_router.post("/webhooks/ejar")
+async def ejar_webhook(request: Request):
+    """Inbound Ejar official notices (contract nearing expiry, renewals, …).
+
+    Kowil fan-out: persist notifications for owner + contracts-permission agents
+    + tenant, and create a confirmation-gated decision for owner approval.
+    """
+    secret = request.headers.get("X-Ejar-Secret") or request.headers.get("X-SPP-Ejar-Secret")
+    if not verify_webhook_secret(secret):
+        raise HTTPException(401, {"code": "ejar_unauthorized", "message": "Invalid Ejar webhook secret"})
+
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(400, {"code": "ejar_invalid_json", "message": "JSON body required"}) from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, {"code": "ejar_invalid_body", "message": "Object body required"})
+
+    event = normalize_ejar_payload(body)
+    await _persist_ejar_event(event)
+    notifications = build_ejar_notifications(event)
+    await _persist_ejar_notifications(notifications)
+    decision = build_ejar_decision(event)
+    task = build_kowil_task(event)
+
+    logger.info(
+        "Ejar webhook accepted event_id=%s type=%s contract=%s",
+        event.get("id"),
+        event.get("event_type"),
+        event.get("contract_number"),
+    )
+    return {
+        "ok": True,
+        "event": event,
+        "decision": decision,
+        "kowil_task": task,
+        "notifications": notifications,
+        "kowil": {
+            "suggestion_ar": decision.get("title_ar"),
+            "suggestion_en": decision.get("title_en"),
+            "requires_owner_permission": True,
+            "notify_audiences": ["owner", "agent_contracts", "tenant"],
+        },
+    }
+
+
+@api_router.get("/ejar/events")
+async def list_ejar_events():
+    """Recent Ejar events for Kowil desk / contracts permission holders."""
+    events = await _list_ejar_events(limit=40)
+    return {
+        "configured": ejar_enabled(),
+        "events": events,
+        "tasks": [build_kowil_task(e) for e in events if e.get("owner_approval") != "approved"],
+        "decisions": [build_ejar_decision(e) for e in events if e.get("owner_approval") != "approved"],
+    }
+
+
+@api_router.post("/ejar/approve")
+async def approve_ejar_event(req: EjarApproveRequest):
+    """Owner grants Kowil permission to notify owner + contracts agent + tenant.
+
+    Prepares messages only (delivery_status=not_sent) — same safety pattern as
+    late-tenant decision approvals.
+    """
+    event = await _get_ejar_event(req.event_id)
+    if not event:
+        raise HTTPException(404, {"code": "ejar_event_not_found", "event_id": req.event_id})
+
+    approval = build_ejar_approval_record(event)
+    stored = await _persist_ejar_approval(approval)
+
+    # Mark event approved so Kowil stops re-prompting.
+    event = {**event, "owner_approval": "approved", "approved_at": approval.get("approved_at")}
+    await _persist_ejar_event(event)
+
+    return {
+        "ok": True,
+        "status": "approved_and_prepared",
+        "approval": stored,
+        "event": event,
+        "kowil_note_ar": stored.get("kowil_note_ar"),
+        "kowil_note_en": stored.get("kowil_note_en"),
+    }
+
+
+class UtilityApproveRequest(BaseModel):
+    event_id: str
+
+
+@api_router.get("/integrations/utilities/status")
+async def utilities_integration_status():
+    """Electricity + water connection status."""
+    elec = await _list_utility_events("electricity", limit=100)
+    water = await _list_utility_events("water", limit=100)
+    return utilities_combined_status(
+        electricity_count=len(elec),
+        water_count=len(water),
+        electricity_last=elec[0].get("received_at") if elec else None,
+        water_last=water[0].get("received_at") if water else None,
+    )
+
+
+@api_router.get("/integrations/{kind}/status")
+async def utility_kind_status(kind: str):
+    if kind not in ("electricity", "water"):
+        raise HTTPException(404, {"code": "unknown_integration"})
+    events = await _list_utility_events(kind, limit=100)
+    last = events[0].get("received_at") if events else None
+    return utility_status_payload(kind, event_count=len(events), last_event_at=last)  # type: ignore[arg-type]
+
+
+@api_router.post("/webhooks/utilities/{kind}")
+async def utility_webhook(kind: str, request: Request):
+    """Inbound electricity/water bill & notice webhooks.
+
+    Kowil suggests payment (or ack) and waits for owner permission before preparing.
+    """
+    if kind not in ("electricity", "water"):
+        raise HTTPException(404, {"code": "unknown_utility", "kind": kind})
+    secret = (
+        request.headers.get("X-Utility-Secret")
+        or request.headers.get("X-SPP-Utility-Secret")
+        or request.headers.get("X-Ejar-Secret")
+    )
+    if not verify_utility_webhook_secret(kind, secret):  # type: ignore[arg-type]
+        raise HTTPException(401, {"code": "utility_unauthorized", "message": "Invalid utility webhook secret"})
+
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(400, {"code": "utility_invalid_json", "message": "JSON body required"}) from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, {"code": "utility_invalid_body", "message": "Object body required"})
+
+    event = normalize_utility_payload(kind, body)  # type: ignore[arg-type]
+    await _persist_utility_event(event)
+    notifications = build_utility_notifications(event)
+    await _persist_utility_notifications(notifications)
+    decision = build_utility_decision(event)
+    task = build_utility_kowil_task(event)
+
+    logger.info(
+        "Utility webhook accepted kind=%s event_id=%s bill=%s amount=%s",
+        kind,
+        event.get("id"),
+        event.get("bill_number"),
+        event.get("amount"),
+    )
+    return {
+        "ok": True,
+        "event": event,
+        "decision": decision,
+        "kowil_task": task,
+        "notifications": notifications,
+        "kowil": {
+            "suggestion_ar": decision.get("title_ar"),
+            "suggestion_en": decision.get("title_en"),
+            "requires_owner_permission": True,
+            "action": decision.get("suggested_action"),
+        },
+    }
+
+
+@api_router.get("/utilities/events")
+async def list_utility_events(kind: Optional[str] = None):
+    if kind and kind not in ("electricity", "water"):
+        raise HTTPException(400, {"code": "invalid_kind"})
+    events = await _list_utility_events(kind, limit=40)
+    pending = [e for e in events if e.get("owner_approval") != "approved"]
+    return {
+        "electricity_configured": utility_enabled("electricity"),
+        "water_configured": utility_enabled("water"),
+        "events": events,
+        "tasks": [build_utility_kowil_task(e) for e in pending],
+        "decisions": [build_utility_decision(e) for e in pending],
+    }
+
+
+@api_router.post("/utilities/approve-payment")
+async def approve_utility_payment(req: UtilityApproveRequest):
+    """Owner grants Kowil permission to prepare utility bill payment (not auto-charge)."""
+    event = await _get_utility_event(req.event_id)
+    if not event:
+        raise HTTPException(404, {"code": "utility_event_not_found", "event_id": req.event_id})
+
+    approval = build_utility_approval_record(event)
+    stored = await _persist_utility_approval(approval)
+    event = {**event, "owner_approval": "approved", "approved_at": approval.get("approved_at")}
+    await _persist_utility_event(event)
+
+    return {
+        "ok": True,
+        "status": "approved_and_prepared",
+        "approval": stored,
+        "event": event,
+        "kowil_note_ar": stored.get("kowil_note_ar"),
+        "kowil_note_en": stored.get("kowil_note_en"),
+        "payment_status": stored.get("payment_status"),
+    }
+
+
+class PlatformApproveRequest(BaseModel):
+    event_id: str
+
+
+@api_router.post("/webhooks/platform/{channel}")
+async def platform_webhook(channel: str, request: Request):
+    if channel not in ("messaging", "intelligence"):
+        raise HTTPException(404, {"code": "unknown_platform_channel"})
+    secret = (
+        request.headers.get("X-Platform-Secret")
+        or request.headers.get("X-SPP-Platform-Secret")
+        or request.headers.get("X-Messaging-Secret")
+    )
+    if not verify_platform_webhook_secret(channel, secret):
+        raise HTTPException(401, {"code": "platform_unauthorized", "message": "Invalid platform webhook secret"})
+    try:
+        body = await request.json()
+    except Exception as exc:
+        raise HTTPException(400, {"code": "platform_invalid_json", "message": "JSON body required"}) from exc
+    if not isinstance(body, dict):
+        raise HTTPException(400, {"code": "platform_invalid_body", "message": "Object body required"})
+    event = normalize_platform_payload(channel, body)
+    await _persist_platform_event(event)
+    task = build_platform_kowil_task(event)
+    return {"ok": True, "event": event, "kowil_task": task}
+
+
+@api_router.get("/platform/inbox/events")
+async def list_platform_inbox_events():
+    events = await _list_platform_events(limit=40)
+    pending = [e for e in events if e.get("owner_approval") != "approved"]
+    return {
+        "messaging_configured": channel_enabled("messaging"),
+        "intelligence_configured": channel_enabled("intelligence"),
+        "events": events,
+        "tasks": [build_platform_kowil_task(e) for e in pending],
+    }
+
+
+@api_router.post("/platform/inbox/approve")
+async def approve_platform_inbox_event(req: PlatformApproveRequest):
+    event = await _get_platform_event(req.event_id)
+    if not event:
+        raise HTTPException(404, {"code": "platform_event_not_found", "event_id": req.event_id})
+    approval = build_platform_approval_record(event)
+    stored = await _persist_platform_approval(approval)
+    event = {**event, "owner_approval": "approved", "approved_at": approval.get("approved_at")}
+    await _persist_platform_event(event)
+    return {
+        "ok": True,
+        "status": "approved_and_prepared",
+        "approval": stored,
+        "event": event,
+        "kowil_note_ar": stored.get("kowil_note_ar"),
+        "kowil_note_en": stored.get("kowil_note_en"),
+    }
 
 class BetaLoginRequest(BaseModel):
     email: str
@@ -2175,7 +2758,15 @@ async def upload_create_pdf(req: UploadPdfRequest):
         result = await asyncio.to_thread(create_gas_owner_pdf, req.analysis_id)
         return result
     except Exception as exc:
-        raise HTTPException(502, str(exc)) from exc
+        logging.getLogger(__name__).warning("upload_create_pdf failed: %s", redact(str(exc)))
+        raise HTTPException(
+            502,
+            safe_client_message(
+                code="pdf_generation_failed",
+                public_message="Could not generate PDF right now. Please try again later.",
+                exc=exc,
+            ),
+        ) from exc
 
 
 @api_router.get("/upload/last-applied")
@@ -2248,6 +2839,7 @@ async def ai_respond(req: AIRespondRequest):
 app.include_router(api_router)
 
 
+
 def _portal_open_html() -> str:
     """Load portal bridge HTML from backend-local paths (Render rootDir=backend).
 
@@ -2309,10 +2901,44 @@ def _portal_open_html() -> str:
 </body>
 </html>
 """
+=======
+@app.exception_handler(HTTPException)
+async def _http_exception_handler(request: Request, exc: HTTPException):
+    """Ensure HTTPException details never echo secrets/paths."""
+    detail = exc.detail
+    if isinstance(detail, str):
+        detail = redact(detail)
+    elif isinstance(detail, dict):
+        detail = {
+            k: (redact(v) if isinstance(v, str) else v)
+            for k, v in detail.items()
+        }
+    return JSONResponse(status_code=exc.status_code, content={"ok": False, "detail": detail})
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(request: Request, exc: Exception):
+    """Catch-all: log redacted internals; return a generic client payload."""
+    logging.getLogger(__name__).exception(
+        "Unhandled error on %s %s: %s",
+        request.method,
+        request.url.path,
+        redact(str(exc)),
+    )
+    return JSONResponse(
+        status_code=500,
+        content=safe_client_message(
+            code="internal_error",
+            public_message="An unexpected error occurred. Please try again.",
+            exc=exc,
+        ),
+    )
+
 
 
 @app.get("/portal/open", response_class=HTMLResponse)
 async def portal_open_bridge(request: Request):
+
     """HTTPS bridge for WhatsApp/SMS portal links — always text/html page."""
     html = _portal_open_html()
     return HTMLResponse(
@@ -2324,6 +2950,19 @@ async def portal_open_bridge(request: Request):
             "Content-Disposition": "inline; filename=portal-open.html",
         },
     )
+
+    """HTTPS bridge for WhatsApp/SMS portal links — opens spp:// or shows web card."""
+    html_path = ROOT_DIR.parent / "docs" / "portal-open.html"
+    if html_path.exists():
+        return HTMLResponse(html_path.read_text(encoding="utf-8"))
+    # Fallback: GitHub Pages copy — raw CDNs serve .html as text/plain, which
+    # shows the page source instead of the portal card.
+    q = request.url.query
+    target = "https://abumahaa2025.github.io/SPP_Stitch_App/portal-open.html"
+    if q:
+        target = f"{target}?{q}"
+    return RedirectResponse(target, status_code=302)
+
 
 
 app.add_middleware(
@@ -2363,3 +3002,7 @@ async def _startup():
 async def shutdown_db_client():
     if _mongo_client:
         _mongo_client.close()
+        
+@app.get("/")
+def read_root():
+    return {"status": "online", "message": "SPP Backend with Gemini API is working!"}

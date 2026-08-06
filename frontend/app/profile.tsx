@@ -176,6 +176,12 @@ export default function Profile() {
           testID="p-wa"
         />
         <Divider />
+        <ServiceRow icon="file-text" label={t('settings.services.ejar')} status="phase4" dir={dir} t={t} onPress={() => router.push('/setup/ejar' as any)} testID="p-ejar" />
+        <Divider />
+        <ServiceRow icon="zap" label={t('settings.services.electricity')} status="phase4" dir={dir} t={t} onPress={() => router.push('/setup/electricity' as any)} testID="p-elec" />
+        <Divider />
+        <ServiceRow icon="droplet" label={t('settings.services.water')} status="phase4" dir={dir} t={t} onPress={() => router.push('/setup/water' as any)} testID="p-water" />
+        <Divider />
         <ServiceRow icon="cpu" label={t('settings.services.openai')} status="active" dir={dir} t={t} onPress={() => Haptics.selectionAsync()} testID="p-oai" />
       </SectionCard>
 

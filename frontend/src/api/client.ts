@@ -58,6 +58,7 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   betaInfo: () => req<{ beta: boolean; gas_disabled: boolean }>('/beta/info'),
+
   /**
    * Koil actually acts on the property (not a read-only summary).
    * Omit decisionId to let Koil autonomously pick the highest-value,
@@ -82,6 +83,33 @@ export const api = {
     req<WhatsAppSendResponse>('/integrations/whatsapp/send', {
       method: 'POST',
       body: JSON.stringify({ phone, message, dry_run: dryRun }),
+
+  ejarStatus: () =>
+    req<{
+      service: string;
+      configured: boolean;
+      event_count: number;
+      last_event_at?: string | null;
+    }>('/integrations/ejar/status'),
+  ejarEvents: () =>
+    req<{ configured: boolean; events: unknown[]; tasks: unknown[] }>('/ejar/events'),
+  ejarApprove: (event_id: string) =>
+    req<{ ok: boolean; status: string; approval: unknown }>('/ejar/approve', {
+      method: 'POST',
+      body: JSON.stringify({ event_id }),
+    }),
+  utilitiesStatus: () =>
+    req<{
+      electricity: { configured: boolean; event_count: number };
+      water: { configured: boolean; event_count: number };
+    }>('/integrations/utilities/status'),
+  utilityEvents: () =>
+    req<{ events: unknown[]; tasks: unknown[] }>('/utilities/events'),
+  utilityApprovePayment: (event_id: string) =>
+    req<{ ok: boolean; status: string; approval: unknown }>('/utilities/approve-payment', {
+      method: 'POST',
+      body: JSON.stringify({ event_id }),
+
     }),
 };
 
@@ -198,10 +226,19 @@ export type SensorT = {
 };
 
 export type NotifT = {
-  id: string; title: string; body: string; priority: string;
-  at: string; read: boolean;
+  id: string;
+  title: string;
+  body: string;
+  priority: string;
+  at: string;
+  read: boolean;
   /** Optional deep link (local notifications). */
   route?: string;
+  /** Bilingual storage — UI picks by active language */
+  titleAr?: string;
+  titleEn?: string;
+  bodyAr?: string;
+  bodyEn?: string;
 };
 
 export type ChatMsg = {

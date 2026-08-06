@@ -27,18 +27,49 @@ type HubLink = {
 };
 
 /**
+ * Core tools shown when tapping «تشغيل العقار» (operations tab → /owner).
+ * Moved here from More: data center, maintenance, connections.
+ */
+const PRIMARY_TOOLS: HubLink[] = [
+  {
+    key: 'dataCenter',
+    icon: 'database',
+    labelKey: 'op.owner.dataCenter',
+    hintKey: 'op.owner.dataCenter.hint',
+    route: '/operational/base',
+    tone: 'emerald',
+  },
+  {
+    key: 'maintenance',
+    icon: 'tool',
+    labelKey: 'op.owner.maintenance',
+    hintKey: 'op.owner.maintenance.hint',
+    route: '/maintenance',
+    tone: 'emerald',
+  },
+  {
+    key: 'services',
+    icon: 'link',
+    labelKey: 'op.owner.services',
+    hintKey: 'op.owner.services.hint',
+    route: '/operational/services',
+    tone: 'gold',
+  },
+];
+
+/**
  * Daily operations — Spec §3 / §5.5.
- * Agent links live on Home account rail; technicians live under Maintenance.
+ * Agent links live on Home Control rail button; technicians live under Maintenance.
+ * Maintenance / connections / data center live in PRIMARY_TOOLS above.
  */
 const LINKS: HubLink[] = [
   { key: 'properties', icon: 'home', labelKey: 'op.owner.properties', hintKey: 'op.owner.properties.hint', route: '/operational/base', tone: 'gold' },
   { key: 'units', icon: 'grid', labelKey: 'op.owner.units', hintKey: 'op.owner.units.hint', route: '/operational/property?tab=units' },
   { key: 'contracts', icon: 'file-text', labelKey: 'op.owner.contracts', hintKey: 'op.owner.contracts.hint', route: '/contracts', tone: 'gold' },
-  { key: 'tenants', icon: 'users', labelKey: 'op.owner.tenants', hintKey: 'op.owner.tenants.hint', route: '/tenants' },
+  { key: 'tenants', icon: 'users', labelKey: 'op.owner.tenants', hintKey: 'op.owner.tenants.hint', route: '/operational/base?tab=tenants' },
   { key: 'payments', icon: 'dollar-sign', labelKey: 'op.owner.payments', hintKey: 'op.owner.payments.hint', route: '/operational/payments', tone: 'emerald' },
   { key: 'imports', icon: 'download', labelKey: 'op.owner.imports', hintKey: 'op.owner.imports.hint', route: '/operational/property?tab=imports', tone: 'gold' },
   { key: 'reports', icon: 'bar-chart-2', labelKey: 'op.owner.reports', hintKey: 'op.owner.reports.hint', route: '/reports', tone: 'gold' },
-  { key: 'maintenance', icon: 'tool', labelKey: 'op.owner.maintenance', hintKey: 'op.owner.maintenance.hint', route: '/maintenance', tone: 'emerald' },
   { key: 'electricity', icon: 'zap', labelKey: 'op.owner.electricity', hintKey: 'op.owner.electricity.hint', route: '/sensors?utility=electricity', tone: 'gold' },
   { key: 'water', icon: 'droplet', labelKey: 'op.owner.water', hintKey: 'op.owner.water.hint', route: '/sensors?utility=water', tone: 'emerald' },
   { key: 'wallet', icon: 'credit-card', labelKey: 'op.owner.wallet', hintKey: 'op.owner.wallet.hint', route: '/wallet', tone: 'gold' },
@@ -50,12 +81,63 @@ function fmtEvent(t: (k: any) => string, key: string, params?: Record<string, st
   return s;
 }
 
+function ToolTile({
+  link,
+  index,
+  isRTL,
+  t,
+  urgent,
+  onPress,
+}: {
+  link: HubLink;
+  index: number;
+  isRTL: boolean;
+  t: (k: any) => string;
+  urgent?: number;
+  onPress: () => void;
+}) {
+  return (
+    <Animated.View entering={FadeInDown.duration(450).delay(40 + index * 30)} style={styles.tileWrap}>
+      <Pressable
+        testID={`owner-${link.key}`}
+        onPress={onPress}
+        style={({ pressed }) => [pressed && { opacity: 0.88 }]}
+      >
+        <GlassCard
+          padding={14}
+          radiusToken="md"
+          edge={link.tone === 'gold' ? 'gold' : link.tone === 'emerald' ? 'emerald' : 'neutral'}
+        >
+          <View style={[styles.tileRow, isRTL && styles.rowRtl]}>
+            <Feather
+              name={link.icon}
+              size={16}
+              color={link.tone === 'emerald' ? colors.emerald : colors.gold}
+            />
+            <View style={styles.tileText}>
+              <View style={[styles.tileLabelRow, isRTL && styles.rowRtl]}>
+                <Text style={[styles.tileLabel, isRTL && styles.rtl]}>{t(link.labelKey as any)}</Text>
+                {urgent && urgent > 0 ? (
+                  <View style={styles.badge} testID={`owner-badge-${link.key}`}>
+                    <Text style={styles.badgeText}>{urgent > 99 ? '99+' : String(urgent)}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <Text style={[styles.tileHint, isRTL && styles.rtl]}>{t(link.hintKey as any)}</Text>
+            </View>
+          </View>
+        </GlassCard>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 export default function Owner() {
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const { countEnabled } = useNotificationPrefs();
   const { state, nextPhase, isFullyReady } = usePropertyOS(countEnabled);
-  const { recentEvents } = useOperational();
+  const { recentEvents, openTickets } = useOperational();
   const [propMenuKey, setPropMenuKey] = useState(0);
 
   const payments = state.payments?.length ?? 0;
@@ -79,6 +161,27 @@ export default function Owner() {
         testID="owner-journey-guide"
       />
 
+      <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>{t('op.owner.primaryTools')}</Text>
+      <View style={styles.grid} testID="owner-primary-tools">
+        {PRIMARY_TOOLS.map((link, i) => {
+          const urgent = link.key === 'maintenance' ? openTickets.length : 0;
+          return (
+            <ToolTile
+              key={link.key}
+              link={link}
+              index={i}
+              isRTL={!!isRTL}
+              t={t}
+              urgent={urgent}
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push(link.route as any);
+              }}
+            />
+          );
+        })}
+      </View>
+
       <AddPropertyDropdown key={propMenuKey} defaultOpen={!state.property || propMenuKey > 0} testID="owner-add-property" />
 
       {state.property ? (
@@ -98,7 +201,7 @@ export default function Owner() {
                     <Text style={styles.kpiValue}>{String(state.units.length)}</Text>
                     <Text style={styles.kpiLabel}>{t('op.owner.kpi.units')}</Text>
                   </Pressable>
-                  <Pressable style={styles.kpi} onPress={() => router.push('/tenants' as any)} testID="owner-kpi-tenants">
+                  <Pressable style={styles.kpi} onPress={() => router.push('/operational/base?tab=tenants' as any)} testID="owner-kpi-tenants">
                     <Text style={styles.kpiValue}>{String(state.tenants.length)}</Text>
                     <Text style={styles.kpiLabel}>{t('op.owner.kpi.tenants')}</Text>
                   </Pressable>
@@ -122,37 +225,22 @@ export default function Owner() {
             {LINKS.map((link, i) => {
               const urgent = ownerOpsUrgentCount(link.key, state);
               return (
-                <Animated.View key={link.key} entering={FadeInDown.duration(450).delay(40 + i * 30)} style={styles.tileWrap}>
-                  <Pressable
-                    testID={`owner-${link.key}`}
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      if (link.key === 'properties') {
-                        setPropMenuKey((k) => k + 1);
-                        return;
-                      }
-                      router.push(resolveOwnerOpsRoute(link.key, state, link.route) as any);
-                    }}
-                    style={({ pressed }) => [pressed && { opacity: 0.88 }]}
-                  >
-                    <GlassCard padding={14} radiusToken="md" edge={link.tone === 'gold' ? 'gold' : link.tone === 'emerald' ? 'emerald' : 'neutral'}>
-                      <View style={[styles.tileRow, isRTL && styles.rowRtl]}>
-                        <Feather name={link.icon} size={16} color={link.tone === 'emerald' ? colors.emerald : colors.gold} />
-                        <View style={styles.tileText}>
-                          <View style={[styles.tileLabelRow, isRTL && styles.rowRtl]}>
-                            <Text style={[styles.tileLabel, isRTL && styles.rtl]}>{t(link.labelKey as any)}</Text>
-                            {urgent > 0 ? (
-                              <View style={styles.badge} testID={`owner-badge-${link.key}`}>
-                                <Text style={styles.badgeText}>{urgent > 99 ? '99+' : String(urgent)}</Text>
-                              </View>
-                            ) : null}
-                          </View>
-                          <Text style={[styles.tileHint, isRTL && styles.rtl]}>{t(link.hintKey as any)}</Text>
-                        </View>
-                      </View>
-                    </GlassCard>
-                  </Pressable>
-                </Animated.View>
+                <ToolTile
+                  key={link.key}
+                  link={link}
+                  index={i + 3}
+                  isRTL={!!isRTL}
+                  t={t}
+                  urgent={urgent}
+                  onPress={() => {
+                    Haptics.selectionAsync();
+                    if (link.key === 'properties') {
+                      setPropMenuKey((k) => k + 1);
+                      return;
+                    }
+                    router.push(resolveOwnerOpsRoute(link.key, state, link.route) as any);
+                  }}
+                />
               );
             })}
           </View>
@@ -174,6 +262,15 @@ export default function Owner() {
 }
 
 const styles = StyleSheet.create({
+  sectionTitle: {
+    color: colors.textMuted,
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    fontWeight: typography.weight.semibold,
+    marginBottom: spacing.sm,
+    marginTop: spacing.xs,
+  },
   propName: { color: colors.text, fontSize: typography.cardTitle, fontWeight: typography.weight.semibold },
   propCity: { color: colors.textMuted, fontSize: typography.small, marginTop: 4, lineHeight: 20 },
   opsHint: { color: colors.gold, fontSize: 11, marginTop: spacing.sm },
@@ -183,7 +280,7 @@ const styles = StyleSheet.create({
   kpi: { flex: 1, alignItems: 'center' },
   kpiValue: { color: colors.text, fontSize: 18, fontWeight: typography.weight.semibold },
   kpiLabel: { color: colors.textMuted, fontSize: 9, marginTop: 4, textAlign: 'center' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.sm },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   tileWrap: { width: '48%' },
   tileRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   tileText: { flex: 1, gap: 3 },

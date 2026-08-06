@@ -400,7 +400,7 @@ export function PropertySetupWizard() {
                 { label: t('result.sendLink' as any), onPress: shareWhatsApp, primary: true },
                 { label: t('result.addContract' as any), onPress: onSuccessContinue },
                 { label: t('result.addAnother' as any), onPress: addAnotherTenant },
-                { label: t('result.viewManage' as any), onPress: () => router.push('/tenants' as any) },
+                { label: t('result.viewManage' as any), onPress: () => router.push('/operational/base?tab=tenants' as any) },
                 { label: t('result.goHome' as any), onPress: goHome },
               ]}
             >

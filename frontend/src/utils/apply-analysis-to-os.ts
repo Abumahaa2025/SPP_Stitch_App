@@ -765,7 +765,7 @@ export async function persistApplyFromAnalysis(
   };
 
   await storage.setItem(OS_KEY, JSON.stringify(nextState));
-  void notifyPropertySaved(nextState.property?.name || '', lang === 'ar');
+  void notifyPropertySaved(nextState.property?.name || '');
 
   // Official tenant DB: latest statement names become canonical (unless manualOfficial).
   try {

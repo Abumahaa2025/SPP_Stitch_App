@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  View, Text, StyleSheet, Pressable, Alert,
+  View, Text, StyleSheet, Pressable, Alert, Linking,
 } from 'react-native';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
 import { Feather } from '@expo/vector-icons';
@@ -28,6 +28,8 @@ type SetupDef = {
   icon: keyof typeof Feather.glyphMap;
   stepCount: number;
   fields: FieldDef[][];
+  portalUrl?: string;
+  portalLoginStep?: number;
 };
 
 export const SETUP_DEFS: Record<string, SetupDef> = {
@@ -86,6 +88,71 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
       [],
     ],
   },
+  ejar: {
+    serviceKey: 'ejar',
+    icon: 'file-text',
+    stepCount: 4,
+    portalUrl: 'https://eservices.ejar.sa/ar',
+    portalLoginStep: 1,
+    fields: [
+      [],
+      [{ key: 'organizationId', labelKey: 'setup.ejar.field.org', placeholderKey: 'setup.ejar.field.orgPh' }],
+      [{ key: 'webhookSecret', labelKey: 'setup.ejar.field.secret', placeholderKey: 'setup.ejar.field.secretPh', secure: true }],
+      [{ key: 'notifyAgents', labelKey: 'setup.ejar.field.agents', placeholderKey: 'setup.ejar.field.agentsPh' }],
+    ],
+  },
+  electricity: {
+    serviceKey: 'electricity',
+    icon: 'zap',
+    stepCount: 4,
+    portalUrl: 'https://www.se.com.sa/ar',
+    portalLoginStep: 1,
+    fields: [
+      [],
+      [{ key: 'provider', labelKey: 'setup.electricity.field.provider', placeholderKey: 'setup.electricity.field.providerPh' }],
+      [{ key: 'accountNumber', labelKey: 'setup.electricity.field.account', placeholderKey: 'setup.electricity.field.accountPh' }],
+      [{ key: 'webhookSecret', labelKey: 'setup.electricity.field.secret', placeholderKey: 'setup.electricity.field.secretPh', secure: true }],
+    ],
+  },
+  water: {
+    serviceKey: 'water',
+    icon: 'droplet',
+    stepCount: 4,
+    portalUrl: 'https://www.nwc.com.sa/Arabic/Pages/default.aspx',
+    portalLoginStep: 1,
+    fields: [
+      [],
+      [{ key: 'provider', labelKey: 'setup.water.field.provider', placeholderKey: 'setup.water.field.providerPh' }],
+      [{ key: 'accountNumber', labelKey: 'setup.water.field.account', placeholderKey: 'setup.water.field.accountPh' }],
+      [{ key: 'webhookSecret', labelKey: 'setup.water.field.secret', placeholderKey: 'setup.water.field.secretPh', secure: true }],
+    ],
+  },
+  messagingAutomation: {
+    serviceKey: 'messagingAutomation',
+    icon: 'send',
+    stepCount: 4,
+    portalUrl: 'https://www.unifonic.com/',
+    portalLoginStep: 1,
+    fields: [
+      [],
+      [{ key: 'provider', labelKey: 'setup.messagingAutomation.field.provider', placeholderKey: 'setup.messagingAutomation.field.providerPh' }],
+      [{ key: 'apiKey', labelKey: 'setup.messagingAutomation.field.apiKey', placeholderKey: 'setup.messagingAutomation.field.apiKeyPh', secure: true }],
+      [{ key: 'webhookSecret', labelKey: 'setup.messagingAutomation.field.secret', placeholderKey: 'setup.messagingAutomation.field.secretPh', secure: true }],
+    ],
+  },
+  intelligenceHub: {
+    serviceKey: 'intelligenceHub',
+    icon: 'activity',
+    stepCount: 4,
+    portalUrl: 'https://platform.openai.com/',
+    portalLoginStep: 1,
+    fields: [
+      [],
+      [{ key: 'workspace', labelKey: 'setup.intelligenceHub.field.workspace', placeholderKey: 'setup.intelligenceHub.field.workspacePh' }],
+      [{ key: 'apiKey', labelKey: 'setup.intelligenceHub.field.apiKey', placeholderKey: 'setup.intelligenceHub.field.apiKeyPh', secure: true }],
+      [{ key: 'webhookSecret', labelKey: 'setup.intelligenceHub.field.secret', placeholderKey: 'setup.intelligenceHub.field.secretPh', secure: true }],
+    ],
+  },
   backup: {
     serviceKey: 'sheets',
     icon: 'hard-drive',
@@ -131,8 +198,14 @@ export function ServiceSetupScreen({ flowId }: Props) {
   const stepTitle = t(`${prefix}.step${step}.title` as 'setup.sheets.step1.title');
   const stepBody = t(`${prefix}.step${step}.body` as 'setup.sheets.step1.body');
   const fields = def.fields[step - 1] ?? [];
+  const showPortal = def.portalUrl && step === (def.portalLoginStep ?? 1);
 
   const canContinue = fields.length === 0 || fields.every((f) => (draft[f.key]?.trim() ?? '').length > 0);
+
+  const openPortal = () => {
+    Haptics.selectionAsync();
+    if (def.portalUrl) Linking.openURL(def.portalUrl).catch(() => undefined);
+  };
 
   const onContinue = () => {
     Haptics.selectionAsync();
@@ -193,6 +266,15 @@ export function ServiceSetupScreen({ flowId }: Props) {
         <GlassCard padding={22} radiusToken="lg" edge="emerald">
           <Text style={[styles.stepTitle, isRTL && styles.rtl]}>{stepTitle}</Text>
           <Text style={[styles.stepBody, isRTL && styles.rtl]}>{stepBody}</Text>
+          {showPortal ? (
+            <Pressable onPress={openPortal} style={[styles.portalBtn, isRTL && styles.rowRtl]}>
+              <Feather name="external-link" size={14} color={colors.gold} />
+              <Text style={styles.portalBtnText}>{t('setup.openPortal')}</Text>
+            </Pressable>
+          ) : null}
+          {showPortal ? (
+            <Text style={[styles.portalHint, isRTL && styles.rtl]}>{t('setup.portalHint')}</Text>
+          ) : null}
           {fields.map((f) => (
             <View key={f.key} style={{ marginTop: spacing.md }}>
               <Text style={[styles.fieldLabel, isRTL && styles.rtl]}>
@@ -253,6 +335,14 @@ const styles = StyleSheet.create({
   connectedText: { color: colors.emerald, fontSize: 9, letterSpacing: 0.8, fontWeight: typography.weight.medium },
   stepTitle: { color: colors.text, fontSize: 17, fontWeight: typography.weight.semibold, letterSpacing: -0.3 },
   stepBody: { color: colors.textDim, fontSize: 13.5, lineHeight: 21, marginTop: 8 },
+  portalBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.md,
+    paddingVertical: 12, paddingHorizontal: 14, borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.goldEdge,
+    backgroundColor: colors.goldSoft,
+  },
+  portalBtnText: { color: colors.gold, fontSize: 13, fontWeight: typography.weight.semibold },
+  portalHint: { color: colors.textMuted, fontSize: 11, lineHeight: 17, marginTop: 8 },
   fieldLabel: { color: colors.textMuted, fontSize: 11, letterSpacing: 0.8, marginBottom: 6 },
   input: {
     borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border, borderRadius: radius.md,

@@ -17,13 +17,13 @@ import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { HomeCommandCenter } from '@/src/components/HomeCommandCenter';
 import { HomeAccountRail, HOME_ACCOUNT_RAIL_WIDTH } from '@/src/components/HomeAccountRail';
 import { HomeDataEntry } from '@/src/components/HomeDataEntry';
-import { SetupProgressBar } from '@/src/components/SetupProgressBar';
 import { usePropertyOS, phaseRoute } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { useWorkspacePadding } from '@/src/hooks/use-workspace-padding';
 import { api, type Briefing, type NotifT } from '@/src/api/client';
 import { clearExecutiveCache, fetchExecutiveCached } from '@/src/api/executive-cache';
 import { mergeBriefingWithExecutive } from '@/src/api/executive-map';
+import { loadLocalNotifications } from '@/src/utils/local-notifications';
 import { colors, spacing, typography } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import { UX_BUILD_STAMP } from '@/src/constants/build';
@@ -48,7 +48,7 @@ const AnimatedScroll = Animated.ScrollView;
 export default function Home() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [briefing, setBriefing] = useState<Briefing | null>(null);
   const [notifications, setNotifications] = useState<NotifT[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,11 +64,12 @@ export default function Home() {
 
   const load = async () => {
     try {
-      const [briefResult, execResult, sensorsResult, notifResult] = await Promise.allSettled([
+      const [briefResult, execResult, sensorsResult, notifResult, localNotifResult] = await Promise.allSettled([
         api.briefing(),
         fetchExecutiveCached(),
         api.sensors(),
         api.notifications(),
+        loadLocalNotifications(),
       ]);
       const baseBrief = briefResult.status === 'fulfilled' ? briefResult.value : EMPTY_BRIEFING;
       const exec = execResult.status === 'fulfilled' ? execResult.value : null;
@@ -79,8 +80,13 @@ export default function Home() {
       } else {
         setBriefing(baseBrief);
       }
-      if (notifResult.status === 'fulfilled') {
-        const sorted = [...notifResult.value].sort((a, b) => {
+      if (notifResult.status === 'fulfilled' || localNotifResult.status === 'fulfilled') {
+        const remote = notifResult.status === 'fulfilled' ? notifResult.value : [];
+        const local = localNotifResult.status === 'fulfilled' ? localNotifResult.value : [];
+        const byId = new Map<string, NotifT>();
+        [...local, ...remote].forEach((n) => byId.set(n.id, n));
+        const merged = [...byId.values()].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+        const sorted = [...merged].sort((a, b) => {
           if (a.priority === 'high' && b.priority !== 'high') return -1;
           if (b.priority === 'high' && a.priority !== 'high') return 1;
           return 0;
@@ -94,6 +100,24 @@ export default function Home() {
       setRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    if (loading) return;
+    void (async () => {
+      try {
+        const [notifResult, localNotifResult] = await Promise.allSettled([
+          api.notifications(),
+          loadLocalNotifications(),
+        ]);
+        const remote = notifResult.status === 'fulfilled' ? notifResult.value : [];
+        const local = localNotifResult.status === 'fulfilled' ? localNotifResult.value : [];
+        const byId = new Map<string, NotifT>();
+        [...local, ...remote].forEach((n) => byId.set(n.id, n));
+        const merged = [...byId.values()].sort((a, b) => String(b.at).localeCompare(String(a.at)));
+        setNotifications(merged);
+      } catch { /* ignore */ }
+    })();
+  }, [lang, loading]);
 
   useEffect(() => {
     (async () => {
@@ -151,7 +175,6 @@ export default function Home() {
         >
           {!briefing && !loading ? (
             <>
-              <SetupProgressBar testID="home-setup-progress" />
               <HomeDataEntry testID="home-data-entry" defaultOpen />
               <AliveEmpty
                 title={t('alive.home.title')}
@@ -172,7 +195,6 @@ export default function Home() {
             </>
           ) : (
             <>
-              <SetupProgressBar testID="home-setup-progress-live" />
               <HomeDataEntry testID="home-data-entry-live" defaultOpen={false} />
               <HomeCommandCenter
                 briefing={briefing}

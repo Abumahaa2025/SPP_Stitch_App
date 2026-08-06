@@ -1,0 +1,66 @@
+# Publish JS bundle to Expo channel `beta` (OTA — same APK install link).
+# Requires repository secret: EXPO_TOKEN
+name: Expo OTA Update (beta)
+
+on:
+  workflow_dispatch:
+    inputs:
+      message:
+        description: 'OTA update message (optional)'
+        required: false
+        default: 'Manual publish from GitHub Actions'
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/expo-ota-update.yml'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Require EXPO_TOKEN
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing EXPO_TOKEN — OTA skipped."
+            exit 1
+          fi
+
+      - run: npm ci
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+          packager: npm
+
+      - name: eas update (channel beta)
+        env:
+          EXPO_PUBLIC_BETA_MODE: 'true'
+          EXPO_PUBLIC_BACKEND_URL: https://spp-beta-api.onrender.com
+        run: |
+          MSG="${{ github.event.inputs.message }}"
+          if [ -z "$MSG" ]; then
+            MSG="main @ ${GITHUB_SHA::7} — $(date -u +%Y-%m-%dT%H:%MZ)"
+          fi
+          eas update --channel beta --non-interactive --message "$MSG"
+
+      - name: Summary
+        run: |
+          echo "## Expo OTA published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Channel: \`beta\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Dashboard: https://expo.dev/accounts/abumahaa2025/projects/spp-beta/updates" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Stable APK (unchanged): https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/spp-beta.apk" >> "$GITHUB_STEP_SUMMARY"

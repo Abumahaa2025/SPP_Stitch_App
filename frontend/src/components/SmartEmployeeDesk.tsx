@@ -31,8 +31,8 @@ import { useI18n } from '@/src/i18n';
 type Props = { testID?: string };
 
 export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
-  const { isRTL, lang } = useI18n();
-  const ar = lang === 'ar' || !!isRTL;
+  const { t, isRTL, lang } = useI18n();
+  const ar = lang === 'ar';
   const router = useRouter();
   const { countEnabled } = useNotificationPrefs();
   const { state: os, reload } = usePropertyOS(countEnabled);
@@ -58,9 +58,54 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
       vacantCount: osLive.units.filter((u) => u.status === 'vacant').length,
       openMaintCount: openTickets.length,
     });
+    try {
+      const { syncEjarNotices } = await import('@/src/utils/ejar-sync');
+      const { tasks: ejarTasks } = await syncEjarNotices(ar);
+      if (ejarTasks.length) {
+        const existing = new Set(thought.tasks.map((t) => t.id));
+        thought = {
+          ...thought,
+          tasks: [...ejarTasks.filter((t) => !existing.has(t.id)), ...thought.tasks],
+          lastThoughtAr: thought.lastThoughtAr
+            || 'كويل راجع إشعارات منصة إيجار ويقترح إبلاغ الأطراف بعد إذنك.',
+          lastThoughtEn: thought.lastThoughtEn
+            || 'Kowil reviewed Ejar notices and suggests notifying parties after your permission.',
+        };
+      }
+    } catch { /* offline */ }
+    try {
+      const { syncUtilityNotices } = await import('@/src/utils/utilities-sync');
+      const { tasks: utilTasks } = await syncUtilityNotices(ar);
+      if (utilTasks.length) {
+        const existing = new Set(thought.tasks.map((t) => t.id));
+        thought = {
+          ...thought,
+          tasks: [...utilTasks.filter((t) => !existing.has(t.id)), ...thought.tasks],
+          lastThoughtAr: thought.lastThoughtAr
+            || 'كويل راجع فواتير الكهرباء/المياه ويقترح السداد بعد إذنك.',
+          lastThoughtEn: thought.lastThoughtEn
+            || 'Kowil reviewed electricity/water bills and suggests payment after your permission.',
+        };
+      }
+    } catch { /* offline */ }
+    try {
+      const { syncPlatformInbox } = await import('@/src/utils/platform-inbox-sync');
+      const { tasks: platTasks } = await syncPlatformInbox(ar);
+      if (platTasks.length) {
+        const existing = new Set(thought.tasks.map((t) => t.id));
+        thought = {
+          ...thought,
+          tasks: [...platTasks.filter((t) => !existing.has(t.id)), ...thought.tasks],
+          lastThoughtAr: thought.lastThoughtAr
+            || 'كويل قرأ رسائل المنصات الآلية ومنصات الذكاء — بانتظار موافقتك للتوجيه.',
+          lastThoughtEn: thought.lastThoughtEn
+            || 'Kowil read automated messaging & intelligence feeds — waiting for your approval to route.',
+        };
+      }
+    } catch { /* offline */ }
     await saveSmartEmployee(thought);
     setEmp(thought);
-  }, [openTickets, reload]);
+  }, [openTickets, reload, ar]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,6 +125,44 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
     setBusyId(task.id);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     try {
+      if (task.requiresOwnerApproval && task.platformEventId) {
+        const { approveEjarEvent } = await import('@/src/utils/ejar-sync');
+        const { approveUtilityPayment } = await import('@/src/utils/utilities-sync');
+        const { approvePlatformInboxEvent } = await import('@/src/utils/platform-inbox-sync');
+        const { dispatchAfterOwnerApproval } = await import('@/src/utils/kowil-platform-dispatch');
+        const {
+          onEjarApproved,
+          onUtilityPaymentApproved,
+          onPlatformMessageApproved,
+        } = await import('@/src/utils/operational-flow-engine');
+
+        let prepared: Record<string, string> | undefined;
+        const eid = task.platformEventId;
+
+        if (task.platformSource === 'ejar' || task.id.startsWith('ejar_task_')) {
+          const res = await approveEjarEvent(eid);
+          prepared = res?.approval?.prepared_messages as Record<string, string> | undefined;
+          await onEjarApproved(task.unitNumber || '');
+        } else if (task.platformSource === 'electricity' || task.platformSource === 'water') {
+          const res = await approveUtilityPayment(eid);
+          prepared = res?.approval?.prepared_messages as Record<string, string> | undefined;
+          await onUtilityPaymentApproved(task.platformSource, eid);
+        } else {
+          const res = await approvePlatformInboxEvent(eid);
+          prepared = res?.approval?.prepared_messages as Record<string, string> | undefined;
+          await onPlatformMessageApproved(task.routeTo || 'tenant', task.platformSource || 'platform');
+        }
+
+        await dispatchAfterOwnerApproval(prepared, task, task.routeTo);
+        await pushLocalNotification({
+          title: ar ? 'كويل أرسل بعد موافقتك' : 'Kowil sent after your approval',
+          body: ar ? task.titleAr : task.titleEn,
+          route: '/brain',
+        });
+        await persist(completeTask(emp, task.id, true));
+        return;
+      }
+
       if (task.action === 'send_whatsapp' && task.whatsappMessage) {
         const digits = String(task.whatsappPhone || '').replace(/\D/g, '');
         const msg = task.whatsappMessage;
@@ -110,10 +193,19 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
           await Share.share({ message: msg });
         }
         await pushLocalNotification({
+
           title: ar
             ? (sentViaGreen ? 'كويل أرسل عبر Green API' : 'كويل نفّذ إرسالاً')
             : (sentViaGreen ? 'Kowil sent via Green API' : 'Kowil sent a message'),
           body: ar ? task.titleAr : task.titleEn,
+
+          title: 'Kowil sent a message',
+          body: task.titleEn,
+          titleAr: 'كويل نفّذ إرسالاً',
+          titleEn: 'Kowil sent a message',
+          bodyAr: task.titleAr,
+          bodyEn: task.titleEn,
+
           route: '/brain',
         });
         await persist(completeTask(emp, task.id, true));
@@ -128,9 +220,15 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
         await persist(completeTask(emp, task.id, false));
       } else if (task.action !== 'send_whatsapp') {
         await persist(completeTask(emp, task.id, task.kind === 'collect_arrears'));
+        const pathBodyAr = `تم فتح مسار: ${task.titleAr}`;
+        const pathBodyEn = `Opened path: ${task.titleEn}`;
         await pushLocalNotification({
-          title: ar ? 'كويل يتابع' : 'Kowil is tracking',
-          body: ar ? `تم فتح مسار: ${task.titleAr}` : `Opened path: ${task.titleEn}`,
+          title: 'Kowil is tracking',
+          body: pathBodyEn,
+          titleAr: 'كويل يتابع',
+          titleEn: 'Kowil is tracking',
+          bodyAr: pathBodyAr,
+          bodyEn: pathBodyEn,
           route: task.route || '/brain',
         });
       }
@@ -147,12 +245,12 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
   const onDismiss = async (task: EmployeeTask) => {
     Haptics.selectionAsync();
     Alert.alert(
-      ar ? 'تجاهل المهمة؟' : 'Dismiss task?',
+      t('opsv2.smart.desk.dismissTitle' as any),
       ar ? task.titleAr : task.titleEn,
       [
-        { text: ar ? 'إلغاء' : 'Cancel', style: 'cancel' },
+        { text: t('opsv2.smart.desk.dismissCancel' as any), style: 'cancel' },
         {
-          text: ar ? 'تجاهل' : 'Dismiss',
+          text: t('opsv2.smart.desk.dismissConfirm' as any),
           style: 'destructive',
           onPress: async () => { await persist(dismissTask(emp, task.id)); },
         },
@@ -166,37 +264,33 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
         <View style={[styles.thoughtHead, ar && styles.rowRtl]}>
           <Feather name="cpu" size={18} color={colors.gold} />
           <Text style={[styles.thoughtTitle, ar && styles.rtl]}>
-            {ar ? 'موظف العقار الذكي' : 'Smart property employee'}
+            {t('opsv2.smart.desk.title' as any)}
           </Text>
         </View>
         <Text style={[styles.thoughtBody, ar && styles.rtl]}>
-          {ar ? (emp.lastThoughtAr || 'جاري التفكير…') : (emp.lastThoughtEn || 'Thinking…')}
+          {ar
+            ? (emp.lastThoughtAr || t('opsv2.smart.desk.thinking' as any))
+            : (emp.lastThoughtEn || t('opsv2.smart.desk.thinking' as any))}
         </Text>
         <Text style={[styles.modeLine, ar && styles.rtl]}>
-          {ar
-            ? (isExternalEmployeeEnrichAvailable()
-              ? 'الوضع: محلي + إثراء خارجي جاهز'
-              : 'الوضع: موظف محلي قوي (بدون مفتاح خارجي)')
-            : (isExternalEmployeeEnrichAvailable()
-              ? 'Mode: local + external enrich ready'
-              : 'Mode: strong local employee (no external key)')}
+          {isExternalEmployeeEnrichAvailable()
+            ? t('opsv2.smart.desk.mode.enrich' as any)
+            : t('opsv2.smart.desk.mode.local' as any)}
         </Text>
         <Pressable onPress={() => void refresh()} style={[styles.refresh, ar && styles.rowRtl]}>
           <Feather name="refresh-cw" size={12} color={colors.emerald} />
-          <Text style={styles.refreshText}>{ar ? 'أعد التحليل الآن' : 'Re-analyze now'}</Text>
+          <Text style={styles.refreshText}>{t('opsv2.smart.desk.reanalyze' as any)}</Text>
         </Pressable>
       </GlassCard>
 
       <Text style={[styles.section, ar && styles.rtl]}>
-        {ar ? `مهام اليوم (${active.length})` : `Today’s work (${active.length})`}
+        {t('opsv2.smart.desk.todayWork' as any).replace('{count}', String(active.length))}
       </Text>
 
       {active.length === 0 ? (
         <GlassCard padding={16} radiusToken="md">
           <Text style={[styles.empty, ar && styles.rtl]}>
-            {ar
-              ? 'لا مهام عاجلة الآن — راقبت العقار وسأقترح عند ظهور متأخرات أو عقود أو صيانة.'
-              : 'No urgent tasks — I am monitoring and will propose when arrears, contracts, or maintenance appear.'}
+            {t('opsv2.smart.desk.empty' as any)}
           </Text>
         </GlassCard>
       ) : (
@@ -213,7 +307,7 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
             </Text>
             {task.status === 'waiting_followup' ? (
               <Text style={[styles.follow, ar && styles.rtl]}>
-                {ar ? '⏳ بانتظار المتابعة' : '⏳ Waiting follow-up'}
+                {t('opsv2.smart.desk.waitFollowup' as any)}
                 {task.followUpAt
                   ? ` · ${new Date(task.followUpAt).toLocaleString(ar ? 'ar-SA' : undefined)}`
                   : ''}
@@ -221,7 +315,7 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
             ) : null}
             {(task.attemptCount || 0) > 0 ? (
               <Text style={[styles.attempt, ar && styles.rtl]}>
-                {ar ? `محاولات: ${task.attemptCount}` : `Attempts: ${task.attemptCount}`}
+                {t('opsv2.smart.desk.attempts' as any).replace('{count}', String(task.attemptCount))}
               </Text>
             ) : null}
             <View style={[styles.actions, ar && styles.rowRtl]}>
@@ -237,10 +331,10 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
                 </Text>
               </Pressable>
               <Pressable style={styles.secondary} onPress={() => void onSnooze(task)}>
-                <Text style={styles.secondaryText}>{ar ? 'لاحقاً' : 'Later'}</Text>
+                <Text style={styles.secondaryText}>{t('opsv2.smart.desk.later' as any)}</Text>
               </Pressable>
               <Pressable style={styles.ghost} onPress={() => void onDismiss(task)}>
-                <Text style={styles.ghostText}>{ar ? 'تجاهل' : 'Skip'}</Text>
+                <Text style={styles.ghostText}>{t('opsv2.smart.desk.skip' as any)}</Text>
               </Pressable>
             </View>
           </GlassCard>
@@ -250,7 +344,7 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
       {emp.activity.length > 0 ? (
         <>
           <Text style={[styles.section, ar && styles.rtl, { marginTop: spacing.lg }]}>
-            {ar ? 'سجل التنفيذ' : 'Execution log'}
+            {t('opsv2.smart.desk.executionLog' as any)}
           </Text>
           <GlassCard padding={14} radiusToken="md">
             {emp.activity.slice(0, 5).map((a) => (

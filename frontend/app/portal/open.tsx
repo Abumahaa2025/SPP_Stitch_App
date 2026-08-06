@@ -6,7 +6,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { ScreenScaffold } from '@/src/components/ScreenScaffold';
-import { inAppAgentPortal, inAppTechPortal, inAppTenantPortal } from '@/src/utils/portal-links';
+import { inAppAgentPortal, inAppTechPortal, inAppTenantPortal, inAppGuardPortal } from '@/src/utils/portal-links';
 import { colors, typography } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -41,6 +41,7 @@ export default function PortalOpenBridge() {
     let target: string | null = null;
     if (role === 'tech' && t) target = inAppTechPortal(t, id || undefined, meta);
     else if (role === 'agent' && id && t) target = inAppAgentPortal(id, t, meta);
+    else if (role === 'guard' && id && t) target = inAppGuardPortal(id, t, meta);
     else if (id && t) target = inAppTenantPortal(id, t, meta);
 
     if (target) {

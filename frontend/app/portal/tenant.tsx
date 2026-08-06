@@ -9,6 +9,8 @@ import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
+import { PortalInstallHint } from '@/src/components/PortalInstallHint';
+import { TenantPortalDesk } from '@/src/components/TenantPortalDesk';
 import { MaintenanceJourney } from '@/src/components/maintenance/MaintenanceJourney';
 import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
@@ -158,6 +160,7 @@ export default function TenantPortalScreen() {
 
   return (
     <ScreenScaffold testID="tenant-portal">
+
         <StoryScreenHeader
           question={`${t('opsv2.tenant.welcome' as any)}، ${tenant.name}`}
           hint={guestMode
@@ -176,6 +179,33 @@ export default function TenantPortalScreen() {
           <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'وحدتك' : 'Your unit'}</Text>
           <Text style={[styles.body, ar && styles.rtl]}>
             {unitLabel} · {propertyLabel}
+      <StoryScreenHeader
+        question={`${t('opsv2.tenant.welcome' as any)}، ${tenant.name}`}
+        hint={guestMode
+          ? (isRTL ? 'تم فتح رابط البوابة بنجاح' : 'Portal link opened successfully')
+          : t('op.tenant.sub')}
+        showBack
+      />
+
+      <ActingAsBadge
+        role="tenant"
+        displayName={tenant.name}
+        scope={`${t('op.tenant.unit')} ${unitLabel} · ${propertyLabel}`}
+      />
+      <PortalInstallHint role="tenant" />
+
+      <GlassCard padding={18} radiusToken="md" edge="gold">
+        <Text style={[styles.section, isRTL && styles.rtl]}>{t('op.tenant.unit')}</Text>
+        <Text style={[styles.body, isRTL && styles.rtl]}>
+          {unitLabel} · {propertyLabel}
+        </Text>
+      </GlassCard>
+
+      {guestMode ? (
+        <GlassCard padding={18} radiusToken="md" edge="emerald" style={styles.gap}>
+          <Text style={[styles.section, isRTL && styles.rtl]}>
+            {isRTL ? 'الرابط يعمل' : 'Link is active'}
+
           </Text>
           <Text style={[styles.dim, ar && styles.rtl]}>
             {ar ? 'الحالة: رابط البوابة نشط' : 'Status: portal link active'}
@@ -194,12 +224,37 @@ export default function TenantPortalScreen() {
           ))}
         </GlassCard>
 
+
         {contract ? (
           <GlassCard padding={18} radiusToken="md" style={styles.gap}>
             <Text style={[styles.section, ar && styles.rtl]}>{t('op.tenant.contract')}</Text>
             <Text style={[styles.body, ar && styles.rtl]}>#{contract.number}</Text>
             <Text style={[styles.dim, ar && styles.rtl]}>
               {formatDate(contract.startDate)} — {formatDate(contract.endDate)}
+
+      ) : null}
+
+      <GlassCard padding={18} radiusToken="md" edge="emerald" style={styles.gap}>
+        <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.tenant.payments' as any)}</Text>
+        <Text style={[styles.body, isRTL && styles.rtl]}>
+          {paymentOk ? t('opsv2.tenant.paid' as any) : t('opsv2.tenant.due' as any)}
+        </Text>
+      </GlassCard>
+
+      <TenantPortalDesk
+        tenantId={tenant.id}
+        tenantName={tenant.name}
+        unitId={localTenant?.unitId || unit?.id}
+        guestMode={guestMode}
+      />
+
+      {myTickets[0]?.tenantNotifications?.length ? (
+        <GlassCard padding={16} radiusToken="md" style={styles.gap}>
+          <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.tenant.notifications' as any)}</Text>
+          {myTickets[0].tenantNotifications!.slice(0, 5).map((n, i) => (
+            <Text key={i} style={[styles.dim, isRTL && styles.rtl]}>
+              · {t(n.messageKey as any)}
+
             </Text>
             {contract.rentAmount ? (
               <Text style={[styles.body, ar && styles.rtl]}>

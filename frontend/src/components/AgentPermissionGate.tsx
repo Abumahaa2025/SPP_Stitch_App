@@ -8,14 +8,16 @@ import type { AgentPermissions } from '@/src/types/portal-access';
 import { useI18n } from '@/src/i18n';
 
 type Props = {
-  perm: keyof AgentPermissions;
+  perm?: keyof AgentPermissions;
+  /** Pass if any of these permissions grants access (e.g. electricity|water → wallet). */
+  anyOf?: (keyof AgentPermissions)[];
   children: React.ReactNode;
 };
 
 const ACTIVE_KEY = 'spp.activeAgentId';
 
 /** Spec §5.10 / §13 — agent may only open screens in their permission scope. */
-export function AgentPermissionGate({ perm, children }: Props) {
+export function AgentPermissionGate({ perm, anyOf, children }: Props) {
   const { t } = useI18n();
   const router = useRouter();
   const [state, setState] = useState<'loading' | 'ok' | 'denied'>('loading');
@@ -30,14 +32,23 @@ export function AgentPermissionGate({ perm, children }: Props) {
       }
       const access = await loadPortalAccess();
       const agent = access.agents.find((a) => a.id === id && a.linkActive);
-      if (!agent || !agent.permissions[perm]) {
+      const keys = anyOf?.length ? anyOf : (perm ? [perm] : []);
+      const allowed = !agent
+        ? false
+        : keys.some((k) => {
+          if (agent.permissions[k]) return true;
+          // Legacy: tenants covered lease roster before rentals existed.
+          if (k === 'rentals' && agent.permissions.tenants) return true;
+          return false;
+        });
+      if (!agent || (keys.length > 0 && !allowed)) {
         if (alive) setState('denied');
         return;
       }
       if (alive) setState('ok');
     })();
     return () => { alive = false; };
-  }, [perm]);
+  }, [perm, anyOf?.join('|')]);
 
   if (state === 'loading') return null;
   if (state === 'denied') {

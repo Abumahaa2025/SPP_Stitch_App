@@ -84,10 +84,10 @@ export const WORKSPACE_NAV: WorkspaceNavGroup[] = [
     hintKey: 'ws.group.tenants.hint',
     icon: 'users',
     items: [
-      { key: 'all', labelKey: 'ws.tenants.all', descKey: 'ws.tenants.all.desc', icon: 'users', route: '/tenants' },
+      { key: 'all', labelKey: 'ws.tenants.all', descKey: 'ws.tenants.all.desc', icon: 'users', route: '/operational/base?tab=tenants' },
       { key: 'messages', labelKey: 'ws.tenants.messages', descKey: 'ws.tenants.messages.desc', icon: 'mail', route: '/notifications' },
-      { key: 'portal', labelKey: 'ws.tenants.portal', descKey: 'ws.tenants.portal.desc', icon: 'external-link', route: '/tenants', sourceApp: 'tenant' },
-      { key: 'record', labelKey: 'ws.tenants.record', descKey: 'ws.tenants.record.desc', icon: 'book-open', route: '/tenants' },
+      { key: 'portal', labelKey: 'ws.tenants.portal', descKey: 'ws.tenants.portal.desc', icon: 'external-link', route: '/operational/base?tab=tenants', sourceApp: 'tenant' },
+      { key: 'record', labelKey: 'ws.tenants.record', descKey: 'ws.tenants.record.desc', icon: 'book-open', route: '/operational/base?tab=registry' },
     ],
   },
   {
