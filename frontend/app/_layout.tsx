@@ -14,7 +14,8 @@ import { SplashIntro } from "@/src/components/SplashIntro";
 import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
 import { WorkspaceChrome } from "@/src/components/WorkspaceChrome";
 import { isPathAllowedForPersona, personaHomeRoute } from "@/src/utils/role-scope";
-import { resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
+import { ensurePortalBridge, resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
+import { migrateStoredPortalLinks } from "@/src/utils/portal-link-migration";
 import { applyExpoOtaIfAvailable } from "@/src/utils/expo-ota";
 
 LogBox.ignoreAllLogs(true);
@@ -84,6 +85,15 @@ export default function RootLayout() {
     });
     return () => sub.remove();
   }, [langReady]);
+
+  // Portal links: verify the HTTPS bridge host, then repair links already saved
+  // with a host that serves the bridge file as plain text.
+  useEffect(() => {
+    void (async () => {
+      await ensurePortalBridge();
+      await migrateStoredPortalLinks();
+    })();
+  }, []);
 
   // Enforce a minimum splash hold for brand presence (~2s logo entrance).
   useEffect(() => {

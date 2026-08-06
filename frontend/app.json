@@ -36,6 +36,16 @@
           "data": [
             {
               "scheme": "https",
+              "host": "abumahaa2025.github.io",
+              "pathPrefix": "/SPP_Stitch_App"
+            },
+            {
+              "scheme": "https",
+              "host": "raw.githack.com",
+              "pathPrefix": "/Abumahaa2025/SPP_Stitch_App"
+            },
+            {
+              "scheme": "https",
               "host": "cdn.jsdelivr.net",
               "pathPrefix": "/gh/Abumahaa2025/SPP_Stitch_App"
             },
