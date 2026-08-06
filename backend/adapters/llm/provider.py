@@ -1,12 +1,16 @@
 """Provider abstraction — one concrete adapter + fake provider for tests.
 
-Uses OpenAI-compatible HTTP API (works with OpenAI, Azure OpenAI, or any
-OpenAI-API-compatible endpoint). No heavy SDK dependency — direct httpx calls.
+Uses OpenAI-compatible HTTP API (works with OpenAI, Azure OpenAI, Gemini's
+OpenAI-compatible endpoint, or any OpenAI-API-compatible endpoint).
+No heavy SDK dependency — direct httpx calls.
 
 Configuration (all environment-based, no hardcoding):
     AI_PROVIDER=openai
-    AI_MODEL=gpt-4o
+    AI_MODEL=gpt-4o                 # or gemini-2.5-pro via Gemini OpenAI endpoint
     AI_API_KEY=<secret>
+    AI_BASE_URL=https://api.openai.com/v1
+    # Gemini example:
+    # AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
     AI_TIMEOUT_SECONDS=60
     AI_MAX_RETRIES=2
     AI_ENABLED=false
@@ -42,16 +46,68 @@ class LLMProvider(Protocol):
         system_prompt: str,
         user_prompt: str,
         max_tokens: int = 2000,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
-        """Generate a response. Returns {text, model, latency_ms} or raises."""
+        """Generate a response. Returns {text, model, latency_ms[, tool_calls]} or raises."""
         ...
+
+
+def _to_openai_tools(tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Normalize Anthropic-style or OpenAI-style tool defs to OpenAI functions."""
+    out: List[Dict[str, Any]] = []
+    for tool in tools:
+        if tool.get("type") == "function" and isinstance(tool.get("function"), dict):
+            out.append(tool)
+            continue
+        name = str(tool.get("name") or "").strip()
+        if not name:
+            continue
+        params = tool.get("parameters") or tool.get("input_schema") or {
+            "type": "object",
+            "properties": {},
+        }
+        out.append(
+            {
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "description": str(tool.get("description") or ""),
+                    "parameters": params,
+                },
+            }
+        )
+    return out
+
+
+def _parse_openai_tool_calls(message: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Convert OpenAI tool_calls into the agent-normalized {name, input} shape."""
+    import json as _json
+
+    parsed: List[Dict[str, Any]] = []
+    for call in message.get("tool_calls") or []:
+        fn = call.get("function") or {}
+        name = str(fn.get("name") or call.get("name") or "").strip()
+        raw_args = fn.get("arguments") if "arguments" in fn else call.get("input")
+        args: Dict[str, Any] = {}
+        if isinstance(raw_args, dict):
+            args = raw_args
+        elif isinstance(raw_args, str) and raw_args.strip():
+            try:
+                loaded = _json.loads(raw_args)
+                if isinstance(loaded, dict):
+                    args = loaded
+            except Exception:
+                args = {}
+        if name:
+            parsed.append({"id": call.get("id"), "name": name, "input": args})
+    return parsed
 
 
 class OpenAICompatibleProvider:
     """Concrete provider using OpenAI-compatible chat completions API.
 
     Uses direct HTTP via httpx — no SDK dependency. Works with any
-    OpenAI-API-compatible endpoint (OpenAI, Azure, local LLMs, etc.).
+    OpenAI-API-compatible endpoint (OpenAI, Azure, Gemini OpenAI compat, local LLMs).
     """
 
     def __init__(
@@ -85,11 +141,14 @@ class OpenAICompatibleProvider:
         system_prompt: str,
         user_prompt: str,
         max_tokens: int = 2000,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         """Call the OpenAI-compatible chat completions endpoint.
 
         Returns:
             {text: str, model: str, latency_ms: int}
+            plus {tool_calls: [...]} when tools are provided and the model
+            chooses a function (used by Koil agent pick_next_action).
 
         Raises:
             TimeoutError: if the request times out after retries.
@@ -102,7 +161,7 @@ class OpenAICompatibleProvider:
             "Content-Type": "application/json",
             "Authorization": f"Bearer {self._api_key}",
         }
-        body = {
+        body: Dict[str, Any] = {
             "model": self._model,
             "messages": [
                 {"role": "system", "content": system_prompt},
@@ -111,6 +170,11 @@ class OpenAICompatibleProvider:
             "max_tokens": max_tokens,
             "temperature": 0.3,  # low temperature for factual responses
         }
+        if tools:
+            openai_tools = _to_openai_tools(tools)
+            if openai_tools:
+                body["tools"] = openai_tools
+                body["tool_choice"] = "auto"
 
         last_error: Optional[Exception] = None
         for attempt in range(self._max_retries + 1):
@@ -128,15 +192,22 @@ class OpenAICompatibleProvider:
 
                 data = resp.json()
                 text = ""
+                tool_calls: List[Dict[str, Any]] = []
                 choices = data.get("choices") or []
                 if choices:
-                    text = choices[0].get("message", {}).get("content", "")
+                    message = choices[0].get("message") or {}
+                    content = message.get("content") or ""
+                    text = content if isinstance(content, str) else ""
+                    tool_calls = _parse_openai_tool_calls(message)
 
-                return {
+                result: Dict[str, Any] = {
                     "text": text.strip(),
                     "model": data.get("model", self._model),
                     "latency_ms": latency_ms,
                 }
+                if tool_calls:
+                    result["tool_calls"] = tool_calls
+                return result
 
             except httpx.TimeoutException:
                 last_error = TimeoutError(f"Provider timed out after {self._timeout}s (attempt {attempt + 1})")
@@ -203,8 +274,10 @@ class FakeProvider:
         system_prompt: str,
         user_prompt: str,
         max_tokens: int = 2000,
+        tools: Optional[List[Dict[str, Any]]] = None,
     ) -> Dict[str, Any]:
         self._call_count += 1
+        _ = tools  # accepted for OpenAI-compatible / Koil agent call sites
 
         if self._mode == "timeout":
             raise TimeoutError("Fake provider timed out")

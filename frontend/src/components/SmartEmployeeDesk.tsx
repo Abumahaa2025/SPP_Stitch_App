@@ -24,6 +24,7 @@ import { loadSmartEmployee, saveSmartEmployee } from '@/src/utils/smart-employee
 import { pushLocalNotification } from '@/src/utils/local-notifications';
 import type { EmployeeTask, SmartEmployeeState } from '@/src/types/smart-employee';
 import { arrearsFromPropertyOS } from '@/src/utils/ops-truth';
+import { api } from '@/src/api/client';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -165,22 +166,46 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
       if (task.action === 'send_whatsapp' && task.whatsappMessage) {
         const digits = String(task.whatsappPhone || '').replace(/\D/g, '');
         const msg = task.whatsappMessage;
+        let sentViaGreen = false;
         if (digits) {
-          const wa = Platform.select({
-            ios: `whatsapp://send?phone=${digits}&text=${encodeURIComponent(msg)}`,
-            default: `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`,
-          });
-          await Linking.openURL(wa!).catch(() => Share.share({ message: msg }));
+          // Prefer Green API when backend env is configured; fall back to wa.me.
+          try {
+            const result = await api.whatsappSend(digits, msg, false);
+            if (result.ok && result.channel === 'green_api' && result.delivery_status === 'sent') {
+              sentViaGreen = true;
+            } else if (result.deep_link) {
+              await Linking.openURL(result.deep_link).catch(() => Share.share({ message: msg }));
+            } else {
+              const wa = Platform.select({
+                ios: `whatsapp://send?phone=${digits}&text=${encodeURIComponent(msg)}`,
+                default: `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`,
+              });
+              await Linking.openURL(wa!).catch(() => Share.share({ message: msg }));
+            }
+          } catch {
+            const wa = Platform.select({
+              ios: `whatsapp://send?phone=${digits}&text=${encodeURIComponent(msg)}`,
+              default: `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`,
+            });
+            await Linking.openURL(wa!).catch(() => Share.share({ message: msg }));
+          }
         } else {
           await Share.share({ message: msg });
         }
         await pushLocalNotification({
+
+          title: ar
+            ? (sentViaGreen ? 'كويل أرسل عبر Green API' : 'كويل نفّذ إرسالاً')
+            : (sentViaGreen ? 'Kowil sent via Green API' : 'Kowil sent a message'),
+          body: ar ? task.titleAr : task.titleEn,
+
           title: 'Kowil sent a message',
           body: task.titleEn,
           titleAr: 'كويل نفّذ إرسالاً',
           titleEn: 'Kowil sent a message',
           bodyAr: task.titleAr,
           bodyEn: task.titleEn,
+
           route: '/brain',
         });
         await persist(completeTask(emp, task.id, true));

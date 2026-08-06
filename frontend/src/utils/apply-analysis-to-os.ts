@@ -25,6 +25,7 @@ import type {
   UnitRecord,
 } from '@/src/types/property-os';
 import { buildTenantPortal, buildWhatsAppWelcome } from '@/src/hooks/usePropertyOS';
+import { upgradeLegacyPortalBridgeUrl } from '@/src/utils/portal-links';
 import { storage } from '@/src/utils/storage';
 import { syncCanonicalFromPropertyOS } from '@/src/utils/canonical-tenant-store';
 import { takePendingPropertyName } from '@/src/utils/pending-property-name';
@@ -118,7 +119,16 @@ function buildOperationalRows(analysis: PortfolioAnalysis): OpRow[] {
     row.contractNumber = (c.contract || row.contractNumber || '').trim();
     row.contractStart = (c.contract_start || c.contract_start_label || row.contractStart || '').trim();
     row.contractEnd = (c.contract_end || c.contract_end_label || row.contractEnd || '').trim();
+    const seenCardMonth = new Set<string>();
     (c.months ?? []).forEach((mth) => {
+      const mk = `${mth.year ?? ''}-${mth.month ?? ''}|${mth.label || ''}`;
+      if (seenCardMonth.has(mk)) return;
+      seenCardMonth.add(mk);
+      // Also skip duplicates already on the OpRow (multi-card same unit).
+      const rowKey = `${row.unit}|${mth.year ?? ''}-${mth.month ?? ''}|${mth.label || ''}`;
+      if (row.months.some((m) => `${row.unit}|${m.year ?? ''}-${m.month ?? ''}|${m.label || ''}` === rowKey)) {
+        return;
+      }
       row.months.push({
         label: mth.label,
         year: mth.year,
@@ -139,12 +149,16 @@ function buildOperationalRows(analysis: PortfolioAnalysis): OpRow[] {
     if ((a.tenant || '').trim()) row.tenant = String(a.tenant).trim();
     if ((a.phone || '').trim()) row.phone = String(a.phone).trim();
     if (num(a.rent)) row.rent = num(a.rent);
+    // Prefer lifecycle active contract when present (cards may lag or mismatch).
+    if ((a.contract || '').trim()) row.contractNumber = String(a.contract).trim();
   });
 
   // 3) late_payments — add late months (due/paid/remaining) not already captured, and
   //    backfill contract / phone from the arrears view.
   const seenMonth = new Set<string>();
-  byUnit.forEach((row) => row.months.forEach((m) => seenMonth.add(`${row.unit}|${m.label}`)));
+  byUnit.forEach((row) => row.months.forEach((m) => {
+    seenMonth.add(`${row.unit}|${m.year ?? ''}-${m.month ?? ''}|${m.label || ''}`);
+  }));
 
   (late?.months ?? []).forEach((mth) => {
     (mth.tenants ?? []).forEach((te, i) => {
@@ -152,7 +166,7 @@ function buildOperationalRows(analysis: PortfolioAnalysis): OpRow[] {
       if (!row.tenant) row.tenant = (te.tenant || '').trim();
       if (!row.phone) row.phone = (te.phone || '').trim();
       if (!row.contractNumber && te.contract) row.contractNumber = te.contract.trim();
-      const key = `${row.unit}|${mth.label}`;
+      const key = `${row.unit}|${mth.year ?? ''}-${mth.month ?? ''}|${mth.label || ''}`;
       if (!seenMonth.has(key)) {
         seenMonth.add(key);
         row.months.push({
@@ -565,22 +579,39 @@ export async function persistApplyFromAnalysis(
         return {
           ...prev,
           portalToken: prev.portalToken || next.portalToken,
-          portalUrl: prev.portalUrl || next.portalUrl,
-          qrData: prev.qrData || next.qrData,
+          portalUrl: upgradeLegacyPortalBridgeUrl(prev.portalUrl || next.portalUrl || ''),
+          qrData: upgradeLegacyPortalBridgeUrl(prev.qrData || next.qrData || prev.portalUrl || next.portalUrl || ''),
           whatsAppMessage: prev.whatsAppMessage || next.whatsAppMessage,
         };
       }
+      const portalUrl = upgradeLegacyPortalBridgeUrl(prev.portalUrl || next.portalUrl || '');
       return {
         ...next,
+        // Never wipe a known phone with an empty re-import value.
+        phone: (next.phone || '').trim() || prev.phone,
         portalToken: prev.portalToken || next.portalToken,
-        portalUrl: prev.portalUrl || next.portalUrl,
-        qrData: prev.qrData || next.qrData,
-        whatsAppMessage: buildWhatsAppWelcome(next.name, prev.portalUrl || next.portalUrl, lang),
+        portalUrl,
+        qrData: upgradeLegacyPortalBridgeUrl(prev.qrData || next.qrData || portalUrl),
+        whatsAppMessage: buildWhatsAppWelcome(next.name, portalUrl, lang),
         manualOfficial: false,
       };
     },
   );
-  const contracts = mergeById(prevState?.contracts ?? [], incoming.contracts, 'contract', changeLog, (c) => c.number);
+  const contracts = mergeById(
+    prevState?.contracts ?? [],
+    incoming.contracts,
+    'contract',
+    changeLog,
+    (c) => c.number,
+    (prev, next) => ({
+      ...next,
+      number: (next.number || '').trim() || prev.number,
+      startDate: (next.startDate || '').trim() || prev.startDate,
+      endDate: (next.endDate || '').trim() || prev.endDate,
+      rentAmount: next.rentAmount || prev.rentAmount,
+      depositAmount: next.depositAmount || prev.depositAmount,
+    }),
+  );
   const batchId = `batch_${analysis.analysis_id.slice(0, 8)}_${Date.now().toString(36)}`;
   const ledger = mergePaymentLedger(
     prevState?.paymentLedger ?? [],

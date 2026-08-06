@@ -16,6 +16,7 @@ import { EMPTY_EMPLOYEE_PREFS } from '@/src/types/smart-employee';
 import { arrearsFromPropertyOS, isArrearsLedgerEntry } from '@/src/utils/ops-truth';
 import { buildWhatsAppCollectionMessage } from '@/src/utils/canonical-tenant-store';
 import { buildWhatsAppWelcome } from '@/src/hooks/usePropertyOS';
+import { upgradeLegacyPortalBridgeUrl } from '@/src/utils/portal-links';
 import type { CanonicalTenant } from '@/src/types/canonical-tenant';
 
 function uid(prefix: string) {
@@ -361,7 +362,7 @@ export function thinkSmartEmployee(input: ThinkInput): SmartEmployeeState {
     // Only suggest if never executed before in previous history
     if (prevById.get(id)?.executedAt) continue;
     const unit = os.units.find((u) => u.id === t.unitId);
-    const url = t.portalUrl || '';
+    const url = upgradeLegacyPortalBridgeUrl(t.portalUrl || '');
     if (!url) continue;
     const preferWa = prefs.whatsappWins >= prefs.routeWins;
     pushTask({
@@ -378,7 +379,10 @@ export function thinkSmartEmployee(input: ThinkInput): SmartEmployeeState {
       actionLabelAr: preferWa ? 'أرسل رابط واتساب' : 'افتح البوابات',
       actionLabelEn: preferWa ? 'Send WhatsApp link' : 'Open portals',
       whatsappPhone: t.phone,
-      whatsappMessage: t.whatsAppMessage || buildWhatsAppWelcome(t.name, url, 'ar'),
+      whatsappMessage:
+        /jsdelivr|portal-open\.html/i.test(t.whatsAppMessage || '')
+          ? buildWhatsAppWelcome(t.name, url, 'ar')
+          : t.whatsAppMessage || buildWhatsAppWelcome(t.name, url, 'ar'),
       route: '/tenants',
       tenantId: t.id,
       unitId: t.unitId,

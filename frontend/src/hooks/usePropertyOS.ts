@@ -118,6 +118,26 @@ export function usePropertyOS(notifEnabledCount = 0) {
     storage.setItem(KEY, JSON.stringify(next));
   }, []);
 
+  /** Full replace used by the unified data workbench (property + units + tenants + contracts). */
+  const saveWorkbenchState = useCallback(async (next: PropertyOSState, lang: 'ar' | 'en' = 'ar') => {
+    const stamped: PropertyOSState = {
+      ...DEFAULT,
+      ...next,
+      setupCompleted: true,
+      dismissedProgress: true,
+      alertsEnabled: next.alertsEnabled ?? state.alertsEnabled ?? true,
+      technicianPortalToken: next.technicianPortalToken || state.technicianPortalToken || uid('tech').slice(-12),
+      lastImportAt: next.lastImportAt || state.lastImportAt,
+      paymentLedger: next.paymentLedger ?? state.paymentLedger,
+      payments: next.payments ?? state.payments,
+      unitHistory: next.unitHistory ?? state.unitHistory,
+    };
+    persist(stamped);
+    const { syncCanonicalFromPropertyOS } = await import('@/src/utils/canonical-tenant-store');
+    await syncCanonicalFromPropertyOS(stamped, { lang, forceStatementNames: false });
+    return stamped;
+  }, [persist, state.alertsEnabled, state.technicianPortalToken, state.lastImportAt, state.paymentLedger, state.payments, state.unitHistory]);
+
   /** Re-read after upload Apply (other screens write spp.propertyOS). */
   const reload = useCallback(async () => {
     const stored = await storage.getItem<string>(KEY, '');
@@ -185,9 +205,13 @@ export function usePropertyOS(notifEnabledCount = 0) {
       qrData: portal.qrData,
       whatsAppMessage: buildWhatsAppWelcome(input.name, portal.url, lang),
     };
-    persist({ ...state, tenants: [...state.tenants, tenant] });
+    const next = { ...state, tenants: [...state.tenants, tenant] };
+    persist(next);
     const unit = state.units.find((u) => u.id === input.unitId);
     void onTenantAdded(tenant, unit?.number);
+    void import('@/src/utils/canonical-tenant-store').then(({ syncCanonicalFromPropertyOS }) =>
+      syncCanonicalFromPropertyOS(next, { lang }),
+    );
     return tenant;
   }, [persist, state]);
 
@@ -278,6 +302,7 @@ export function usePropertyOS(notifEnabledCount = 0) {
     addUnit,
     addTenant,
     addContract,
+    saveWorkbenchState,
     enableAlerts,
     ensureTechnicianPortal,
     dismissProgress,

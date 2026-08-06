@@ -120,16 +120,34 @@ jobs:
             **Direct install (stable filename):**
             https://github.com/${{ github.repository }}/releases/download/${{ github.event.inputs.release_tag }}/spp-beta.apk
 
+
+            Backend: structured `late_payments` from Render (commit f37d146+).
+            Installs over previous beta versions without uninstalling. User data is preserved.
+
+            After this APK, JS updates arrive via EAS OTA channel **beta** — no more APK links for routine changes.
+
             Same file via latest redirect:
             https://github.com/${{ github.repository }}/releases/latest/download/spp-beta.apk
 
             JS/UI updates after install: Expo EAS Update channel `beta` (reopen app).
+
           files: |
             frontend/dist/spp-beta.apk
             frontend/dist/spp-beta-*.apk
           prerelease: true
           make_latest: true
           overwrite_files: true
+
+      - name: Seed EAS OTA channel (beta)
+        env:
+          EXPO_PUBLIC_BETA_MODE: 'true'
+          EXPO_PUBLIC_BACKEND_URL: https://spp-beta-api.onrender.com
+        run: |
+          VERSION=$(node -p "require('./app.json').expo.version")
+          eas update \
+            --channel beta \
+            --message "Seed OTA after APK ${VERSION}" \
+            --non-interactive || echo "::warning::OTA seed failed — APK is still valid; fix EXPO_TOKEN/channel and re-run EAS OTA Beta."
 
       - name: Summary
         run: |
@@ -140,3 +158,4 @@ jobs:
           echo "- Version: \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Signing: EAS preview keystore (upgrade-safe)" >> "$GITHUB_STEP_SUMMARY"
           echo "- Direct APK: https://github.com/${{ github.repository }}/releases/download/${TAG}/spp-beta.apk" >> "$GITHUB_STEP_SUMMARY"
+          echo "- OTA channel: \`beta\` (subsequent JS fixes need no new APK link)" >> "$GITHUB_STEP_SUMMARY"

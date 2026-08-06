@@ -23,6 +23,8 @@ export default function PortalOpenBridge() {
     prop?: string;
     name?: string;
     unit?: string;
+    tn?: string;
+    tp?: string;
   }>();
 
   useEffect(() => {
@@ -33,6 +35,8 @@ export default function PortalOpenBridge() {
       name: params.n || params.name,
       unit: params.u || params.unit,
       property: params.prop,
+      techName: params.tn,
+      techPhone: params.tp,
     };
     let target: string | null = null;
     if (role === 'tech' && t) target = inAppTechPortal(t, id || undefined, meta);
@@ -43,7 +47,10 @@ export default function PortalOpenBridge() {
     if (target) {
       router.replace(target as any);
     }
-  }, [params.role, params.id, params.t, params.n, params.u, params.prop, params.name, params.unit, router]);
+  }, [
+    params.role, params.id, params.t, params.n, params.u, params.prop,
+    params.name, params.unit, params.tn, params.tp, router,
+  ]);
 
   return (
     <ScreenScaffold testID="portal-open-bridge">

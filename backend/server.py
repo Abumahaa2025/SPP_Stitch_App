@@ -9,7 +9,11 @@ Modular AI layer (currently GPT-5.2 via Emergent Universal Key) powering:
 """
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request
+
+from fastapi.responses import StreamingResponse, HTMLResponse
+from dotenv import load_dotenv
 from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse, JSONResponse
+
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
@@ -106,6 +110,19 @@ from adapters.ai_employee import (
 )
 # Gap 6 — LLM interpretation layer (controlled, environment-based)
 from adapters.llm import LLMRequest, LLMService
+from adapters.llm.provider import get_provider
+from adapters.llm.agent import decide_next_action
+from adapters.koil.action_executor import (
+    ActionExecutionError,
+    execute_decision,
+    find_decision as find_koil_decision,
+)
+from adapters.integrations import (
+    integration_status,
+    send_whatsapp_message,
+    fetch_ha_sensors,
+    ha_configured,
+)
 
 # In-memory portfolio for beta builds when Mongo is unavailable
 _memory_db: Dict[str, List[dict]] = {}
@@ -815,6 +832,58 @@ async def _persist_decision_approval(record: Dict[str, Any]) -> tuple[Dict[str, 
             exc,
         )
         raise RuntimeError("approval_store_unavailable") from exc
+
+
+_KOIL_EXECUTIONS_COLLECTION = "koil_executions"
+
+
+async def _persist_koil_execution(record: Dict[str, Any]) -> Dict[str, Any]:
+    """Durably store one Koil execution record (the "what Koil actually did" audit trail).
+
+    Supports both Mongo and the in-memory store (used in beta/demo mode),
+    mirroring ``_persist_decision_approval`` / ``_persist_ai_state``.
+    """
+    record_id = record.get("_id")
+    if not record_id:
+        raise RuntimeError("execution_id_missing")
+
+    if _use_memory_store() or not _mongo_available:
+        store = _memory_db.setdefault(_KOIL_EXECUTIONS_COLLECTION, [])
+        if not isinstance(store, list):
+            store = []
+            _memory_db[_KOIL_EXECUTIONS_COLLECTION] = store
+        store.insert(0, dict(record))
+        _memory_db[_KOIL_EXECUTIONS_COLLECTION] = store[:200]
+        return record
+
+    try:
+        collection = _get_db()[_KOIL_EXECUTIONS_COLLECTION]
+        await collection.update_one(
+            {"_id": record_id},
+            {"$setOnInsert": record},
+            upsert=True,
+        )
+        stored = await collection.find_one({"_id": record_id})
+        return _strip_id(stored) if stored else record
+    except Exception as exc:
+        logger.warning("Koil execution persist failed (id=%s): %s", record_id, exc)
+        # Never let audit persistence break the action itself — the caller
+        # already has the record and can return it to the client.
+        return record
+
+
+async def _list_koil_executions(analysis_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    if _use_memory_store() or not _mongo_available:
+        store = _memory_db.get(_KOIL_EXECUTIONS_COLLECTION, [])
+        rows = [r for r in store if not analysis_id or r.get("analysis_id") == analysis_id]
+        return rows[:limit]
+    try:
+        query = {"analysis_id": analysis_id} if analysis_id else {}
+        cursor = _get_db()[_KOIL_EXECUTIONS_COLLECTION].find(query).sort("executed_at", -1).limit(limit)
+        return [_strip_id(doc) async for doc in cursor]
+    except Exception as exc:
+        logger.warning("Koil execution list failed: %s", exc)
+        return []
 
 
 async def _clear_ai_state() -> None:
@@ -1722,6 +1791,130 @@ async def approve_decision(req: DecisionApproveRequest):
     }
 
 
+class KoilActRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    analysis_id: Optional[str] = None
+    decision_id: Optional[str] = None
+    note: Optional[str] = None
+    dry_run: bool = False
+
+
+@api_router.post("/koil/act")
+async def koil_act(req: KoilActRequest):
+    """Koil actually acts on the property — not a read-only summary.
+
+    Two modes:
+      - ``decision_id`` given: execute that specific decision.
+      - ``decision_id`` omitted: Koil autonomously picks the single most
+        valuable unblocked decision (LLM-assisted when AI_ENABLED=true,
+        deterministic top-score otherwise) and executes it.
+
+    Execution drafts real, channel-ready content for every decision kind
+    (see ``adapters.koil.action_registry``) — a WhatsApp deep link when a
+    confirmed phone number exists, otherwise a task note — and (unless
+    ``dry_run``) writes a durable, auditable execution record.
+    """
+    ai_state = (
+        await _load_ai_state_by_analysis_id(req.analysis_id)
+        if req.analysis_id
+        else await _load_ai_state()
+    )
+    if not ai_state:
+        raise HTTPException(
+            404,
+            {"code": "analysis_not_found", "analysis_id": req.analysis_id},
+        )
+
+    agent_reason: Optional[str] = None
+    agent_source = "explicit"
+
+    if req.decision_id:
+        decision = find_koil_decision(ai_state, req.decision_id)
+        if not decision:
+            raise HTTPException(
+                404,
+                {
+                    "code": "decision_not_found",
+                    "analysis_id": ai_state.get("analysis_id"),
+                    "decision_id": req.decision_id,
+                },
+            )
+    else:
+        provider = get_provider()
+        pick = await decide_next_action(ai_state, provider)
+        decision = pick.get("decision")
+        agent_reason = pick.get("reason")
+        agent_source = pick.get("source", "deterministic")
+        if not decision:
+            return {
+                "ok": True,
+                "status": "no_open_decisions",
+                "message": "لا توجد قرارات مفتوحة لتنفيذها الآن.",
+            }
+
+    try:
+        record = execute_decision(ai_state, decision, executed_by="koil", note=req.note)
+    except ActionExecutionError as exc:
+        status_code = 422 if exc.code == "decision_data_incomplete" else 409
+        raise HTTPException(status_code, {"code": exc.code, "message": str(exc)}) from exc
+
+    payload = record.to_dict()
+    payload["agent_source"] = agent_source
+    payload["agent_reason"] = agent_reason
+
+    if not req.dry_run:
+        payload = await _persist_koil_execution(payload)
+
+    return {"ok": True, "status": "executed" if not req.dry_run else "drafted", "execution": payload}
+
+
+@api_router.get("/koil/executions")
+async def koil_executions(analysis_id: Optional[str] = None, limit: int = 50):
+    """Audit trail of everything Koil has actually executed."""
+    rows = await _list_koil_executions(analysis_id, limit=min(max(limit, 1), 200))
+    return {"executions": rows, "count": len(rows)}
+
+
+@api_router.get("/integrations/status")
+async def integrations_status():
+    """Live connection status for Sheets/GAS, Green API, Home Assistant."""
+    return integration_status()
+
+
+@api_router.get("/integrations/sheets/status")
+async def integrations_sheets_status():
+    return integration_status()["services"]["sheets"]
+
+
+@api_router.get("/integrations/whatsapp/status")
+async def integrations_whatsapp_status():
+    return integration_status()["services"]["whatsapp"]
+
+
+class WhatsAppSendRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    phone: str
+    message: str
+    dry_run: bool = False
+
+
+@api_router.post("/integrations/whatsapp/send")
+async def integrations_whatsapp_send(req: WhatsAppSendRequest):
+    """Send via Green API when configured; otherwise return wa.me deep link."""
+    result = send_whatsapp_message(req.phone, req.message, dry_run=req.dry_run)
+    status_code = 200 if result.get("ok") or result.get("deep_link") else 422
+    if status_code != 200:
+        raise HTTPException(status_code, result)
+    return result
+
+
+@api_router.get("/integrations/home-assistant/status")
+async def integrations_ha_status():
+    return integration_status()["services"]["home_assistant"]
+
+
 @api_router.get("/tenants")
 async def list_tenants():
     ctx = await _portfolio_live_context()
@@ -1741,6 +1934,11 @@ async def list_timeline():
 
 @api_router.get("/sensors")
 async def list_sensors():
+    """Prefer Home Assistant live states when configured; else mongo/seed."""
+    if ha_configured():
+        ha_rows = fetch_ha_sensors(limit=60)
+        if ha_rows:
+            return ha_rows
     return await _safe_mongo_find("sensors")
 
 
@@ -2641,6 +2839,69 @@ async def ai_respond(req: AIRespondRequest):
 app.include_router(api_router)
 
 
+
+def _portal_open_html() -> str:
+    """Load portal bridge HTML from backend-local paths (Render rootDir=backend).
+
+    Never fall back to jsDelivr — it serves .html as text/plain + nosniff, so
+    WhatsApp/mobile open a text document instead of a page.
+    """
+    candidates = [
+        ROOT_DIR / "static" / "portal-open.html",
+        ROOT_DIR / "docs" / "portal-open.html",
+        ROOT_DIR.parent / "docs" / "portal-open.html",
+    ]
+    for path in candidates:
+        try:
+            if path.exists():
+                return path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+    # Inline fallback — always valid text/html even if static files are missing.
+    return """<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <title>SPP — فتح البوابة</title>
+  <style>
+    body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+      font-family:Segoe UI,Tahoma,Arial,sans-serif;background:#050A12;color:#F3F4F6;padding:24px}
+    .card{max-width:420px;width:100%;border:1px solid rgba(212,175,55,.35);border-radius:16px;padding:22px;background:rgba(255,255,255,.04)}
+    h1{margin:0 0 8px;font-size:22px}.meta{color:#9CA3AF;font-size:14px;line-height:1.6}
+    a.btn{display:block;text-align:center;text-decoration:none;padding:14px;border-radius:12px;
+      font-weight:700;background:#10B981;color:#04110C;margin-top:16px}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1 id="title">بوابة SPP</h1>
+    <p class="meta" id="subtitle">اضغط لفتح بوابتك في تطبيق SPP</p>
+    <a class="btn" id="openApp" href="#">فتح في تطبيق SPP</a>
+  </div>
+  <script>
+  (function(){
+    var q=new URLSearchParams(location.search);
+    var role=(q.get('role')||'tenant').toLowerCase();
+    var id=q.get('id')||''; var t=q.get('t')||'';
+    var name=q.get('n')||q.get('name')||'';
+    var path=role==='tech'?('/portal/tech'+(id?('?id='+encodeURIComponent(id)+'&t='+encodeURIComponent(t)):('?t='+encodeURIComponent(t))))
+      :role==='agent'?('/portal/agent?id='+encodeURIComponent(id)+'&t='+encodeURIComponent(t))
+      :('/portal/tenant?id='+encodeURIComponent(id)+'&t='+encodeURIComponent(t));
+    if(name) path+=(path.indexOf('?')>=0?'&':'?')+'n='+encodeURIComponent(name);
+    var deep='spp:/'+path;
+    var intent='intent://'+path.replace(/^\\//,'')+'#Intent;scheme=spp;package=ai.spp.stitch;end';
+    var open=document.getElementById('openApp'); open.href=deep;
+    if(name) document.getElementById('subtitle').textContent='مرحباً، '+name;
+    var isAndroid=/Android/i.test(navigator.userAgent);
+    setTimeout(function(){ location.href=isAndroid?intent:deep; },300);
+  })();
+  </script>
+</body>
+</html>
+"""
+=======
 @app.exception_handler(HTTPException)
 async def _http_exception_handler(request: Request, exc: HTTPException):
     """Ensure HTTPException details never echo secrets/paths."""
@@ -2674,8 +2935,22 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
+
 @app.get("/portal/open", response_class=HTMLResponse)
 async def portal_open_bridge(request: Request):
+
+    """HTTPS bridge for WhatsApp/SMS portal links — always text/html page."""
+    html = _portal_open_html()
+    return HTMLResponse(
+        content=html,
+        media_type="text/html; charset=utf-8",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": "inline; filename=portal-open.html",
+        },
+    )
+
     """HTTPS bridge for WhatsApp/SMS portal links — opens spp:// or shows web card."""
     html_path = ROOT_DIR.parent / "docs" / "portal-open.html"
     if html_path.exists():
@@ -2687,6 +2962,7 @@ async def portal_open_bridge(request: Request):
     if q:
         target = f"{target}?{q}"
     return RedirectResponse(target, status_code=302)
+
 
 
 app.add_middleware(

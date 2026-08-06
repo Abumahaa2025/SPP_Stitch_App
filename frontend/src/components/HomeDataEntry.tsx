@@ -59,7 +59,7 @@ export function HomeDataEntry({ testID = 'home-data-entry', defaultOpen = true }
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    router.push('/setup/property-os?phase=property' as any);
+    router.push('/setup/property-os' as any);
   };
 
   const goImport = async () => {
@@ -97,8 +97,8 @@ export function HomeDataEntry({ testID = 'home-data-entry', defaultOpen = true }
           />
           <Text style={[styles.hint, ar && styles.rtl]}>
             {ar
-              ? 'اختر الطريقة — البيانات تُحفظ تحت اسم العقار وتظهر في مركز البيانات.'
-              : 'Choose a method — data saves under this name and appears in Database center.'}
+              ? 'يدوي = صفحة جداول واحدة (عقار + وحدات + مستأجرون). استيراد = ملف يظهر كجدول في مركز البيانات.'
+              : 'Manual = one table page (property + units + tenants). Import = file becomes an editable database table.'}
           </Text>
           <View style={[styles.actions, ar && styles.rowRtl]}>
             <Pressable

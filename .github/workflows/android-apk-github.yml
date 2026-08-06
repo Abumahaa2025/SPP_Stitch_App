@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Git branch'
+        description: 'Git branch (Expo uses master)'
         required: false
-        default: 'main'
+        default: 'master'
       note:
         description: 'Build note (optional)'
         required: false

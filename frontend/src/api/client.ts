@@ -58,6 +58,32 @@ export const api = {
       body: JSON.stringify({ email, password }),
     }),
   betaInfo: () => req<{ beta: boolean; gas_disabled: boolean }>('/beta/info'),
+
+  /**
+   * Koil actually acts on the property (not a read-only summary).
+   * Omit decisionId to let Koil autonomously pick the highest-value,
+   * unblocked decision itself. Pass dryRun to preview without logging.
+   */
+  koilAct: (opts?: { analysisId?: string; decisionId?: string; note?: string; dryRun?: boolean }) =>
+    req<KoilActResponse>('/koil/act', {
+      method: 'POST',
+      body: JSON.stringify({
+        analysis_id: opts?.analysisId ?? null,
+        decision_id: opts?.decisionId ?? null,
+        note: opts?.note ?? null,
+        dry_run: !!opts?.dryRun,
+      }),
+    }),
+  koilExecutions: (analysisId?: string, limit = 50) =>
+    req<{ executions: KoilExecutionT[]; count: number }>(
+      `/koil/executions${analysisId ? `?analysis_id=${encodeURIComponent(analysisId)}&limit=${limit}` : `?limit=${limit}`}`,
+    ),
+  integrationsStatus: () => req<IntegrationsStatusResponse>('/integrations/status'),
+  whatsappSend: (phone: string, message: string, dryRun = false) =>
+    req<WhatsAppSendResponse>('/integrations/whatsapp/send', {
+      method: 'POST',
+      body: JSON.stringify({ phone, message, dry_run: dryRun }),
+
   ejarStatus: () =>
     req<{
       service: string;
@@ -83,8 +109,64 @@ export const api = {
     req<{ ok: boolean; status: string; approval: unknown }>('/utilities/approve-payment', {
       method: 'POST',
       body: JSON.stringify({ event_id }),
+
     }),
 };
+
+export type IntegrationServiceStatus = {
+  id: string;
+  configured: boolean;
+  status: 'active' | 'configured' | 'not_connected' | string;
+  label: string;
+  detail?: string;
+  reachable?: boolean;
+  sensor_count?: number;
+  fallback?: string;
+};
+
+export type IntegrationsStatusResponse = {
+  ok: boolean;
+  services: {
+    sheets: IntegrationServiceStatus;
+    whatsapp: IntegrationServiceStatus;
+    home_assistant: IntegrationServiceStatus;
+  };
+  list: IntegrationServiceStatus[];
+};
+
+export type WhatsAppSendResponse = {
+  ok: boolean;
+  channel: 'green_api' | 'wa_me' | 'none';
+  delivery_status: string;
+  deep_link?: string | null;
+  provider_id?: string;
+  error?: string;
+};
+
+export type KoilExecutionT = {
+  analysis_id: string;
+  decision_id: string;
+  decision_kind: string;
+  tenant: string;
+  unit: string;
+  channel: 'whatsapp' | 'note' | 'task';
+  message: string;
+  deep_link: string | null;
+  phone: string | null;
+  summary: string;
+  executed_by: string;
+  executed_at: string;
+  follow_up_at: string | null;
+  note: string | null;
+  status: string;
+  delivery_status: string;
+  agent_source?: 'llm' | 'deterministic' | 'explicit';
+  agent_reason?: string | null;
+};
+
+export type KoilActResponse =
+  | { ok: true; status: 'executed' | 'drafted'; execution: KoilExecutionT }
+  | { ok: true; status: 'no_open_decisions'; message: string };
 
 // Types
 export type DecisionT = {

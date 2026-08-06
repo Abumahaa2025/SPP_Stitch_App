@@ -28,6 +28,10 @@
       "channel": "production",
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_BETA_MODE": "false",
+        "EXPO_PUBLIC_BACKEND_URL": "https://spp-beta-api.onrender.com"
       }
     }
   },

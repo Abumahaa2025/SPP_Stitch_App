@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -7,8 +7,16 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { GlassCard } from '@/src/components/GlassCard';
 import { useConnections, type ServiceKey } from '@/src/hooks/useConnections';
+import { api, type IntegrationsStatusResponse } from '@/src/api/client';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
+
+
+const SERVICES: { key: ServiceKey; route: string; titleKey: string; benefitKey: string; icon: keyof typeof Feather.glyphMap; backendKey?: keyof IntegrationsStatusResponse['services'] }[] = [
+  { key: 'whatsapp', route: '/setup/whatsapp', titleKey: 'op.services.whatsapp.title', benefitKey: 'op.services.whatsapp.benefit', icon: 'message-circle' },
+  { key: 'greenApi', route: '/setup/greenApi', titleKey: 'op.services.greenApi.title', benefitKey: 'op.services.greenApi.benefit', icon: 'radio', backendKey: 'whatsapp' },
+  { key: 'sheets', route: '/setup/sheets', titleKey: 'op.services.sheets.title', benefitKey: 'op.services.sheets.benefit', icon: 'database', backendKey: 'sheets' },
+  { key: 'homeAssistant', route: '/setup/homeAssistant', titleKey: 'op.services.ha.title', benefitKey: 'op.services.ha.benefit', icon: 'home', backendKey: 'home_assistant' },
 
 const SERVICES: { key: ServiceKey; route: string; titleKey: string; benefitKey: string; icon: keyof typeof Feather.glyphMap }[] = [
   { key: 'ejar', route: '/setup/ejar', titleKey: 'op.services.ejar.title', benefitKey: 'op.services.ejar.benefit', icon: 'file-text' },
@@ -23,6 +31,7 @@ const SERVICES: { key: ServiceKey; route: string; titleKey: string; benefitKey: 
   { key: 'electricity', route: '/setup/electricity', titleKey: 'op.services.electricity.title', benefitKey: 'op.services.electricity.benefit', icon: 'zap' },
   { key: 'water', route: '/setup/water', titleKey: 'op.services.water.title', benefitKey: 'op.services.water.benefit', icon: 'droplet' },
   { key: 'homeAssistant', route: '/setup/homeAssistant', titleKey: 'op.services.ha.title', benefitKey: 'op.services.ha.benefit', icon: 'home' },
+
   { key: 'email', route: '/setup/email', titleKey: 'op.services.email.title', benefitKey: 'op.services.email.benefit', icon: 'mail' },
 ];
 
@@ -30,12 +39,20 @@ export function ServiceActivationPanel({ testID = 'service-activation' }: { test
   const { t, isRTL } = useI18n();
   const router = useRouter();
   const { connections } = useConnections();
+  const [backend, setBackend] = useState<IntegrationsStatusResponse | null>(null);
+
+  useEffect(() => {
+    api.integrationsStatus().then(setBackend).catch(() => setBackend(null));
+  }, []);
 
   return (
     <View testID={testID}>
       <Text style={[styles.lead, isRTL && styles.rtl]}>{t('op.services.lead')}</Text>
       {SERVICES.map((svc, i) => {
-        const connected = connections[svc.key].connected;
+        const localOn = connections[svc.key].connected;
+        const remote = svc.backendKey ? backend?.services?.[svc.backendKey] : undefined;
+        const remoteOn = remote?.status === 'active' || remote?.status === 'configured';
+        const connected = localOn || !!remoteOn;
         return (
           <Animated.View key={svc.key} entering={FadeInDown.duration(480).delay(40 + i * 50)}>
             <GlassCard padding={16} radiusToken="md" style={styles.card}>

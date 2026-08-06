@@ -208,6 +208,8 @@ export type LifecycleActiveRow = {
   unit?: string;
   phone?: string;
   rent?: number;
+  /** Contract number from lifecycle active (when present on statement). */
+  contract?: string;
 };
 
 export type PropertyKnowledge = {

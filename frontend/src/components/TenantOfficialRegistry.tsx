@@ -108,10 +108,32 @@ function fromLedger(os: PropertyOSState): CanonicalTenant[] {
 }
 
 function buildCatalog(reg: CanonicalTenantState, os: PropertyOSState): CanonicalTenant[] {
+  // Prefer a merge: OS is source of truth for current occupancy; registry keeps official edits.
+  const fromOs = fromOsTenants(os);
+  const byOsId = new Map(reg.tenants.filter((t) => t.status === 'active').map((t) => [t.osTenantId || t.id, t]));
+  if (fromOs.length) {
+    return fromOs.map((osRow) => {
+      const regRow = byOsId.get(osRow.osTenantId || osRow.id);
+      if (!regRow) return osRow;
+      return {
+        ...osRow,
+        id: regRow.id,
+        name: regRow.source === 'manual_official' ? regRow.name : (osRow.name || regRow.name),
+        phone: regRow.source === 'manual_official' ? regRow.phone : (osRow.phone || regRow.phone),
+        rentAmount: regRow.source === 'manual_official' ? regRow.rentAmount : (osRow.rentAmount || regRow.rentAmount),
+        contractNumber: regRow.source === 'manual_official'
+          ? regRow.contractNumber
+          : (osRow.contractNumber || regRow.contractNumber),
+        email: regRow.email || osRow.email,
+        nationalId: regRow.nationalId || osRow.nationalId,
+        notes: regRow.notes || '',
+        source: regRow.source,
+        official: true,
+      };
+    });
+  }
   const fromReg = reg.tenants.filter((t) => t.status === 'active');
   if (fromReg.length) return fromReg;
-  const fromOs = fromOsTenants(os);
-  if (fromOs.length) return fromOs;
   return fromLedger(os);
 }
 
@@ -243,16 +265,31 @@ export function TenantOfficialRegistry({
   const vacated = useMemo(() => reg.tenants.filter((t) => t.status !== 'active').slice(0, 40), [reg.tenants]);
 
   const openEdit = (t: CanonicalTenant) => {
+    // Always reset drafts from THIS tenant — prevents previous-tenant field leak.
+    setShowNew(false);
     setEdit(t);
-    setDraftName(t.name);
-    setDraftPhone(t.phone);
-    setDraftRent(String(t.rentAmount || ''));
+    setDraftName(t.name || '');
+    setDraftPhone(t.phone || '');
+    setDraftRent(String(t.rentAmount ?? ''));
     setDraftContract(t.contractNumber || '');
     setDraftEmail(t.email || '');
     setDraftNationalId(t.nationalId || '');
     setDraftNote(t.notes || '');
     setDraftExtra('');
     setMoreFields(Boolean(t.email || t.nationalId || t.notes));
+  };
+
+  const closeEdit = () => {
+    setEdit(null);
+    setMoreFields(false);
+    setDraftName('');
+    setDraftPhone('');
+    setDraftRent('');
+    setDraftContract('');
+    setDraftNote('');
+    setDraftEmail('');
+    setDraftNationalId('');
+    setDraftExtra('');
   };
 
   const openNote = (t: CanonicalTenant) => {
@@ -275,8 +312,7 @@ export function TenantOfficialRegistry({
       notes,
     });
     const name = draftName.trim() || edit.name;
-    setEdit(null);
-    setMoreFields(false);
+    closeEdit();
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     showToast(ar ? `تم التعديل بنجاح — ${name}` : `Updated successfully — ${name}`);
     void notifyTenantSaved(name, 'edit');
@@ -425,6 +461,7 @@ export function TenantOfficialRegistry({
 
   const startAdd = () => {
     Haptics.selectionAsync();
+    closeEdit();
     setShowNew(true);
     setDraftName('');
     setDraftPhone('');
@@ -459,6 +496,14 @@ export function TenantOfficialRegistry({
             <Pressable style={styles.exportBtn} onPress={exportExcel} testID="database-export-excel">
               <Feather name="download" size={14} color={colors.bg} />
               <Text style={styles.exportText}>{ar ? 'حفظ إكسل' : 'Save Excel'}</Text>
+            </Pressable>
+            <Pressable
+              style={styles.workbenchBtn}
+              onPress={() => router.push('/setup/property-os' as any)}
+              testID="database-open-workbench"
+            >
+              <Feather name="edit-3" size={14} color={colors.gold} />
+              <Text style={styles.workbenchText}>{ar ? 'تعديل الجداول' : 'Edit tables'}</Text>
             </Pressable>
             <Pressable onPress={() => router.push('/operational/monthly-summary' as any)}>
               <Text style={styles.summaryLinkText}>{ar ? 'الملخص الشهري ←' : 'Monthly summary →'}</Text>
@@ -515,7 +560,7 @@ export function TenantOfficialRegistry({
             ? 'أدخل بيانات العقار يدوياً أو استورد ملفاً لبناء مركز البيانات والسجل الرسمي.'
             : 'Enter property data manually or import a file to build the database and official registry.'}
           actionLabel={ar ? 'إدخال يدوي' : 'Manual entry'}
-          onAction={() => router.push('/setup/property-os?phase=property' as any)}
+          onAction={() => router.push('/setup/property-os' as any)}
         />
       ) : active.length === 0 && query.trim() ? (
         <AliveEmpty
@@ -694,11 +739,13 @@ export function TenantOfficialRegistry({
         </View>
       </Modal>
 
-      <Modal visible={!!edit} transparent animationType="fade" onRequestClose={() => setEdit(null)}>
+      <Modal visible={!!edit} transparent animationType="fade" onRequestClose={closeEdit}>
         <View style={styles.modalWrap}>
           <ScrollView contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}>
-          <GlassCard padding={20} radiusToken="lg" edge="gold">
-            <Text style={[styles.name, isRTL && styles.rtl]}>{ar ? 'تعديل رسمي' : 'Official edit'}</Text>
+          <GlassCard key={edit?.id || 'edit-closed'} padding={20} radiusToken="lg" edge="gold">
+            <Text style={[styles.name, isRTL && styles.rtl]}>
+              {ar ? `تعديل رسمي — ${edit?.name || ''}` : `Official edit — ${edit?.name || ''}`}
+            </Text>
             <Field ar={ar} label={ar ? 'الاسم' : 'Name'} value={draftName} onChange={setDraftName} />
             <Field ar={ar} label={ar ? 'الجوال' : 'Phone'} value={draftPhone} onChange={setDraftPhone} />
             <Field ar={ar} label={ar ? 'الإيجار' : 'Rent'} value={draftRent} onChange={setDraftRent} keyboardType="numeric" />
@@ -730,7 +777,7 @@ export function TenantOfficialRegistry({
               <Pressable style={styles.primary} onPress={saveEdit}>
                 <Text style={styles.primaryText}>{ar ? 'اعتماد' : 'Save official'}</Text>
               </Pressable>
-              <Pressable style={styles.secondary} onPress={() => { setEdit(null); setMoreFields(false); }}>
+              <Pressable style={styles.secondary} onPress={closeEdit}>
                 <Text style={styles.secondaryText}>{ar ? 'إلغاء' : 'Cancel'}</Text>
               </Pressable>
             </View>
@@ -758,10 +805,10 @@ export function TenantOfficialRegistry({
         </View>
       </Modal>
 
-      <Modal visible={showNew} transparent animationType="fade" onRequestClose={() => setShowNew(false)}>
+      <Modal visible={showNew} transparent animationType="fade" onRequestClose={() => { setShowNew(false); closeEdit(); }}>
         <View style={styles.modalWrap}>
           <ScrollView contentContainerStyle={{ justifyContent: 'center', flexGrow: 1 }}>
-          <GlassCard padding={20} radiusToken="lg" edge="emerald">
+          <GlassCard key="new-tenant-form" padding={20} radiusToken="lg" edge="emerald">
             <Text style={[styles.name, isRTL && styles.rtl]}>{ar ? 'مستأجر جديد رسمي' : 'New official tenant'}</Text>
             <Field ar={ar} label={ar ? 'الاسم' : 'Name'} value={draftName} onChange={setDraftName} />
             <Field ar={ar} label={ar ? 'الجوال' : 'Phone'} value={draftPhone} onChange={setDraftPhone} />
@@ -913,6 +960,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.emerald, paddingHorizontal: 12, paddingVertical: 10, borderRadius: radius.md,
   },
   exportText: { color: colors.bg, fontWeight: typography.weight.semibold, fontSize: 12 },
+  workbenchBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.goldEdge,
+    backgroundColor: colors.goldSoft, paddingHorizontal: 12, paddingVertical: 10, borderRadius: radius.md,
+  },
+  workbenchText: { color: colors.gold, fontWeight: typography.weight.semibold, fontSize: 12 },
   hitRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border,

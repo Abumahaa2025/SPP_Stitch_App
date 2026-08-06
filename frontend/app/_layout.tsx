@@ -14,9 +14,14 @@ import { SplashIntro } from "@/src/components/SplashIntro";
 import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
 import { WorkspaceChrome } from "@/src/components/WorkspaceChrome";
 import { isPathAllowedForPersona, personaHomeRoute } from "@/src/utils/role-scope";
+
+import { resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
+import { applySilentOtaUpdate } from "@/src/utils/ota-updates";
+
 import { ensurePortalBridge, resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
 import { migrateStoredPortalLinks } from "@/src/utils/portal-link-migration";
 import { applyExpoOtaIfAvailable } from "@/src/utils/expo-ota";
+
 
 LogBox.ignoreAllLogs(true);
 
@@ -105,6 +110,12 @@ export default function RootLayout() {
   useEffect(() => {
     if ((loaded || error) && langReady) SplashScreen.hideAsync();
   }, [loaded, error, langReady]);
+
+  // Silent OTA (EAS Update) — JS changes reach the phone without new APK links.
+  useEffect(() => {
+    if (!langReady || !(loaded || error)) return;
+    void applySilentOtaUpdate();
+  }, [langReady, loaded, error]);
 
   // Cold-start routing: beta login → onboarding → home
   //
