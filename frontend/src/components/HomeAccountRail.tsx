@@ -20,7 +20,11 @@ import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { useWorkspacePadding } from '@/src/hooks/use-workspace-padding';
 import { storage } from '@/src/utils/storage';
-import { buildTenantPortalLink, PORTAL_BRIDGE_URL } from '@/src/utils/portal-links';
+import {
+  buildGuardPortalLink,
+  buildTenantPortalLink,
+  normalizePortalBridgeText,
+} from '@/src/utils/portal-links';
 import { formatDate } from '@/src/utils/locale';
 import type { AgentPermissions, PropertyAgentRecord } from '@/src/types/portal-access';
 import { DEFAULT_AGENT_PERMISSIONS } from '@/src/types/portal-access';
@@ -47,21 +51,14 @@ function uid(prefix: string) {
 }
 
 function buildGuardShareUrl(id: string, token: string, name: string) {
-  const sp = new URLSearchParams({
-    role: 'guard',
-    id,
-    t: token,
-    n: name,
-    v: '36',
-  });
-  return `${PORTAL_BRIDGE_URL}?${sp.toString()}`;
+  return buildGuardPortalLink(id, token, { name }).url;
 }
 
 async function loadGuards(): Promise<GuardDraft[]> {
   const raw = await storage.getItem<string>(GUARDS_KEY, '');
   if (!raw) return [];
   try {
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const parsed = typeof raw === 'string' ? JSON.parse(normalizePortalBridgeText(raw)) : raw;
     return Array.isArray(parsed) ? parsed as GuardDraft[] : [];
   } catch {
     return [];

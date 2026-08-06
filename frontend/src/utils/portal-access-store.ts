@@ -15,7 +15,12 @@ import {
   DEFAULT_AGENT_PERMISSIONS,
   normalizeAgentPermissions,
 } from '@/src/types/portal-access';
-import { buildAgentPortalLink, buildGuardPortalLink, inAppAgentPortal } from '@/src/utils/portal-links';
+import {
+  buildAgentPortalLink,
+  buildGuardPortalLink,
+  inAppAgentPortal,
+  normalizePortalBridgeUrl,
+} from '@/src/utils/portal-links';
 
 const KEY = 'spp.portalAccess';
 
@@ -59,15 +64,23 @@ function normalizeReply(r: Record<string, unknown>): {
 
 function normalizeState(raw: Partial<PortalAccessState>): { state: PortalAccessState; dirty: boolean } {
   let dirty = false;
-  const agents = (raw.agents || []).map((a) => ({
-    ...a,
-    permissions: normalizeAgentPermissions(a.permissions),
-  }));
+  const agents = (raw.agents || []).map((a) => {
+    const portalUrl = normalizePortalBridgeUrl(a.portalUrl);
+    const qrData = normalizePortalBridgeUrl(a.qrData);
+    if (portalUrl !== a.portalUrl || qrData !== a.qrData) dirty = true;
+    return {
+      ...a,
+      portalUrl,
+      qrData,
+      permissions: normalizeAgentPermissions(a.permissions),
+    };
+  });
   const guards = (raw.guards || []).map((g) => {
     if (!g.portalToken) dirty = true;
     const portalToken = g.portalToken || uid('gtok').slice(-12);
-    const portalUrl = g.portalUrl || buildGuardPortalLink(g.id, portalToken, { name: g.name }).url;
-    if (!g.portalUrl) dirty = true;
+    const stored = normalizePortalBridgeUrl(g.portalUrl);
+    const portalUrl = stored || buildGuardPortalLink(g.id, portalToken, { name: g.name }).url;
+    if (portalUrl !== g.portalUrl) dirty = true;
     return {
       ...g,
       portalToken,
