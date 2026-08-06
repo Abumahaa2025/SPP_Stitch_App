@@ -211,3 +211,7 @@ The final objective is to evolve SPP into an autonomous Property Operations Plat
 *Version:* 1.0
 
 *Project:* Smart Property Platform (SPP)
+
+*Companion pillars:* `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
+
+*Governance / index:* `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
