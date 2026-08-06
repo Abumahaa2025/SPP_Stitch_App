@@ -2619,9 +2619,10 @@ async def portal_open_bridge(request: Request):
     html_path = ROOT_DIR.parent / "docs" / "portal-open.html"
     if html_path.exists():
         return HTMLResponse(html_path.read_text(encoding="utf-8"))
-    # Fallback redirect to GitHub CDN copy with same query string
+    # Fallback: GitHub Pages copy — raw CDNs serve .html as text/plain, which
+    # shows the page source instead of the portal card.
     q = request.url.query
-    target = "https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html"
+    target = "https://abumahaa2025.github.io/SPP_Stitch_App/portal-open.html"
     if q:
         target = f"{target}?{q}"
     return RedirectResponse(target, status_code=302)
