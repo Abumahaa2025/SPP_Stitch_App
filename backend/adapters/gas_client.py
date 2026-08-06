@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from typing import Any, Dict, Optional
 
 import requests
+
+from secure_env import get_env, get_secret, load_secure_env
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,9 @@ class GasClient:
         api_key: Optional[str] = None,
         timeout: int = _LITE_TIMEOUT_SEC,
     ) -> None:
-        self.base_url = (base_url or os.environ.get("GOOGLE_APPS_SCRIPT_URL", "")).rstrip("/")
-        self.api_key = api_key or os.environ.get("SPP_API_KEY", "")
+        load_secure_env()
+        self.base_url = (base_url or get_env("GOOGLE_APPS_SCRIPT_URL")).rstrip("/")
+        self.api_key = api_key or get_secret("SPP_API_KEY")
         self.timeout = timeout
 
     @property
