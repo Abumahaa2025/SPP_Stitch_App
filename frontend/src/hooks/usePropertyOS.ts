@@ -18,7 +18,12 @@ import {
   onTenantAdded,
 } from '@/src/utils/operational-flow-engine';
 import { notifyPropertySaved } from '@/src/utils/local-notifications';
-import { buildTenantPortalLink, buildTechPortalLink, type PortalShareMeta } from '@/src/utils/portal-links';
+import {
+  buildTenantPortalLink,
+  buildTechPortalLink,
+  normalizePortalBridgeText,
+  type PortalShareMeta,
+} from '@/src/utils/portal-links';
 import { getLang } from '@/src/i18n';
 
 const KEY = 'spp.propertyOS';
@@ -101,7 +106,7 @@ export function usePropertyOS(notifEnabledCount = 0) {
       const stored = await storage.getItem<string>(KEY, '');
       if (stored) {
         try {
-          setState({ ...DEFAULT, ...JSON.parse(stored) });
+          setState({ ...DEFAULT, ...JSON.parse(normalizePortalBridgeText(stored)) });
         } catch { /* ignore */ }
       }
       setReady(true);
@@ -118,7 +123,7 @@ export function usePropertyOS(notifEnabledCount = 0) {
     const stored = await storage.getItem<string>(KEY, '');
     if (!stored) return;
     try {
-      setState({ ...DEFAULT, ...JSON.parse(stored) });
+      setState({ ...DEFAULT, ...JSON.parse(normalizePortalBridgeText(stored)) });
     } catch { /* ignore */ }
   }, []);
 
@@ -150,7 +155,7 @@ export function usePropertyOS(notifEnabledCount = 0) {
       property,
       startedAt: state.startedAt ?? new Date().toISOString(),
     });
-    void notifyPropertySaved(property.name, getLang() === 'ar');
+    void notifyPropertySaved(property.name);
     return property;
   }, [persist, state]);
 

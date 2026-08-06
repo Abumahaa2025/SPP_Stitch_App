@@ -103,8 +103,8 @@ export function UploadResultsWizard({
   onApplied,
   onReset,
 }: Props) {
-  const { isRTL } = useI18n();
-  const ar = lang === 'ar' || isRTL;
+  const { isRTL, lang: appLang } = useI18n();
+  const ar = appLang === 'ar';
   const router = useRouter();
   const summary = useMemo(() => summaryOf(analysis), [analysis]);
   const [stage, setStage] = useState<WizardStage>(1);
@@ -629,7 +629,7 @@ export function UploadResultsWizard({
                     label={ar ? 'فتح الوحدات' : 'Open units'}
                     onPress={() => router.push('/operational/property?tab=units' as never)}
                   />
-                  <NavBtn label={ar ? 'فتح المستأجرين' : 'Open tenants'} onPress={() => router.push('/tenants' as never)} />
+                  <NavBtn label={ar ? 'فتح المستأجرين' : 'Open tenants'} onPress={() => router.push('/operational/base?tab=tenants' as never)} />
                   <NavBtn label={ar ? 'فتح العقود' : 'Open contracts'} onPress={() => router.push('/contracts' as never)} />
                   <NavBtn
                     label={ar ? 'فتح المدفوعات' : 'Open payments'}

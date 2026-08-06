@@ -1,17 +1,105 @@
 /**
  * Portal deep links — HTTPS bridge (WhatsApp-clickable) + in-app routes.
  * Custom spp:// alone is often not tappable in WhatsApp/SMS.
+ *
+ * The bridge host must answer with a real `text/html` content type. Raw GitHub
+ * mirrors (jsDelivr, statically, raw.githubusercontent) serve `.html` as
+ * `text/plain` + `nosniff`, so the recipient sees the page source instead of the
+ * portal card — that is the "links open code only" failure.
  */
 import * as ExpoLinking from 'expo-linking';
 
-/** GitHub CDN HTML bridge — works right after push (no Render deploy wait). */
-export const PORTAL_BRIDGE_URL =
-  'https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html';
+/** GitHub Pages copy of docs/portal-open.html — first-party, served as text/html. */
+export const PORTAL_BRIDGE_PAGES_URL =
+  'https://abumahaa2025.github.io/SPP_Stitch_App/portal-open.html';
+
+/**
+ * githack mirror of the same file — served as text/html without any deploy, but
+ * browsers navigating to it get a one-tap "One more step" notice first, so it is
+ * only the last-resort host.
+ */
+export const PORTAL_BRIDGE_CDN_URL =
+  'https://raw.githack.com/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html';
 
 /** Same bridge on API host (when backend route is deployed). */
 export const PORTAL_BRIDGE_API_URL = 'https://spp-beta-api.onrender.com/portal/open';
 
-export type PortalRole = 'tenant' | 'tech' | 'agent';
+/** Default bridge — the mirror that is verified to render HTML today. */
+export const PORTAL_BRIDGE_URL = PORTAL_BRIDGE_CDN_URL;
+
+/** Hosts that return the bridge file as plain text (link shows source code). */
+export const LEGACY_PORTAL_BRIDGE_URLS = [
+  'https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html',
+  'https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
+  'https://cdn.statically.io/gh/Abumahaa2025/SPP_Stitch_App@main/docs/portal-open.html',
+  'https://cdn.statically.io/gh/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
+  'https://raw.githubusercontent.com/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
+];
+
+/** Preference order for the shared HTTPS bridge — first-party hosts first. */
+const BRIDGE_CANDIDATES = [
+  PORTAL_BRIDGE_PAGES_URL,
+  PORTAL_BRIDGE_API_URL,
+  PORTAL_BRIDGE_CDN_URL,
+];
+
+/** Marker proving a host returned the bridge page itself, not an error page. */
+const BRIDGE_MARKER = 'portalManifest';
+
+let activeBridge = PORTAL_BRIDGE_URL;
+let bridgeProbe: Promise<string> | null = null;
+
+/** Bridge base used by every link built from now on. */
+export function portalBridgeUrl() {
+  return activeBridge;
+}
+
+async function servesBridge(url: string) {
+  try {
+    const res = await fetch(`${url}?probe=1`);
+    if (!res.ok) return false;
+    if (!(res.headers.get('content-type') || '').toLowerCase().includes('text/html')) return false;
+    return (await res.text()).includes(BRIDGE_MARKER);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Pick the first bridge host that really answers HTML. Runs once per session;
+ * keeps the verified default when every probe fails (offline / blocked).
+ */
+export function ensurePortalBridge(): Promise<string> {
+  if (!bridgeProbe) {
+    bridgeProbe = (async () => {
+      for (const candidate of BRIDGE_CANDIDATES) {
+        if (await servesBridge(candidate)) {
+          activeBridge = candidate;
+          return activeBridge;
+        }
+      }
+      return activeBridge;
+    })();
+  }
+  return bridgeProbe;
+}
+
+/** Rewrite plain-text bridge URLs (stored links, WhatsApp drafts) to a working host. */
+export function normalizePortalBridgeText(text?: string | null): string {
+  let out = String(text ?? '');
+  if (!out) return out;
+  LEGACY_PORTAL_BRIDGE_URLS.forEach((legacy) => {
+    if (out.includes(legacy)) out = out.split(legacy).join(portalBridgeUrl());
+  });
+  return out;
+}
+
+/** Same rewrite for a single stored portal URL. */
+export function normalizePortalBridgeUrl(url?: string | null): string {
+  return normalizePortalBridgeText(url);
+}
+
+export type PortalRole = 'tenant' | 'tech' | 'agent' | 'guard';
 
 export type PortalShareMeta = {
   name?: string;
@@ -52,6 +140,11 @@ export function inAppAgentPortal(agentId: string, token: string, meta?: PortalSh
   return `/portal/agent?${q}`;
 }
 
+export function inAppGuardPortal(guardId: string, token: string, meta?: PortalShareMeta) {
+  const q = qs({ id: guardId, t: token, n: meta?.name });
+  return `/portal/guard?${q}`;
+}
+
 function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: PortalShareMeta) {
   const q = qs({
     role,
@@ -60,10 +153,9 @@ function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: Po
     n: meta?.name,
     u: meta?.unit,
     prop: meta?.property,
-    v: '35',
+    v: '36',
   });
-  // Prefer jsDelivr so links work immediately after git push.
-  return `${PORTAL_BRIDGE_URL}?${q}`;
+  return `${portalBridgeUrl()}?${q}`;
 }
 
 export function buildTenantPortalLink(tenantId: string, token: string, meta?: PortalShareMeta) {
@@ -107,11 +199,29 @@ export function buildAgentPortalLink(agentId: string, token: string, meta?: Port
   return { url, qrData: url, deep, token, inApp };
 }
 
+export function buildGuardPortalLink(guardId: string, token: string, meta?: PortalShareMeta) {
+  const inApp = inAppGuardPortal(guardId, token, meta);
+  const url = buildHttpsBridge('guard', guardId, token, meta);
+  const deep = ExpoLinking.createURL('/portal/guard', {
+    queryParams: {
+      id: guardId,
+      t: token,
+      ...(meta?.name ? { n: meta.name } : {}),
+    },
+  });
+  return { url, qrData: url, deep, token, inApp };
+}
+
 /** Map any shared / deep URL to an in-app portal route. */
 export function resolvePortalInAppFromUrl(url: string): string | null {
   const raw = String(url || '').trim();
   if (!raw) return null;
-  if (raw.startsWith('/portal/tenant') || raw.startsWith('/portal/tech') || raw.startsWith('/portal/agent')) {
+  if (
+    raw.startsWith('/portal/tenant')
+    || raw.startsWith('/portal/tech')
+    || raw.startsWith('/portal/agent')
+    || raw.startsWith('/portal/guard')
+  ) {
     return raw;
   }
 
@@ -130,6 +240,7 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
     if (path.includes('portal/open') || path.endsWith('portal-open.html') || path.includes('portal-open')) {
       if (role === 'tech' && t) return inAppTechPortal(t, id || undefined, meta);
       if (role === 'agent' && id && t) return inAppAgentPortal(id, t, meta);
+      if (role === 'guard' && id && t) return inAppGuardPortal(id, t, meta);
       if (t && id) return inAppTenantPortal(id, t, meta);
     }
 
@@ -146,6 +257,11 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
       const agentId = id || pathId || '';
       if (agentId && t) return inAppAgentPortal(agentId, t, meta);
     }
+    if (path.includes('portal/guard') || /\/guard(\/|\?|$)/.test(raw)) {
+      const pathId = raw.match(/\/guard\/([^/?#]+)/)?.[1];
+      const guardId = id || pathId || '';
+      if (guardId && t) return inAppGuardPortal(guardId, t, meta);
+    }
   } catch { /* ignore */ }
 
   // Query-only fallback for bridge URLs
@@ -159,9 +275,12 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
       unit: u.searchParams.get('u') || u.searchParams.get('unit') || undefined,
       property: u.searchParams.get('prop') || undefined,
     };
-    if (t && (u.pathname.includes('portal') || u.hostname.includes('jsdelivr') || u.hostname.includes('onrender'))) {
+    const bridgeHost = ['githack', 'github.io', 'jsdelivr', 'statically', 'raw.githubusercontent', 'onrender']
+      .some((h) => u.hostname.includes(h));
+    if (t && (u.pathname.includes('portal') || bridgeHost)) {
       if (role === 'tech') return inAppTechPortal(t, id || undefined, meta);
       if (role === 'agent' && id) return inAppAgentPortal(id, t, meta);
+      if (role === 'guard' && id) return inAppGuardPortal(id, t, meta);
       if (id) return inAppTenantPortal(id, t, meta);
     }
   } catch { /* ignore */ }

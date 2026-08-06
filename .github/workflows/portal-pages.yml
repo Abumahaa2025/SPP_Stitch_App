@@ -1,0 +1,57 @@
+# Publish docs/ to GitHub Pages so the portal bridge is served as real text/html.
+# Raw GitHub mirrors answer .html with `content-type: text/plain`, which makes a
+# shared portal link open as page source on the recipient's phone.
+name: Portal Pages (docs)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/portal-pages.yml'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: portal-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Verify bridge content type
+        run: |
+          BRIDGE="${{ steps.deploy.outputs.page_url }}portal-open.html"
+          echo "Bridge: $BRIDGE"
+          CT=$(curl -sSL -o /dev/null -w '%{content_type}' "$BRIDGE")
+          echo "Content-Type: $CT"
+          case "$CT" in
+            text/html*) echo "OK — bridge renders as HTML." ;;
+            *) echo "::error::Bridge served as '$CT' — portal links would show source code."; exit 1 ;;
+          esac
+
+      - name: Summary
+        run: |
+          echo "## Portal bridge published" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Bridge: ${{ steps.deploy.outputs.page_url }}portal-open.html" >> "$GITHUB_STEP_SUMMARY"

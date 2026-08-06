@@ -1,9 +1,9 @@
 ﻿{
   "expo": {
     "name": "SPP Stitch",
-    "slug": "spp-stitch-transfer",
+    "slug": "spp-beta",
     "owner": "abumahaa2025",
-    "version": "1.0.38",
+    "version": "1.0.40",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "spp",
@@ -15,7 +15,7 @@
     },
     "android": {
       "package": "ai.spp.stitch",
-      "versionCode": 38,
+      "versionCode": 40,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
@@ -34,6 +34,16 @@
           "autoVerify": false,
           "category": ["BROWSABLE", "DEFAULT"],
           "data": [
+            {
+              "scheme": "https",
+              "host": "abumahaa2025.github.io",
+              "pathPrefix": "/SPP_Stitch_App"
+            },
+            {
+              "scheme": "https",
+              "host": "raw.githack.com",
+              "pathPrefix": "/Abumahaa2025/SPP_Stitch_App"
+            },
             {
               "scheme": "https",
               "host": "cdn.jsdelivr.net",
@@ -79,8 +89,11 @@
     },
     "updates": {
       "url": "https://u.expo.dev/405761ee-fac3-4b25-9784-23f7441535e3",
-      "checkAutomatically": "NEVER",
-      "fallbackToCacheTimeout": 0
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0,
+      "requestHeaders": {
+        "expo-channel-name": "beta"
+      }
     },
     "runtimeVersion": {
       "policy": "appVersion"

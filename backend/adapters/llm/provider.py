@@ -407,16 +407,19 @@ def get_provider() -> Optional[LLMProvider]:
     Returns None when AI_ENABLED=false or when the provider is not configured.
     Never hardcodes any provider key or model.
     """
-    enabled = os.getenv("AI_ENABLED", "false").lower() in ("1", "true", "yes")
+    from secure_env import get_env, get_secret, load_secure_env
+
+    load_secure_env()
+    enabled = get_env("AI_ENABLED", "false").lower() in ("1", "true", "yes")
     if not enabled:
         return None
 
-    provider_name = os.getenv("AI_PROVIDER", "").lower()
-    api_key = os.getenv("AI_API_KEY", "")
-    model = os.getenv("AI_MODEL", "")
-    timeout = int(os.getenv("AI_TIMEOUT_SECONDS", "60"))
-    retries = int(os.getenv("AI_MAX_RETRIES", "2"))
-    base_url = os.getenv("AI_BASE_URL", "https://api.openai.com/v1")
+    provider_name = get_env("AI_PROVIDER").lower()
+    api_key = get_secret("AI_API_KEY")
+    model = get_env("AI_MODEL")
+    timeout = int(get_env("AI_TIMEOUT_SECONDS", "60") or "60")
+    retries = int(get_env("AI_MAX_RETRIES", "2") or "2")
+    base_url = get_env("AI_BASE_URL", "https://api.openai.com/v1") or "https://api.openai.com/v1"
 
     if not api_key or not model:
         logger.warning("AI_ENABLED=true but AI_API_KEY or AI_MODEL not set")
