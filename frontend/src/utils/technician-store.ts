@@ -1,6 +1,10 @@
 import { storage } from '@/src/utils/storage';
 import type { TechnicianRecord, TechnicianSpecialty } from '@/src/types/technician';
-import { buildTechPortalLink, inAppTechPortal } from '@/src/utils/portal-links';
+import {
+  buildTechPortalLink,
+  inAppTechPortal,
+  normalizePortalBridgeText,
+} from '@/src/utils/portal-links';
 
 const KEY = 'spp.technicians';
 
@@ -23,7 +27,7 @@ function notify() {
 export async function loadTechnicians(): Promise<TechnicianRecord[]> {
   const raw = await storage.getItem<string>(KEY, '');
   if (raw) {
-    try { cache = JSON.parse(raw); } catch { cache = []; }
+    try { cache = JSON.parse(normalizePortalBridgeText(raw)); } catch { cache = []; }
   }
   return cache;
 }

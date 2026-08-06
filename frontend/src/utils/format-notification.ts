@@ -1,4 +1,6 @@
 import type { NotifT } from '@/src/api/client';
+import { getLang } from '@/src/i18n';
+import { pickNotificationText } from '@/src/utils/pick-notification-text';
 
 export type FormattedNotification = {
   headline: string;
@@ -22,6 +24,8 @@ function inferKind(n: NotifT): FormattedNotification['kind'] {
 /** Professional notification copy — context over generic labels. */
 export function formatNotification(n: NotifT, t: TFn): FormattedNotification {
   const kind = inferKind(n);
+  const lang = getLang();
+  const picked = pickNotificationText(n, lang);
   const actionRoutes: Record<FormattedNotification['kind'], string> = {
     contract: '/contracts',
     rent: '/billing',
@@ -38,8 +42,8 @@ export function formatNotification(n: NotifT, t: TFn): FormattedNotification {
   };
 
   return {
-    headline: n.title?.trim() || t('notif.defaultHeadline'),
-    recommendation: n.body?.trim() || t('notif.defaultRecommendation'),
+    headline: picked.title || t('notif.defaultHeadline'),
+    recommendation: picked.body || t('notif.defaultRecommendation'),
     actionLabelKey: n.route ? 'notif.action.review' : actionKeys[kind],
     actionRoute: n.route || actionRoutes[kind],
     kind,

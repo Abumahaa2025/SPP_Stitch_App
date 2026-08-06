@@ -75,6 +75,11 @@ export type EmployeeTask = {
   /** How many times this work item was executed / followed */
   attemptCount?: number;
   source?: 'local' | 'enriched';
+  /** Official platform integrations — owner must approve before Kowil auto-sends */
+  platformSource?: 'ejar' | 'electricity' | 'water' | 'messaging' | 'intelligence';
+  platformEventId?: string;
+  requiresOwnerApproval?: boolean;
+  routeTo?: 'tenant' | 'agent' | 'tech' | 'guard' | 'owner';
 };
 
 export type EmployeeActivity = {

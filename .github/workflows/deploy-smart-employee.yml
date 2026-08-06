@@ -2,7 +2,11 @@ name: Deploy stitch-saudi-smart
 
 on:
   push:
+
     branches: [main, master]
+
+    branches: [main]
+
     paths:
       - "smart-employee/**"
       - ".github/workflows/deploy-smart-employee.yml"

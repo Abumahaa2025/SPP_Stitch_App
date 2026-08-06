@@ -49,7 +49,7 @@ async function loadHiddenIds(): Promise<Set<string>> {
 }
 
 export default function Notifications() {
-  const { t, isRTL } = useI18n();
+  const { t, isRTL, lang } = useI18n();
   const { acknowledge } = useAttentionPulse();
   const [items, setItems] = useState<NotifT[]>([]);
   const [hidden, setHidden] = useState<Set<string>>(new Set());
@@ -127,7 +127,7 @@ export default function Notifications() {
         <AliveEmpty title={t('notif.filter.empty')} body={t('notif.filter.empty.hint')} />
       ) : (
         filtered.map((n, i) => (
-          <Animated.View key={n.id} entering={FadeInDown.duration(500).delay(40 * i)} style={styles.card}>
+          <Animated.View key={`${n.id}_${lang}`} entering={FadeInDown.duration(500).delay(40 * i)} style={styles.card}>
             <NotificationCard
               formatted={formatNotification(n, (k) => t(k as Parameters<typeof t>[0]))}
               at={n.at}

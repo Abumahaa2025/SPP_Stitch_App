@@ -1,57 +1,33 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
-import { Feather } from '@expo/vector-icons';
 
 import { ScreenScaffold } from '@/src/components/ScreenScaffold';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
 import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
-import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
-import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
+import { PortalInstallHint } from '@/src/components/PortalInstallHint';
+import { LimitedPortalContact } from '@/src/components/LimitedPortalContact';
+import { TechTaskWorkflowCard } from '@/src/components/TechTaskWorkflowCard';
 import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useOperational } from '@/src/hooks/useOperational';
 import { useTechnicians } from '@/src/hooks/useTechnicians';
+import { usePortalDesk } from '@/src/hooks/usePortalDesk';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
-import type { MaintenanceTicket } from '@/src/types/operational';
-import { colors, spacing, typography, radius } from '@/src/theme';
+import { techThreadId } from '@/src/types/portal-desk';
+import { loadPortalDesk, pushPortalNotice } from '@/src/utils/portal-desk-store';
+import { colors, spacing, typography } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
-function TechTicketCard({
-  tk, unitNumber, note, onNote, actions, isRTL, t,
-}: {
-  tk: MaintenanceTicket;
-  unitNumber?: string;
-  note: string;
-  onNote: (v: string) => void;
-  actions: React.ReactNode;
-  isRTL: boolean;
-  t: (k: string) => string;
-}) {
-  return (
-    <GlassCard padding={16} radiusToken="md" style={styles.card}>
-      <Text style={[styles.title, isRTL && styles.rtl]}>{tk.title}</Text>
-      <Text style={[styles.dim, isRTL && styles.rtl]}>
-        {t('op.tenant.unit')} {unitNumber ?? '—'} · {tk.progressPercent ?? 0}%
-      </Text>
-      <MaintenanceTimeline ticket={tk} showProgress={false} showEta />
-      <KeyboardAwareTextInput
-        value={note}
-        onChangeText={onNote}
-        placeholder={t('opsv2.tech.notes' as any)}
-        placeholderTextColor={colors.textSubtle}
-        style={[styles.input, isRTL && styles.rtl]}
-      />
-      {actions}
-    </GlassCard>
-  );
-}
-
+/**
+ * Technician limited portal — installable link app with task workflow:
+ * notify → accept → in progress → photo/video → complete → report.
+ */
 export default function TechPortalScreen() {
-  const { t, isRTL } = useI18n();
+  const { t, isRTL, lang } = useI18n();
+  const ar = lang === 'ar' || !!isRTL;
   const params = useLocalSearchParams<{ id?: string; t?: string; n?: string; name?: string }>();
   const { countEnabled } = useNotificationPrefs();
   const { state } = usePropertyOS(countEnabled);
@@ -60,7 +36,8 @@ export default function TechPortalScreen() {
     uploadTicketMedia, completeTicket,
   } = useOperational();
   const { technicians, logLogin } = useTechnicians();
-  const [note, setNote] = useState<Record<string, string>>({});
+  usePortalDesk(); // keep desk subscription alive for notices in LimitedPortalContact
+
 
   const localTech = technicians.find((x) => x.id === params.id && x.portalToken === params.t);
   const guestName = String(params.n || params.name || '').trim();
@@ -88,28 +65,46 @@ export default function TechPortalScreen() {
     if (tech) void logLogin(tech.id);
   }, [tech?.id]);
 
-  // Spec §13 — technician sees assigned tasks only (legacy shared token: none until personal link).
   const myTickets = useMemo(() => {
     if (tech) return ticketsForTechnician(tech.id);
     if (legacyValid) return [];
     return [];
-  }, [tech, legacyValid, ticketsForTechnician]);
+  }, [tech, legacyValid, ticketsForTechnician, tickets]);
+
+  // Soft notify once per assigned ticket title (deduped against existing desk notices).
+  useEffect(() => {
+    if (!tech) return;
+    let cancelled = false;
+    (async () => {
+      const desk = await loadPortalDesk();
+      const existing = new Set(
+        desk.notices
+          .filter((n) => n.audience === 'tech' && n.audienceId === tech.id)
+          .map((n) => n.body),
+      );
+      const assigned = myTickets.filter((tk) => tk.status === 'assigned' || tk.status === 'open');
+      for (const tk of assigned) {
+        const body = ar ? `مهمة جديدة: ${tk.title}` : `New task: ${tk.title}`;
+        if (existing.has(body)) continue;
+        if (cancelled) return;
+        await pushPortalNotice({
+          audience: 'tech',
+          audienceId: tech.id,
+          title: ar ? 'إشعار بمهمة' : 'Task notification',
+          body,
+          kind: 'task',
+        });
+        existing.add(body);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tech?.id, myTickets.map((t) => `${t.id}:${t.status}`).join('|'), ar]);
 
   const { newTasks, activeTasks, doneTasks } = useMemo(() => ({
     newTasks: myTickets.filter((tk) => tk.status === 'assigned' || tk.status === 'open'),
     activeTasks: myTickets.filter((tk) => ['accepted', 'en_route', 'in_progress'].includes(tk.status)),
     doneTasks: myTickets.filter((tk) => tk.status === 'closed' || tk.status === 'awaiting_tenant'),
   }), [myTickets]);
-
-  const pickMedia = async (ticketId: string, phase: 'before' | 'after') => {
-    const res = await DocumentPicker.getDocumentAsync({ copyToCacheDirectory: true, type: 'image/*' });
-    if (res.canceled || !res.assets?.[0]) return;
-    const a = res.assets[0];
-    await uploadTicketMedia(ticketId, [{
-      uri: a.uri, type: 'photo', name: a.name, addedAt: new Date().toISOString(), phase,
-    }], phase);
-    Haptics.selectionAsync();
-  };
 
   if (!valid) {
     return (
@@ -120,57 +115,70 @@ export default function TechPortalScreen() {
     );
   }
 
-  const renderActions = (tk: MaintenanceTicket) => (
-    <View style={[styles.row, isRTL && styles.rowRtl]}>
-      {tk.status === 'assigned' || tk.status === 'open' ? (
-        <Pressable style={styles.btn} onPress={() => acceptTicket(tk.id)}>
-          <Text style={styles.btnText}>{t('maint.accept' as any)}</Text>
-        </Pressable>
-      ) : null}
-      {tk.status === 'accepted' ? (
-        <Pressable style={styles.btn} onPress={() => enRouteTicket(tk.id)}>
-          <Text style={styles.btnText}>{t('maint.enRoute' as any)}</Text>
-        </Pressable>
-      ) : null}
-      {['accepted', 'en_route'].includes(tk.status) ? (
-        <Pressable style={styles.btn} onPress={() => startTicket(tk.id)}>
-          <Text style={styles.btnText}>{t('maint.start' as any)}</Text>
-        </Pressable>
-      ) : null}
-      {tk.status === 'in_progress' ? (
-        <>
-          <Pressable style={styles.btn} onPress={() => pickMedia(tk.id, 'before')}>
-            <Text style={styles.btnText}>{t('maint.before' as any)}</Text>
-          </Pressable>
-          <Pressable style={styles.btn} onPress={() => pickMedia(tk.id, 'after')}>
-            <Text style={styles.btnText}>{t('maint.after' as any)}</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.btn, styles.btnClose]}
-            onPress={() => completeTicket(tk.id, note[tk.id]?.trim())}
-          >
-            <Text style={[styles.btnText, { color: colors.gold }]}>{t('maint.complete' as any)}</Text>
-          </Pressable>
-        </>
-      ) : null}
-    </View>
-  );
-
-  const renderSection = (label: string, list: MaintenanceTicket[]) => (
+  const renderList = (label: string, list: typeof myTickets) => (
     <View style={styles.section}>
       <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>{label}</Text>
       {list.length === 0 ? <Text style={styles.empty}>—</Text> : list.map((tk) => {
         const unit = state.units.find((u) => u.id === tk.unitId);
         return (
-          <TechTicketCard
+          <TechTaskWorkflowCard
             key={tk.id}
-            tk={tk}
+            ticket={tk}
             unitNumber={unit?.number}
-            note={note[tk.id] ?? ''}
-            onNote={(v) => setNote((n) => ({ ...n, [tk.id]: v }))}
-            actions={renderActions(tk)}
-            isRTL={isRTL}
-            t={(k) => t(k as any)}
+            onAccept={async () => {
+              await acceptTicket(tk.id);
+              if (tech) {
+                await pushPortalNotice({
+                  audience: 'tech',
+                  audienceId: tech.id,
+                  title: ar ? 'استلام المهمة' : 'Task accepted',
+                  body: ar ? `تم استلام: ${tk.title}` : `Accepted: ${tk.title}`,
+                  kind: 'task',
+                });
+              }
+            }}
+            onEnRoute={async () => { await enRouteTicket(tk.id); }}
+            onStart={async () => {
+              await startTicket(tk.id);
+              if (tech) {
+                await pushPortalNotice({
+                  audience: 'tech',
+                  audienceId: tech.id,
+                  title: ar ? 'جاري تنفيذ المهمة' : 'Work in progress',
+                  body: ar ? `قيد التنفيذ: ${tk.title}` : `In progress: ${tk.title}`,
+                  kind: 'task',
+                });
+              }
+            }}
+            onUpload={async (media, phase) => {
+              await uploadTicketMedia(tk.id, media, phase);
+              if (tech) {
+                await pushPortalNotice({
+                  audience: 'tech',
+                  audienceId: tech.id,
+                  title: ar ? 'توثيق العمل' : 'Work documented',
+                  body: ar
+                    ? `تم رفع ${media[0]?.type === 'video' ? 'فيديو' : 'صورة'} للمهمة: ${tk.title}`
+                    : `${media[0]?.type === 'video' ? 'Video' : 'Photo'} uploaded for: ${tk.title}`,
+                  kind: 'media',
+                });
+              }
+            }}
+            onComplete={async (report) => {
+              await completeTicket(tk.id, report || undefined);
+              if (tech) {
+                await pushPortalNotice({
+                  audience: 'tech',
+                  audienceId: tech.id,
+                  title: ar ? 'اكتمال المهمة · التقرير' : 'Task complete · report',
+                  body: report
+                    ? (ar ? `اكتملت مع تقرير: ${report}` : `Completed with report: ${report}`)
+                    : (ar ? `اكتملت المهمة: ${tk.title}` : `Completed: ${tk.title}`),
+                  kind: 'task',
+                });
+              }
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            }}
           />
         );
       })}
@@ -179,52 +187,66 @@ export default function TechPortalScreen() {
 
   return (
     <ScreenScaffold testID="tech-portal">
-      <StoryScreenHeader
-        question={tech ? tech.name : t('op.tech.title')}
-        hint={guestMode
-          ? (isRTL ? 'تم فتح رابط الفني بنجاح' : 'Technician link opened successfully')
-          : t('maint.techDashboard' as any)}
-        showBack
-      />
-
-      {tech ? (
-        <ActingAsBadge
-          role="tech"
-          displayName={tech.name}
-          scope={`${t('maint.techJobs' as any)}: ${tech.completedJobs ?? 0} · ${t('maint.techRating' as any)}: ${tech.avgRating ?? '—'}`}
+      <ScrollView contentContainerStyle={{ paddingBottom: spacing['2xl'] }}>
+        <StoryScreenHeader
+          question={tech ? tech.name : t('op.tech.title')}
+          hint={guestMode
+            ? (isRTL ? 'تم فتح رابط الفني بنجاح — ثبّته كتطبيق على جوالك' : 'Technician link opened — install it as an app')
+            : t('opsv2.tech.portalHint' as any)}
+          showBack
         />
-      ) : null}
 
-      {guestMode ? (
-        <GlassCard padding={16} radiusToken="md" edge="emerald" style={{ marginBottom: spacing.md }}>
+        {tech ? (
+          <ActingAsBadge
+            role="tech"
+            displayName={tech.name}
+            scope={`${t('maint.techJobs' as any)}: ${tech.completedJobs ?? 0}`}
+          />
+        ) : null}
+
+        <PortalInstallHint role="tech" />
+
+        {tech ? (
+          <LimitedPortalContact
+            actor="tech"
+            actorId={tech.id}
+            actorName={tech.name}
+            threadId={techThreadId(tech.id)}
+          />
+        ) : null}
+
+        <GlassCard padding={14} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }}>
           <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>
-            {isRTL ? 'الرابط يعمل' : 'Link is active'}
+            {t('opsv2.tech.stepsTitle' as any)}
           </Text>
           <Text style={[styles.dim, isRTL && styles.rtl]}>
-            {isRTL
-              ? 'تم التحقق من رابط الفني. ستظهر المهام المعيّنة عند مزامنتها لهذا الحساب.'
-              : 'Technician link verified. Assigned jobs will appear when synced to this account.'}
+            {t('opsv2.tech.limitedBody' as any)}
           </Text>
         </GlassCard>
-      ) : null}
 
-      {tech && !guestMode ? (
-        <GlassCard padding={14} radiusToken="md" edge="gold" style={{ marginBottom: spacing.md }}>
-          <Text style={styles.dim}>
-            {t('maint.techRating' as any)}: {tech.avgRating ?? '—'} · {t('maint.techJobs' as any)}: {tech.completedJobs ?? 0}
-          </Text>
-        </GlassCard>
-      ) : null}
+        {guestMode ? (
+          <GlassCard padding={16} radiusToken="md" edge="emerald" style={{ marginBottom: spacing.md }}>
+            <Text style={[styles.sectionTitle, isRTL && styles.rtl]}>
+              {isRTL ? 'الرابط يعمل' : 'Link is active'}
+            </Text>
+            <Text style={[styles.dim, isRTL && styles.rtl]}>
+              {isRTL
+                ? 'ثبّت الرابط كتطبيق، ثم ستظهر المهام المعيّنة مع خطوات الاستلام والتنفيذ والتوثيق والتقرير.'
+                : 'Install this link as an app. Assigned tasks appear with accept → progress → proof → report steps.'}
+            </Text>
+          </GlassCard>
+        ) : null}
 
-      {!guestMode && myTickets.length === 0 ? (
-        <AliveEmpty title={t('op.tech.title')} body={t('op.tech.noTickets')} />
-      ) : !guestMode ? (
-        <>
-          {renderSection(t('opsv2.tech.new' as any), newTasks)}
-          {renderSection(t('opsv2.tech.active' as any), activeTasks)}
-          {renderSection(t('opsv2.tech.done' as any), doneTasks)}
-        </>
-      ) : null}
+        {!guestMode && myTickets.length === 0 ? (
+          <AliveEmpty title={t('op.tech.title')} body={t('op.tech.noTickets')} />
+        ) : !guestMode ? (
+          <>
+            {renderList(t('opsv2.tech.new' as any), newTasks)}
+            {renderList(t('opsv2.tech.active' as any), activeTasks)}
+            {renderList(t('opsv2.tech.done' as any), doneTasks)}
+          </>
+        ) : null}
+      </ScrollView>
     </ScreenScaffold>
   );
 }
@@ -234,23 +256,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: colors.textMuted, fontSize: 10, letterSpacing: 1.5,
     textTransform: 'uppercase', marginBottom: spacing.sm,
+    fontWeight: typography.weight.semibold,
   },
   empty: { color: colors.textSubtle, fontSize: 12 },
-  card: { marginBottom: spacing.md },
-  title: { color: colors.text, fontSize: typography.body, fontWeight: typography.weight.semibold },
-  dim: { color: colors.textMuted, fontSize: typography.small, marginTop: 4 },
+  dim: { color: colors.textMuted, fontSize: typography.small, lineHeight: 18 },
   rtl: { writingDirection: 'rtl', textAlign: 'right' },
-  input: {
-    marginTop: 10, borderRadius: radius.md, borderWidth: StyleSheet.hairlineWidth,
-    borderColor: colors.border, padding: 10, color: colors.text, fontSize: typography.small,
-  },
-  row: { flexDirection: 'row', gap: 8, marginTop: 10, flexWrap: 'wrap' },
-  rowRtl: { flexDirection: 'row-reverse' },
-  btn: {
-    paddingVertical: 8, paddingHorizontal: 10, borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.emeraldEdge,
-    backgroundColor: colors.emeraldSoft,
-  },
-  btnClose: { borderColor: colors.goldEdge, backgroundColor: colors.goldSoft },
-  btnText: { color: colors.emerald, fontSize: 11, fontWeight: typography.weight.semibold },
 });

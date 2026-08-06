@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AmbientBackground } from '@/src/components/AmbientBackground';
 import { GlassCard } from '@/src/components/GlassCard';
 import { StoryScreenHeader } from '@/src/components/StoryScreenHeader';
-import { BrandOrb } from '@/src/components/BrandOrb';
+import { SmartEmployeeMark } from '@/src/components/SmartEmployeeMark';
 import { SmartEmployeeDesk } from '@/src/components/SmartEmployeeDesk';
 import { PendingApprovalsPanel } from '@/src/components/PendingApprovalsPanel';
 import { api, type ChatMsg } from '@/src/api/client';
@@ -213,7 +213,7 @@ export default function Brain() {
               {/* Ambient emotional entry */}
               <Animated.View entering={FadeIn.duration(700)} style={styles.emptyHero}>
                 <View style={styles.orbBed}>
-                  <BrandOrb size={72} />
+                  <SmartEmployeeMark size={96} />
                 </View>
                 <Animated.Text entering={FadeInDown.duration(700).delay(150)} style={styles.emptyTitle}>
                   {ar ? 'موظف العقار الذكي' : 'Smart property employee'}

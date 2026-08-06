@@ -2,7 +2,7 @@ import { Stack, useRouter, usePathname } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import * as Localization from "expo-localization";
 import { useEffect, useState } from "react";
-import { LogBox, Platform, View } from "react-native";
+import { AppState, LogBox, Platform, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import * as Linking from "expo-linking";
@@ -14,7 +14,9 @@ import { SplashIntro } from "@/src/components/SplashIntro";
 import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
 import { WorkspaceChrome } from "@/src/components/WorkspaceChrome";
 import { isPathAllowedForPersona, personaHomeRoute } from "@/src/utils/role-scope";
-import { resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
+import { ensurePortalBridge, resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
+import { migrateStoredPortalLinks } from "@/src/utils/portal-link-migration";
+import { applyExpoOtaIfAvailable } from "@/src/utils/expo-ota";
 
 LogBox.ignoreAllLogs(true);
 
@@ -71,6 +73,25 @@ export default function RootLayout() {
         : detectDeviceLang();
       setLang(chosen);
       setLangReady(true);
+    })();
+  }, []);
+
+  // OTA: same APK install — JS updates from Expo channel `beta` on start + resume.
+  useEffect(() => {
+    if (!langReady) return;
+    void applyExpoOtaIfAvailable();
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "active") void applyExpoOtaIfAvailable();
+    });
+    return () => sub.remove();
+  }, [langReady]);
+
+  // Portal links: verify the HTTPS bridge host, then repair links already saved
+  // with a host that serves the bridge file as plain text.
+  useEffect(() => {
+    void (async () => {
+      await ensurePortalBridge();
+      await migrateStoredPortalLinks();
     })();
   }, []);
 

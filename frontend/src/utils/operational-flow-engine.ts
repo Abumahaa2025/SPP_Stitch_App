@@ -192,11 +192,144 @@ export async function onNotificationPrepared(summaryKey: string, params?: Record
   });
 }
 
+/** Kowil received an official Ejar notice — ask owner before notifying parties. */
+export async function onEjarNoticeReceived(input: {
+  eventId: string;
+  contractNumber: string;
+  unit?: string;
+  tenantName?: string;
+  tenantPhone?: string;
+  daysLeft?: number | null;
+  preparedTenantMessage?: string;
+  eventType?: string;
+}) {
+  const contract = input.contractNumber || '—';
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'employee',
+    summaryKey: 'op.event.ejarReceived',
+    summaryParams: { contract },
+  });
+  const expiryLike = !input.eventType || /expir|renewal/i.test(input.eventType);
+  await addPendingAction({
+    kind: 'approve_ejar_notice',
+    labelKey: expiryLike ? 'op.pending.ejarExpiry' : 'op.pending.ejarNotice',
+    labelParams: { contract },
+    payload: {
+      eventId: input.eventId,
+      contractNumber: contract,
+      unit: input.unit || '',
+      tenantName: input.tenantName || '',
+      phone: input.tenantPhone || '',
+      message: input.preparedTenantMessage || '',
+      daysLeft: input.daysLeft != null ? String(input.daysLeft) : '',
+    },
+  });
+}
+
+/** Owner approved — Kowil prepared notices for owner, contracts agent, tenant. */
+export async function onEjarApproved(contractNumber: string) {
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'owner',
+    summaryKey: 'op.event.ejarApproved',
+    summaryParams: { contract: contractNumber || '—' },
+  });
+}
+
+/** Kowil received electricity/water bill or notice — ask owner before paying. */
+export async function onUtilityNoticeReceived(input: {
+  eventId: string;
+  utility: 'electricity' | 'water';
+  billNumber?: string;
+  amount?: number | null;
+  currency?: string;
+  unit?: string;
+  isBill?: boolean;
+  paymentUrl?: string;
+}) {
+  const utilityLabel = input.utility === 'water' ? 'المياه' : 'الكهرباء';
+  const bill = input.billNumber || '—';
+  const amount =
+    input.amount != null
+      ? `${Number(input.amount).toLocaleString()} ${input.currency || 'SAR'}`
+      : '—';
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'employee',
+    summaryKey: 'op.event.utilityReceived',
+    summaryParams: { utility: utilityLabel, bill },
+  });
+  await addPendingAction({
+    kind: 'approve_utility_payment',
+    labelKey: input.isBill === false ? 'op.pending.utilityNotice' : 'op.pending.utilityBill',
+    labelParams: { utility: utilityLabel, bill, amount },
+    payload: {
+      eventId: input.eventId,
+      utility: input.utility,
+      billNumber: bill,
+      amount: input.amount != null ? String(input.amount) : '',
+      currency: input.currency || 'SAR',
+      unit: input.unit || '',
+      paymentUrl: input.paymentUrl || '',
+    },
+  });
+}
+
+export async function onUtilityPaymentApproved(utility: string, billNumber: string) {
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'owner',
+    summaryKey: 'op.event.utilityApproved',
+    summaryParams: {
+      utility: utility === 'water' ? 'المياه' : 'الكهرباء',
+      bill: billNumber || '—',
+    },
+  });
+}
+
+
 export async function onRenewalSuggested(unitNumber: string, tenantName: string) {
   await appendEvent({
     kind: 'renewal_suggested',
     actor: 'employee',
     summaryKey: 'op.event.renewalSuggested',
     summaryParams: { unit: unitNumber, name: tenantName },
+  });
+}
+
+export async function onPlatformMessageReceived(input: {
+  eventId: string;
+  channel: string;
+  routeTo: string;
+  messageAr?: string;
+  messageEn?: string;
+}) {
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'employee',
+    summaryKey: 'op.event.platformReceived',
+    summaryParams: { channel: input.channel },
+  });
+  await addPendingAction({
+    kind: 'approve_platform_message',
+    labelKey: 'op.pending.platformMessage',
+    labelParams: { route: input.routeTo },
+    payload: {
+      eventId: input.eventId,
+      channel: input.channel,
+      routeTo: input.routeTo,
+      messageAr: input.messageAr || '',
+      messageEn: input.messageEn || '',
+    },
+  });
+}
+
+export async function onPlatformMessageApproved(route: string, channel: string) {
+  await appendEvent({
+    kind: 'notification_prepared',
+    actor: 'owner',
+    summaryKey: 'op.event.platformApproved',
+    summaryParams: { route, channel },
   });
 }
