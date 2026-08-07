@@ -6,6 +6,8 @@ import hmac
 import os
 from typing import Literal, Optional
 
+from adapters.webhook_security import webhook_fail_open_allowed
+
 PlatformChannel = Literal["messaging", "intelligence"]
 
 
@@ -25,7 +27,7 @@ def webhook_secret(channel: PlatformChannel) -> str:
 def verify_webhook_secret(channel: PlatformChannel, provided: Optional[str]) -> bool:
     expected = webhook_secret(channel)
     if not expected:
-        return True
+        return webhook_fail_open_allowed()
     got = (provided or "").strip()
     if not got:
         return False

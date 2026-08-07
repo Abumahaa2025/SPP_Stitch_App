@@ -1,5 +1,6 @@
 /**
- * Dispatch Kowil-prepared messages to tenant, agent, tech, or guard after owner approval.
+ * Open prepared messages (wa.me / share) after owner approval.
+ * Prepare-not-send: never server-dispatches; delivery remains a deep-link open.
  */
 import { Linking, Platform, Share } from 'react-native';
 

@@ -174,10 +174,10 @@ export function thinkSmartEmployee(input: ThinkInput): SmartEmployeeState {
         : `Unit ${row.unit} arrears: ${row.total.toLocaleString()} SAR`,
       action: row.phone ? 'send_whatsapp' : 'open_database',
       actionLabelAr: row.phone
-        ? (escalate ? 'أرسل تصعيد واتساب' : 'أرسل تذكير واتساب')
+        ? (escalate ? 'جهّز تصعيد واتساب' : 'جهّز تذكير واتساب')
         : 'افتح مركز البيانات',
       actionLabelEn: row.phone
-        ? (escalate ? 'Send WhatsApp escalation' : 'Send WhatsApp reminder')
+        ? (escalate ? 'Prepare WhatsApp escalation' : 'Prepare WhatsApp reminder')
         : 'Open database',
       whatsappPhone: row.phone,
       whatsappMessage: msg,
@@ -187,6 +187,8 @@ export function thinkSmartEmployee(input: ThinkInput): SmartEmployeeState {
       unitNumber: row.unit,
       amount: row.total,
       attemptCount: attempts,
+      // GAP-C01: collection/escalation require owner approval before deep-link open
+      requiresOwnerApproval: Boolean(row.phone),
       createdAt: prevById.get(id)?.createdAt || prevTask?.createdAt || now,
       updatedAt: now,
       followUpAt: preserved === 'waiting_followup' ? prevById.get(id)?.followUpAt : undefined,
@@ -376,8 +378,9 @@ export function thinkSmartEmployee(input: ThinkInput): SmartEmployeeState {
       reasonAr: `وحدة ${unit?.number || '—'} — تفعيل تواصل المستأجر`,
       reasonEn: `Unit ${unit?.number || '—'} — activate tenant channel`,
       action: preferWa ? 'send_whatsapp' : 'open_portals',
-      actionLabelAr: preferWa ? 'أرسل رابط واتساب' : 'افتح البوابات',
-      actionLabelEn: preferWa ? 'Send WhatsApp link' : 'Open portals',
+      actionLabelAr: preferWa ? 'جهّز رابط واتساب' : 'افتح البوابات',
+      actionLabelEn: preferWa ? 'Prepare WhatsApp link' : 'Open portals',
+      requiresOwnerApproval: preferWa,
       whatsappPhone: t.phone,
       whatsappMessage:
         /jsdelivr|portal-open\.html/i.test(t.whatsAppMessage || '')

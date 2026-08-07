@@ -24,7 +24,10 @@ import { loadSmartEmployee, saveSmartEmployee } from '@/src/utils/smart-employee
 import { pushLocalNotification } from '@/src/utils/local-notifications';
 import type { EmployeeTask, SmartEmployeeState } from '@/src/types/smart-employee';
 import { arrearsFromPropertyOS } from '@/src/utils/ops-truth';
-import { api } from '@/src/api/client';
+import {
+  markDeskApprovalDeepLinkOpened,
+  persistDeskMessageApproval,
+} from '@/src/utils/desk-message-approvals';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -155,8 +158,12 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
 
         await dispatchAfterOwnerApproval(prepared, task, task.routeTo);
         await pushLocalNotification({
-          title: ar ? 'كويل أرسل بعد موافقتك' : 'Kowil sent after your approval',
+          title: ar ? 'كويل جهّز بعد موافقتك' : 'Kowil prepared after your approval',
           body: ar ? task.titleAr : task.titleEn,
+          titleAr: 'كويل جهّز بعد موافقتك',
+          titleEn: 'Kowil prepared after your approval',
+          bodyAr: task.titleAr,
+          bodyEn: task.titleEn,
           route: '/brain',
         });
         await persist(completeTask(emp, task.id, true));
@@ -166,49 +173,72 @@ export function SmartEmployeeDesk({ testID = 'smart-employee-desk' }: Props) {
       if (task.action === 'send_whatsapp' && task.whatsappMessage) {
         const digits = String(task.whatsappPhone || '').replace(/\D/g, '');
         const msg = task.whatsappMessage;
-        let sentViaGreen = false;
-        if (digits) {
-          // Prefer Green API when backend env is configured; fall back to wa.me.
-          try {
-            const result = await api.whatsappSend(digits, msg, false);
-            if (result.ok && result.channel === 'green_api' && result.delivery_status === 'sent') {
-              sentViaGreen = true;
-            } else if (result.deep_link) {
-              await Linking.openURL(result.deep_link).catch(() => Share.share({ message: msg }));
-            } else {
-              const wa = Platform.select({
-                ios: `whatsapp://send?phone=${digits}&text=${encodeURIComponent(msg)}`,
-                default: `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`,
-              });
-              await Linking.openURL(wa!).catch(() => Share.share({ message: msg }));
-            }
-          } catch {
+        const needsApproval = Boolean(
+          task.requiresOwnerApproval
+          || task.kind === 'collect_arrears'
+          || task.kind === 'escalate_collection',
+        );
+
+        const openPreparedDeepLink = async (approvalId?: string) => {
+          if (digits) {
             const wa = Platform.select({
               ios: `whatsapp://send?phone=${digits}&text=${encodeURIComponent(msg)}`,
               default: `https://wa.me/${digits}?text=${encodeURIComponent(msg)}`,
             });
             await Linking.openURL(wa!).catch(() => Share.share({ message: msg }));
+          } else {
+            await Share.share({ message: msg });
           }
-        } else {
-          await Share.share({ message: msg });
+          if (approvalId) {
+            await markDeskApprovalDeepLinkOpened(approvalId);
+          }
+          await pushLocalNotification({
+            title: ar ? 'كويل جهّز رسالة واتساب' : 'Kowil prepared a WhatsApp message',
+            body: ar ? task.titleAr : task.titleEn,
+            titleAr: 'كويل جهّز رسالة واتساب',
+            titleEn: 'Kowil prepared a WhatsApp message',
+            bodyAr: task.titleAr,
+            bodyEn: task.titleEn,
+            route: '/brain',
+          });
+          await persist(completeTask(emp, task.id, true));
+        };
+
+        if (needsApproval) {
+          await new Promise<void>((resolve) => {
+            Alert.alert(
+              ar ? 'موافقة المالك مطلوبة' : 'Owner approval required',
+              ar
+                ? 'سيُجهَّز النص ويُفتح واتساب — لن يُرسل تلقائياً عبر الخادم.'
+                : 'Message will be prepared and WhatsApp opened — nothing is server-sent.',
+              [
+                { text: ar ? 'إلغاء' : 'Cancel', style: 'cancel', onPress: () => resolve() },
+                {
+                  text: ar ? 'موافقة وتجهيز' : 'Approve & prepare',
+                  onPress: () => {
+                    void (async () => {
+                      try {
+                        const approval = await persistDeskMessageApproval({
+                          taskId: task.id,
+                          kind: task.kind,
+                          preparedMessage: msg,
+                          phone: digits,
+                        });
+                        await openPreparedDeepLink(approval.approvalId);
+                      } finally {
+                        resolve();
+                      }
+                    })();
+                  },
+                },
+              ],
+            );
+          });
+          return;
         }
-        await pushLocalNotification({
 
-          title: ar
-            ? (sentViaGreen ? 'كويل أرسل عبر Green API' : 'كويل نفّذ إرسالاً')
-            : (sentViaGreen ? 'Kowil sent via Green API' : 'Kowil sent a message'),
-          body: ar ? task.titleAr : task.titleEn,
-
-          title: 'Kowil sent a message',
-          body: task.titleEn,
-          titleAr: 'كويل نفّذ إرسالاً',
-          titleEn: 'Kowil sent a message',
-          bodyAr: task.titleAr,
-          bodyEn: task.titleEn,
-
-          route: '/brain',
-        });
-        await persist(completeTask(emp, task.id, true));
+        // Non-gated share paths: deep link only (no server outbound rail).
+        await openPreparedDeepLink();
         return;
       }
 

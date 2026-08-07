@@ -59,10 +59,11 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
     serviceKey: 'greenApi',
     icon: 'cpu',
     stepCount: 4,
+    // Intent only — provider tokens live in API env (Blueprint §8.4 / GAP-C05).
     fields: [
       [{ key: 'instanceId', labelKey: 'setup.greenApi.field.instance', placeholderKey: 'setup.greenApi.field.instancePh' }],
-      [{ key: 'apiToken', labelKey: 'setup.greenApi.field.token', placeholderKey: 'setup.greenApi.field.tokenPh', secure: true }],
       [{ key: 'phone', labelKey: 'setup.greenApi.field.phone', placeholderKey: 'setup.greenApi.field.phonePh' }],
+      [],
       [],
     ],
   },
@@ -74,7 +75,7 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
       [{ key: 'fromEmail', labelKey: 'setup.email.field.from', placeholderKey: 'setup.email.field.fromPh', keyboard: 'email-address' }],
       [{ key: 'smtpHost', labelKey: 'setup.email.field.host', placeholderKey: 'setup.email.field.hostPh' }],
       [{ key: 'smtpUser', labelKey: 'setup.email.field.user', placeholderKey: 'setup.email.field.userPh' }],
-      [{ key: 'smtpPass', labelKey: 'setup.email.field.pass', placeholderKey: 'setup.email.field.passPh', secure: true }],
+      [],
     ],
   },
   homeAssistant: {
@@ -83,8 +84,8 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
     stepCount: 4,
     fields: [
       [{ key: 'url', labelKey: 'setup.homeAssistant.field.url', placeholderKey: 'setup.homeAssistant.field.urlPh', keyboard: 'url' }],
-      [{ key: 'token', labelKey: 'setup.homeAssistant.field.token', placeholderKey: 'setup.homeAssistant.field.tokenPh', secure: true }],
       [{ key: 'entityPrefix', labelKey: 'setup.homeAssistant.field.prefix', placeholderKey: 'setup.homeAssistant.field.prefixPh' }],
+      [],
       [],
     ],
   },
@@ -97,8 +98,8 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
     fields: [
       [],
       [{ key: 'organizationId', labelKey: 'setup.ejar.field.org', placeholderKey: 'setup.ejar.field.orgPh' }],
-      [{ key: 'webhookSecret', labelKey: 'setup.ejar.field.secret', placeholderKey: 'setup.ejar.field.secretPh', secure: true }],
       [{ key: 'notifyAgents', labelKey: 'setup.ejar.field.agents', placeholderKey: 'setup.ejar.field.agentsPh' }],
+      [],
     ],
   },
   electricity: {
@@ -111,7 +112,7 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
       [],
       [{ key: 'provider', labelKey: 'setup.electricity.field.provider', placeholderKey: 'setup.electricity.field.providerPh' }],
       [{ key: 'accountNumber', labelKey: 'setup.electricity.field.account', placeholderKey: 'setup.electricity.field.accountPh' }],
-      [{ key: 'webhookSecret', labelKey: 'setup.electricity.field.secret', placeholderKey: 'setup.electricity.field.secretPh', secure: true }],
+      [],
     ],
   },
   water: {
@@ -124,7 +125,7 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
       [],
       [{ key: 'provider', labelKey: 'setup.water.field.provider', placeholderKey: 'setup.water.field.providerPh' }],
       [{ key: 'accountNumber', labelKey: 'setup.water.field.account', placeholderKey: 'setup.water.field.accountPh' }],
-      [{ key: 'webhookSecret', labelKey: 'setup.water.field.secret', placeholderKey: 'setup.water.field.secretPh', secure: true }],
+      [],
     ],
   },
   messagingAutomation: {
@@ -136,8 +137,8 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
     fields: [
       [],
       [{ key: 'provider', labelKey: 'setup.messagingAutomation.field.provider', placeholderKey: 'setup.messagingAutomation.field.providerPh' }],
-      [{ key: 'apiKey', labelKey: 'setup.messagingAutomation.field.apiKey', placeholderKey: 'setup.messagingAutomation.field.apiKeyPh', secure: true }],
-      [{ key: 'webhookSecret', labelKey: 'setup.messagingAutomation.field.secret', placeholderKey: 'setup.messagingAutomation.field.secretPh', secure: true }],
+      [],
+      [],
     ],
   },
   intelligenceHub: {
@@ -149,8 +150,8 @@ export const SETUP_DEFS: Record<string, SetupDef> = {
     fields: [
       [],
       [{ key: 'workspace', labelKey: 'setup.intelligenceHub.field.workspace', placeholderKey: 'setup.intelligenceHub.field.workspacePh' }],
-      [{ key: 'apiKey', labelKey: 'setup.intelligenceHub.field.apiKey', placeholderKey: 'setup.intelligenceHub.field.apiKeyPh', secure: true }],
-      [{ key: 'webhookSecret', labelKey: 'setup.intelligenceHub.field.secret', placeholderKey: 'setup.intelligenceHub.field.secretPh', secure: true }],
+      [],
+      [],
     ],
   },
   backup: {
