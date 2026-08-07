@@ -19,8 +19,9 @@ Project ID (linked in `frontend/app.json`): `405761ee-fac3-4b25-9784-23f7441535e
 1. `frontend/app.json` → `updates.url` + `requestHeaders.expo-channel-name: beta` (required for GitHub-built APKs).
 2. `frontend/eas.json` → preview profile uses **channel `beta`**.
 3. On app start and when returning to foreground, `applyExpoOtaIfAvailable()` checks channel `beta` and reloads if a new bundle exists.
-4. CI workflow `.github/workflows/expo-ota-update.yml` publishes to `beta` on push to `main` (requires `EXPO_TOKEN`).
-5. Native APK rebuild (when `app.json` version bumps) publishes stable `spp-beta.apk` via **Expo Beta APK (branch)**.
+4. CI workflow `.github/workflows/expo-ota-update.yml` is the **only automatic** OTA publisher — pushes to `main` touching `frontend/**` publish channel `beta` (requires `EXPO_TOKEN`).
+5. `.github/workflows/eas-ota-beta.yml` is a **manual fallback only** (`workflow_dispatch`); it does not auto-fire on push.
+6. Native APK rebuild (when `app.json` version bumps) publishes stable `spp-beta.apk` via **Expo Beta APK**.
 
 **`EXPO_TOKEN`:** create it while logged in as **abumahaa2025** at [expo.dev/settings/access-tokens](https://expo.dev/settings/access-tokens), then set GitHub repo secret `EXPO_TOKEN`. A token from another Expo account will fail with `Entity not authorized`.
 

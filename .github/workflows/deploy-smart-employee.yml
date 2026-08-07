@@ -1,12 +1,10 @@
-name: Deploy stitch-saudi-smart
+# Experimental Arabic SPP Presentation surface (Governance Option A).
+# Not a second product — shared Constitution / Domain Model / engines.
+name: Deploy experimental Arabic SPP surface
 
-on:
+"on":
   push:
-
-    branches: [main, master]
-
     branches: [main]
-
     paths:
       - "smart-employee/**"
       - ".github/workflows/deploy-smart-employee.yml"

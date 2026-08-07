@@ -12,26 +12,23 @@ import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
 
-const SERVICES: { key: ServiceKey; route: string; titleKey: string; benefitKey: string; icon: keyof typeof Feather.glyphMap; backendKey?: keyof IntegrationsStatusResponse['services'] }[] = [
+const SERVICES: {
+  key: ServiceKey;
+  route: string;
+  titleKey: string;
+  benefitKey: string;
+  icon: keyof typeof Feather.glyphMap;
+  backendKey?: keyof IntegrationsStatusResponse['services'];
+}[] = [
   { key: 'whatsapp', route: '/setup/whatsapp', titleKey: 'op.services.whatsapp.title', benefitKey: 'op.services.whatsapp.benefit', icon: 'message-circle' },
   { key: 'greenApi', route: '/setup/greenApi', titleKey: 'op.services.greenApi.title', benefitKey: 'op.services.greenApi.benefit', icon: 'radio', backendKey: 'whatsapp' },
   { key: 'sheets', route: '/setup/sheets', titleKey: 'op.services.sheets.title', benefitKey: 'op.services.sheets.benefit', icon: 'database', backendKey: 'sheets' },
   { key: 'homeAssistant', route: '/setup/homeAssistant', titleKey: 'op.services.ha.title', benefitKey: 'op.services.ha.benefit', icon: 'home', backendKey: 'home_assistant' },
-
-const SERVICES: { key: ServiceKey; route: string; titleKey: string; benefitKey: string; icon: keyof typeof Feather.glyphMap }[] = [
   { key: 'ejar', route: '/setup/ejar', titleKey: 'op.services.ejar.title', benefitKey: 'op.services.ejar.benefit', icon: 'file-text' },
   { key: 'electricity', route: '/setup/electricity', titleKey: 'op.services.electricity.title', benefitKey: 'op.services.electricity.benefit', icon: 'zap' },
   { key: 'water', route: '/setup/water', titleKey: 'op.services.water.title', benefitKey: 'op.services.water.benefit', icon: 'droplet' },
   { key: 'messagingAutomation', route: '/setup/messagingAutomation', titleKey: 'op.services.messagingAutomation.title', benefitKey: 'op.services.messagingAutomation.benefit', icon: 'send' },
   { key: 'intelligenceHub', route: '/setup/intelligenceHub', titleKey: 'op.services.intelligenceHub.title', benefitKey: 'op.services.intelligenceHub.benefit', icon: 'activity' },
-  { key: 'whatsapp', route: '/setup/whatsapp', titleKey: 'op.services.whatsapp.title', benefitKey: 'op.services.whatsapp.benefit', icon: 'message-circle' },
-  { key: 'greenApi', route: '/setup/greenApi', titleKey: 'op.services.greenApi.title', benefitKey: 'op.services.greenApi.benefit', icon: 'radio' },
-  { key: 'sheets', route: '/setup/sheets', titleKey: 'op.services.sheets.title', benefitKey: 'op.services.sheets.benefit', icon: 'database' },
-  { key: 'ejar', route: '/setup/ejar', titleKey: 'op.services.ejar.title', benefitKey: 'op.services.ejar.benefit', icon: 'file-text' },
-  { key: 'electricity', route: '/setup/electricity', titleKey: 'op.services.electricity.title', benefitKey: 'op.services.electricity.benefit', icon: 'zap' },
-  { key: 'water', route: '/setup/water', titleKey: 'op.services.water.title', benefitKey: 'op.services.water.benefit', icon: 'droplet' },
-  { key: 'homeAssistant', route: '/setup/homeAssistant', titleKey: 'op.services.ha.title', benefitKey: 'op.services.ha.benefit', icon: 'home' },
-
   { key: 'email', route: '/setup/email', titleKey: 'op.services.email.title', benefitKey: 'op.services.email.benefit', icon: 'mail' },
 ];
 
