@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import logging
-import os
 import time
 from typing import Any, Dict, List, Optional
 
 import requests
+
+from adapters.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +17,7 @@ _CACHE_TTL_SEC = 30
 
 
 def ha_configured() -> bool:
-    return bool(
-        os.environ.get("HOME_ASSISTANT_URL", "").strip()
-        and os.environ.get("HOME_ASSISTANT_TOKEN", "").strip()
-    )
+    return get_settings().home_assistant_configured
 
 
 def _map_status(state: str) -> str:
@@ -58,16 +56,17 @@ def fetch_ha_sensors(limit: int = 40) -> List[Dict[str, Any]]:
     if _CACHE["rows"] and (now - float(_CACHE["at"])) < _CACHE_TTL_SEC:
         return list(_CACHE["rows"])[:limit]
 
-    base = os.environ["HOME_ASSISTANT_URL"].rstrip("/")
-    token = os.environ["HOME_ASSISTANT_TOKEN"].strip()
-    prefix = (os.environ.get("HOME_ASSISTANT_ENTITY_PREFIX") or "sensor.").strip()
+    s = get_settings()
+    base = s.home_assistant_url.rstrip("/")
+    token = s.home_assistant_token
+    prefix = s.home_assistant_entity_prefix or "sensor."
     url = f"{base}/api/states"
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
     }
     try:
-        resp = requests.get(url, headers=headers, timeout=int(os.environ.get("HOME_ASSISTANT_TIMEOUT_SECONDS", "20")))
+        resp = requests.get(url, headers=headers, timeout=s.home_assistant_timeout_seconds)
         if resp.status_code >= 400:
             logger.warning("Home Assistant states failed status=%s", resp.status_code)
             return []
@@ -130,12 +129,13 @@ def ha_status() -> Dict[str, Any]:
 
 def _probe_alive() -> bool:
     try:
-        base = os.environ["HOME_ASSISTANT_URL"].rstrip("/")
-        token = os.environ["HOME_ASSISTANT_TOKEN"].strip()
+        s = get_settings()
+        base = s.home_assistant_url.rstrip("/")
+        token = s.home_assistant_token
         resp = requests.get(
             f"{base}/api/",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
+            timeout=min(10, s.home_assistant_timeout_seconds),
         )
         return resp.status_code < 500
     except Exception:

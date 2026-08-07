@@ -7,28 +7,26 @@ Inbound webhooks are the primary path; payment is prepare-only until owner appro
 from __future__ import annotations
 
 import hmac
-import os
 from typing import Literal, Optional
 
+from adapters.settings import get_settings
 from adapters.webhook_security import webhook_fail_open_allowed
 
 UtilityKind = Literal["electricity", "water"]
 
 
-def _flag(name: str) -> bool:
-    return (os.environ.get(name) or "").strip().lower() in ("1", "true", "yes", "on")
-
-
 def electricity_enabled() -> bool:
-    if _flag("ELECTRICITY_ENABLED") or _flag("UTILITIES_ENABLED"):
+    s = get_settings()
+    if s.electricity_enabled or s.utilities_enabled:
         return True
-    return bool((os.environ.get("ELECTRICITY_WEBHOOK_SECRET") or os.environ.get("UTILITIES_WEBHOOK_SECRET") or "").strip())
+    return bool(s.electricity_webhook_secret or s.utilities_webhook_secret)
 
 
 def water_enabled() -> bool:
-    if _flag("WATER_ENABLED") or _flag("UTILITIES_ENABLED"):
+    s = get_settings()
+    if s.water_enabled or s.utilities_enabled:
         return True
-    return bool((os.environ.get("WATER_WEBHOOK_SECRET") or os.environ.get("UTILITIES_WEBHOOK_SECRET") or "").strip())
+    return bool(s.water_webhook_secret or s.utilities_webhook_secret)
 
 
 def utility_enabled(kind: UtilityKind) -> bool:
@@ -36,12 +34,13 @@ def utility_enabled(kind: UtilityKind) -> bool:
 
 
 def webhook_secret(kind: UtilityKind) -> str:
+    s = get_settings()
     specific = (
-        os.environ.get("ELECTRICITY_WEBHOOK_SECRET")
+        s.electricity_webhook_secret
         if kind == "electricity"
-        else os.environ.get("WATER_WEBHOOK_SECRET")
+        else s.water_webhook_secret
     )
-    return (specific or os.environ.get("UTILITIES_WEBHOOK_SECRET") or "").strip()
+    return (specific or s.utilities_webhook_secret or "").strip()
 
 
 def verify_webhook_secret(kind: UtilityKind, provided: Optional[str]) -> bool:

@@ -25,11 +25,17 @@ import {
   type PortalShareMeta,
 } from '@/src/utils/portal-links';
 import { getLang } from '@/src/i18n';
+import {
+  attachUnitToDefaultBuilding,
+  ensureBuildingsForProperty,
+} from '@/src/application/building-registry';
+import { upsertAccountsFromUnitMeters } from '@/src/application/utility-account-registry';
 
 const KEY = 'spp.propertyOS';
 
 const DEFAULT: PropertyOSState = {
   property: null,
+  buildings: [],
   units: [],
   tenants: [],
   contracts: [],
@@ -39,6 +45,7 @@ const DEFAULT: PropertyOSState = {
   setupCompleted: false,
   unitHistory: [],
   payments: [],
+  utilityAccounts: [],
 };
 
 function uid(prefix: string) {
@@ -170,9 +177,15 @@ export function usePropertyOS(notifEnabledCount = 0) {
       id: state.property?.id ?? uid('prop'),
       createdAt: state.property?.createdAt ?? new Date().toISOString(),
     };
+    const buildings = ensureBuildingsForProperty({
+      propertyId: property.id,
+      buildingCount: property.buildingCount,
+      existing: state.buildings,
+    });
     persist({
       ...state,
-      property,
+      property: { ...property, buildingCount: buildings.length || property.buildingCount },
+      buildings,
       startedAt: state.startedAt ?? new Date().toISOString(),
     });
     void notifyPropertySaved(property.name);
@@ -181,12 +194,39 @@ export function usePropertyOS(notifEnabledCount = 0) {
 
   const addUnit = useCallback((input: Omit<UnitRecord, 'id' | 'propertyId'>) => {
     if (!state.property) return null;
+    const buildings = state.buildings?.length
+      ? state.buildings
+      : ensureBuildingsForProperty({
+        propertyId: state.property.id,
+        buildingCount: state.property.buildingCount || 1,
+        existing: state.buildings,
+      });
     const unit: UnitRecord = {
       ...input,
       id: uid('unit'),
       propertyId: state.property.id,
+      buildingId: attachUnitToDefaultBuilding(input.buildingId, buildings),
     };
-    persist({ ...state, units: [...state.units, unit] });
+    const now = new Date().toISOString();
+    const utilityAccounts = upsertAccountsFromUnitMeters(
+      state.utilityAccounts || [],
+      {
+        unitId: unit.id,
+        propertyId: state.property.id,
+        buildingId: unit.buildingId,
+        electricityMeter: unit.electricityMeter,
+        waterMeter: unit.waterMeter,
+        electricityResponsibility: unit.electricity,
+        waterResponsibility: unit.water,
+      },
+      now,
+    );
+    persist({
+      ...state,
+      buildings,
+      units: [...state.units, unit],
+      utilityAccounts,
+    });
     return unit;
   }, [persist, state]);
 

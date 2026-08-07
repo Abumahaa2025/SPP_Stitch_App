@@ -55,8 +55,10 @@ def test_green_marked_placeholder_when_env_set(monkeypatch):
     """Env keys may be present for ops, but Blueprint status stays Placeholder."""
     monkeypatch.setenv("GREEN_API_INSTANCE_ID", "123")
     monkeypatch.setenv("GREEN_API_TOKEN", "tok")
+    from adapters.settings import reset_settings_cache
     from adapters.integrations import integration_status, green_configured, send_whatsapp_message
 
+    reset_settings_cache()
     assert green_configured() is True
     st = integration_status()
     assert st["services"]["whatsapp"]["status"] == "placeholder"
