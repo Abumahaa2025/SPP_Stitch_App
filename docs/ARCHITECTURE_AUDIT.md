@@ -38,6 +38,7 @@
 | `MERGE_GATE_PLAN.md` | Supporting | Merge/gate delivery intent | Gate semantics (Blueprint) |
 | Operating-path docs | Operating path | Delivery navigation only | Any pillar or supporting law |
 | `ARCHITECTURE_AUDIT.md` (this) | Audit companion | Audit findings and resolutions | Pillar substance |
+| `ARCHITECTURE_FREEZE.md` | Architecture freeze | Architecture Phase exit; v1.0 contract; RFC gate | Pillar substance (binds to freeze set) |
 
 **Decision (audit):** Ownership above is the normative map for future edits. **Rationale:** Governance §2–§4 no-duplication rule. **Consequence:** New facts go to the owning document; others link.
 
@@ -190,4 +191,4 @@ No pillar substance rewritten. No Smart Import / gate semantics changed.
 
 *Governance:* `docs/ARCHITECTURE_GOVERNANCE.md`
 
-*Change policy:* New audit findings append here with AUD-* ids. Closing AUD-G2 requires closing Governance G-04. Pillar conflicts discovered later must be filed as Governance gaps, not silently patched in supporting docs.
+*Change policy:* New audit findings append here with AUD-* ids. Closing AUD-G2 requires closing Governance G-04. Pillar conflicts discovered later must be filed as Governance gaps, not silently patched in supporting docs. Architecture Phase exit is declared in `docs/ARCHITECTURE_FREEZE.md` (not redefined here).
