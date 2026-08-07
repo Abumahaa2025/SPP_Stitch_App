@@ -157,8 +157,8 @@ Enforce trust architecture: prepare-not-send, fail-closed webhooks in production
 |---|---|
 | Branch | `cursor/phase-1-critical-foundation-6a6e` |
 | Base | `main` |
-| PR | *(filled after create)* |
-| Commit | *(filled after commit)* |
+| PR | https://github.com/Abumahaa2025/SPP_Stitch_App/pull/51 |
+| Commit | `2a344671ac51e6c752be905179425c61af54f1ee` |
 
 ---
 
