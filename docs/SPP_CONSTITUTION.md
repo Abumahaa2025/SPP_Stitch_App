@@ -216,4 +216,6 @@ The final objective is to evolve SPP into an autonomous Property Operations Plat
 
 *Enterprise system architecture:* `docs/SYSTEM_ARCHITECTURE.md`
 
+*Enterprise data architecture:* `docs/DATA_ARCHITECTURE.md`
+
 *Governance / index:* `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`

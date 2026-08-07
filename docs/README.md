@@ -24,6 +24,7 @@ These three are independent. None absorbs another. Conflicts resolve by the prec
 | Document | Scoped subject | Defers to |
 |---|---|---|
 | [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | End-to-end enterprise system architecture: composition, security, scale, HA, DR, deployment, observability, evolution | Constitution (identity), Domain Model (language), Blueprint (layers/pipelines/gates), Engine Vision (Koil layers) |
+| [`DATA_ARCHITECTURE.md`](./DATA_ARCHITECTURE.md) | Enterprise data architecture: ownership, stores, quality, sync, retention, privacy, AI memory, reporting data plane | Constitution (lifecycle), Domain Model (entities), Blueprint (§14/import/gate/events), System Architecture (topology/security/DR) |
 | [`SPP_ENGINE_VISION.md`](./SPP_ENGINE_VISION.md) | Koil engine layers: deterministic, AI understanding, learning | Constitution (identity), Blueprint (AI Employee), Domain Model (Knowledge) |
 | [`MERGE_GATE_PLAN.md`](./MERGE_GATE_PLAN.md) | Merge / gate delivery intent | Blueprint (gate semantics, quality) |
 | [`ARCHITECTURE_GOVERNANCE.md`](./ARCHITECTURE_GOVERNANCE.md) | Document law, SSOT, naming, approval | All pillars |
@@ -63,18 +64,21 @@ These help delivery teams navigate the running system. They must not redefine id
 2. Entity or language question → Domain Model.
 3. Boundary, pipeline, integration, or gate question → Blueprint.
 4. End-to-end system composition, security, scale, HA, DR, deployment, or observability → System Architecture.
-5. Koil layer placement (rules vs understanding vs learning) → Engine Vision.
-6. “May we implement yet?” → Architecture Governance §7.
-7. Discovered contradiction → record as a gap; propose a resolution; do not silently pick a side.
+5. Store ownership, data classes, sync, retention, privacy, AI memory, or reporting data plane → Data Architecture.
+6. Koil layer placement (rules vs understanding vs learning) → Engine Vision.
+7. “May we implement yet?” → Architecture Governance §7.
+8. Discovered contradiction → record as a gap; propose a resolution; do not silently pick a side.
 
 ---
 
 *Document Status:* Official Documentation Index
 
-*Version:* 1.2
+*Version:* 1.3
 
 *Project:* Smart Property Platform (SPP)
 
 *v1.1:* Record Option A adoption for `smart-employee/` (Governance §6.3).
 
 *v1.2:* Index official `SYSTEM_ARCHITECTURE.md` as supporting enterprise architecture.
+
+*v1.3:* Index official `DATA_ARCHITECTURE.md` as supporting enterprise data architecture.
