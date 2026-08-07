@@ -25,6 +25,7 @@ These three are independent. None absorbs another. Conflicts resolve by the prec
 |---|---|---|
 | [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | End-to-end enterprise system architecture: composition, security, scale, HA, DR, deployment, observability, evolution | Constitution (identity), Domain Model (language), Blueprint (layers/pipelines/gates), Engine Vision (Koil layers) |
 | [`DATA_ARCHITECTURE.md`](./DATA_ARCHITECTURE.md) | Enterprise data architecture: ownership, stores, quality, sync, retention, privacy, AI memory, reporting data plane | Constitution (lifecycle), Domain Model (entities), Blueprint (§14/import/gate/events), System Architecture (topology/security/DR) |
+| [`DECISION_ENGINE.md`](./DECISION_ENGINE.md) | Decision Engine: authority classes, categories, scoring, explainability, learning, governance of recommendations | Constitution (§11), Domain Model (`Decision`), Blueprint (§13 gate/pipeline), System Architecture, Data Architecture |
 | [`SPP_ENGINE_VISION.md`](./SPP_ENGINE_VISION.md) | Koil engine layers: deterministic, AI understanding, learning | Constitution (identity), Blueprint (AI Employee), Domain Model (Knowledge) |
 | [`MERGE_GATE_PLAN.md`](./MERGE_GATE_PLAN.md) | Merge / gate delivery intent | Blueprint (gate semantics, quality) |
 | [`ARCHITECTURE_GOVERNANCE.md`](./ARCHITECTURE_GOVERNANCE.md) | Document law, SSOT, naming, approval | All pillars |
@@ -65,15 +66,16 @@ These help delivery teams navigate the running system. They must not redefine id
 3. Boundary, pipeline, integration, or gate question → Blueprint.
 4. End-to-end system composition, security, scale, HA, DR, deployment, or observability → System Architecture.
 5. Store ownership, data classes, sync, retention, privacy, AI memory, or reporting data plane → Data Architecture.
-6. Koil layer placement (rules vs understanding vs learning) → Engine Vision.
-7. “May we implement yet?” → Architecture Governance §7.
-8. Discovered contradiction → record as a gap; propose a resolution; do not silently pick a side.
+6. Whether a recommendation may exist, must be approved, or is forbidden → Decision Engine.
+7. Koil layer placement (rules vs understanding vs learning) → Engine Vision.
+8. “May we implement yet?” → Architecture Governance §7.
+9. Discovered contradiction → record as a gap; propose a resolution; do not silently pick a side.
 
 ---
 
 *Document Status:* Official Documentation Index
 
-*Version:* 1.3
+*Version:* 1.4
 
 *Project:* Smart Property Platform (SPP)
 
@@ -82,3 +84,5 @@ These help delivery teams navigate the running system. They must not redefine id
 *v1.2:* Index official `SYSTEM_ARCHITECTURE.md` as supporting enterprise architecture.
 
 *v1.3:* Index official `DATA_ARCHITECTURE.md` as supporting enterprise data architecture.
+
+*v1.4:* Index official `DECISION_ENGINE.md` as supporting Decision Engine architecture.

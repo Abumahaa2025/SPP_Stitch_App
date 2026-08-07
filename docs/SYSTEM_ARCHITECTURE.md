@@ -375,6 +375,8 @@ Any new data source (integration event, sensor, payment rail) must eventually be
 
 # 9. Decision Engine
 
+Normative deep dive: `docs/DECISION_ENGINE.md` (authority classes, categories, learning, forbidden decisions). Pipeline stages and gate semantics remain Blueprint §13.
+
 ## 9.1 Enterprise purpose
 
 Produce **one owner agenda**: ranked, evidence-bearing, gate-aware proposals that prepare actions without silent execution. Pipeline stages and gate semantics: Blueprint §13.
@@ -982,6 +984,6 @@ Implementation may proceed only when the relevant architectural baseline for the
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
-*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
+*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 
 *Change policy:* Enterprise composition, security control view, scalability/HA/DR/monitoring strategy, and constraints in this document are normative for system-level decisions. Moving a responsibility across a Clean Architecture boundary, changing gate semantics, Smart Import behaviour, or prepare-not-send still requires the owning pillar revision. Adding this document to the index is mandatory when version meaning changes.
