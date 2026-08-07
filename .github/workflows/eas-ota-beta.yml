@@ -1,32 +1,22 @@
-# Publish JS/TS updates to installed beta APKs via EAS Update (OTA).
-# Same outcome as tafriz/Vercel live deploy: phone picks up changes without new APK links.
-#
-# Required secret: EXPO_TOKEN (expo.dev → Access Tokens)
-# Channel: beta (matches eas.json preview builds / installed beta APKs)
-#
-# Keep frontend/app.json expo.version unchanged for JS-only work so
-# runtimeVersion (appVersion policy) still matches the installed APK.
-name: EAS OTA Beta
+# DEPRECATED — do not auto-publish from this workflow.
+# Canonical OTA publisher: .github/workflows/expo-ota-update.yml (push to main → channel beta).
+# Kept as manual workflow_dispatch only for emergency republish from a chosen ref.
+name: EAS OTA Beta (manual fallback)
 
-on:
-  push:
-    branches: [master]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/eas-ota-beta.yml'
+"on":
   workflow_dispatch:
     inputs:
       branch:
-        description: 'Git branch to publish from (Expo uses master)'
+        description: 'Git branch to publish from (canonical is main)'
         required: false
-        default: 'master'
+        default: 'main'
       message:
         description: 'Update message'
         required: false
-        default: 'SPP beta OTA'
+        default: 'SPP beta OTA (manual fallback)'
 
 concurrency:
-  group: eas-ota-beta-${{ github.ref }}
+  group: eas-ota-beta-manual
   cancel-in-progress: true
 
 jobs:
@@ -39,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.branch || github.ref }}
+          ref: ${{ github.event.inputs.branch }}
 
       - name: Require EXPO_TOKEN
         env:
@@ -79,10 +69,7 @@ jobs:
             --channel beta \
             --message "$MSG" \
             --non-interactive
-          echo "## EAS OTA published" >> "$GITHUB_STEP_SUMMARY"
+          echo "## EAS OTA published (manual fallback)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Prefer automatic: expo-ota-update.yml on main" >> "$GITHUB_STEP_SUMMARY"
           echo "- Channel: \`beta\`" >> "$GITHUB_STEP_SUMMARY"
           echo "- Runtime (appVersion): \`${VERSION}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Message: ${MSG}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Ref: \`${GITHUB_SHA}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Installed beta APKs on channel **beta** will download this update on next launch (no new APK link)." >> "$GITHUB_STEP_SUMMARY"

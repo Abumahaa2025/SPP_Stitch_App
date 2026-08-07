@@ -1,7 +1,7 @@
-﻿# Stitch → SPP_Flutter functional map
+﻿# Stitch → SPP functional map
 
 Source: `stitch_spp_intelligent_property_agent` HTML mockups  
-Target: Expo app under `SPP_Flutter/frontend`  
+Target: Expo / React Native app under `frontend/` (historical repo name “SPP_Flutter” is not a Flutter codebase)  
 Constraint: **SPP visual identity frozen** (tokens, logo, GlassTabBar) — functions only.
 
 | Stitch screen | Function | SPP route | Status |

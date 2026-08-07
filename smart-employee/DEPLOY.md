@@ -1,42 +1,35 @@
-# نشر stitch-saudi-smart (رابط ثابت + تحديث تلقائي للجوال)
+# نشر السطح العربي التجريبي ضمن SPP
+
+> `smart-employee/` سطح تقديم عربي تجريبي تحت دستور SPP فقط (Governance Option A).  
+> **ليس** منتجاً مستقلاً. المرجع: `docs/ARCHITECTURE_GOVERNANCE.md` §6.3 · `PRODUCT.md`.
 
 ## الهدف
-رابط واحد دائماً → أي تعديل بعد `git push` يصل للجوال فوراً بدون روابط تنزيل جديدة (PWA + Vercel).
+رابط ثابت للسطح التجريبي → أي تعديل بعد `git push` إلى `main` (مسارات `smart-employee/**`) يصل عبر Vercel بدون روابط تنزيل جديدة (PWA).
 
-## الخطوة 1 — إنشاء مستودع GitHub
-اسم المستودع المطلوب: **`stitch-saudi-smart`**
+## المسار المعتمد في هذا المستودع
 
-من جهازك (لأن توكن الوكيل لا يملك إنشاء مستودعات):
+GitHub Actions workflow:
 
-1. افتح: https://github.com/new
-2. Repository name: `stitch-saudi-smart`
-3. Public → Create repository
-4. ارفع محتويات مجلد `smart-employee` (أو ملف `stitch-saudi-smart.zip`)
+- الملف: `.github/workflows/deploy-smart-employee.yml`
+- الاسم: **Deploy experimental Arabic SPP surface**
+- المحفّز: push إلى **`main`** على `smart-employee/**` أو `workflow_dispatch`
 
-أو بالتوكن الشخصي:
-```bash
-cd smart-employee
-GH_TOKEN=YOUR_PAT ./scripts/publish-github.sh
-```
+يتطلب أسرار المستودع: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`.
 
-## الخطوة 2 — ربط Vercel
+## ربط Vercel (مرة واحدة)
+
 1. https://vercel.com/new
-2. Import `stitch-saudi-smart`
+2. Import هذا المستودع (أو مشروع Vercel المربوط بـ `smart-employee/`)
 3. Framework: Vite
-4. Build Command: `npm run build`
-5. Output Directory: `dist`
-6. Deploy
+4. Root / Build: حسب إعداد المشروع الحالي (`npm run build` → `dist`)
+5. Deploy
 
-النتيجة: رابط ثابت مثل `https://stitch-saudi-smart.vercel.app`
+## الجوال بدون تنزيل جديد
 
-## الخطوة 3 — الجوال بدون تنزيل جديد
 1. افتح رابط Vercel من الجوال
 2. إضافة إلى الشاشة الرئيسية (Add to Home Screen)
-3. التطبيق PWA بتحديث تلقائي — كل نشر جديد يظهر عند الفتح
+3. PWA يتحدّث عند الفتح بعد كل نشر
 
-## Bubble
-- ضع رابط Vercel داخل Bubble كـ Web/HTML element أو Open External Website
-- لأن الرابط ثابت، أي تحديث على Vercel يظهر داخل Bubble مباشرة
+## ملاحظة هوية
 
-## ملاحظة
-تم دفع فرع `gh-pages` على مستودع SPP_Stitch_App الحالي؛ فعّل GitHub Pages يدوياً من Settings → Pages → Branch: gh-pages إن رغبت برابط github.io مؤقت.
+أي اسم مشروع Vercel تاريخي (مثل stitch-saudi-smart) هو تسمية استضافة فقط — ليس دستوراً ثانياً ولا لغة مجال موازية.

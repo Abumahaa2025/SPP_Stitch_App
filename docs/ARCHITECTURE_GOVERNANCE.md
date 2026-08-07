@@ -1,9 +1,11 @@
 # SPP Architecture Governance v1.2
+# SPP Architecture Governance v1.3
 
 > Official governance for all architectural truth in the Smart Property Platform (SPP).
 > This document does not redefine product law, domain language, or structural design.
 > It defines how architectural documents are authored, ranked, linked, approved, and changed.
 > Scope: **SPP only** (`frontend/`, `backend/`, and SPP documents under `docs/`).
+> Architecture Phase exit and the v1.0 contractual freeze live in `docs/ARCHITECTURE_FREEZE.md`.
 
 ---
 
@@ -67,9 +69,10 @@ Detailed structure and status legends remain in the Blueprint and Domain Model; 
 | Class | Role | May redefine pillars? | Code allowed? |
 |---|---|---|---|
 | Pillar | Constitution, Domain Model, Blueprint | N/A — they are the law | No |
-| Supporting architecture | Engine vision, merge-gate intent, quality architecture expansions | No — only deepen a scoped concern | No |
+| Supporting architecture | System architecture, data architecture, decision engine, operation center, knowledge base, AI property employee, multi-agent organization, engine vision, merge-gate intent, quality architecture expansions | No — only deepen a scoped concern | No |
 | Operating path | End-to-end path maps used by delivery teams | No | No architectural code; may name routes and modules as references only when unavoidable |
-| Audit / proof companion | Historical findings, continuation notes, beta install notes | No | Prefer linking to proofs outside `docs/` |
+| Audit / proof companion | Historical findings, continuation notes, beta install notes, architecture audits | No | Prefer linking to proofs outside `docs/` |
+| Architecture freeze | Phase-exit contract freezing Enterprise Architecture v1.0; RFC gate for post-freeze structural change (`ARCHITECTURE_FREEZE.md`) | No — binds implementation to freeze set | No |
 | Index / governance | This document and `docs/README.md` | No — regulate process only | No |
 
 Documents that describe temporary engineering fixes belong in audit/proof class and must not be mistaken for target architecture.
@@ -111,6 +114,14 @@ Documents that describe temporary engineering fixes belong in audit/proof class 
 | Kowil | Deprecated spelling of the on-device deterministic fallback of Koil | Allowed only as a historical alias until implementation rename; new documents must write **Koil** |
 | Smart Employee desk | Owner-facing workplace surface of the AI Employee inside SPP `frontend/` | SPP UI surface name only; not the separate Arabic product folder `smart-employee/` |
 
+| Smart Employee desk | Owner-facing workplace surface of the AI Employee | UI surface name only; not a second product constitution |
+| AI Property Employee | Synonym of AI Employee used in enterprise employee architecture | Prefer in digital-employee and multi-agent org prose; same role as AI Employee |
+| Operation Center | Real-time operations capability (Constitution §10) | Preferred product spelling in new prose |
+| Operations Center | Blueprint §7 historical section title for the same capability | Allowed alias only; must not be treated as a second subsystem |
+| Collections Agent | Multi-Agent arrears specialist | Same role as Blueprint “Collection agent” |
+| Utility Agent | Multi-Agent utilities specialist | Same role as Blueprint “Utilities agent” |
+| Executive Reporting Agent | Multi-Agent reporting specialist | Same role as Blueprint “Reporting agent” |
+
 ## 6.3 Repository co-location is not product merger — corrected scope
 
 **Status:** Corrected 2026-08-07 · replaces the mistaken “Option A absorb” reading of G-03
@@ -145,18 +156,22 @@ The **basic architectural baseline** is complete only when all of the following 
 3. Known Architecture Gaps in §8 of this document are either closed or explicitly accepted with an owner.
 4. Supporting documents that claim live status have been reconciled against Blueprint status legends.
 5. A product owner or designated architect has recorded adoption (version bump + status line).
+6. For Architecture Phase **exit** and Implementation Phase **entry**, `docs/ARCHITECTURE_FREEZE.md` is approved (Freeze §§24–25 / §30).
 
-Until that baseline is adopted, new feature implementation is deferred; bug fixes and stability work may proceed if they do not invent new architectural boundaries.
+Until the basic baseline (items 1–5) is adopted, new feature implementation is deferred; bug fixes and stability work may proceed if they do not invent new architectural boundaries.
+
+After Architecture Freeze approval, structural change follows the Freeze RFC process (Freeze §9) in addition to the revision rules below.
 
 ## 7.2 Change triggers
 
 | Change type | Required revision |
 |---|---|
-| Identity, mission, or “SPP is / is not” | Constitution |
-| Entity rename, new aggregate, lifecycle change | Domain Model |
-| Layer boundary, pipeline stage, gate semantics, prepare-not-send, topology | Blueprint |
-| Engine layer philosophy (deterministic / AI understanding / learning) | Engine Vision, with Blueprint cross-check |
+| Identity, mission, or “SPP is / is not” | Constitution (+ Freeze RFC after Architecture Freeze approval) |
+| Entity rename, new aggregate, lifecycle change | Domain Model (+ Freeze RFC after approval) |
+| Layer boundary, pipeline stage, gate semantics, prepare-not-send, topology | Blueprint (+ Freeze RFC after approval) |
+| Engine layer philosophy (deterministic / AI understanding / learning) | Engine Vision, with Blueprint cross-check (+ Freeze RFC if normative freeze-set impact) |
 | Process for documents themselves | This governance document |
+| Architecture Phase exit / Implementation entry contract | `docs/ARCHITECTURE_FREEZE.md` |
 
 ## 7.3 Revision rules
 
@@ -177,7 +192,9 @@ Until that baseline is adopted, new feature implementation is deferred; bug fixe
 | G-04 | `docs/APP_PATH.md` marks some integrations as live in ways that may exceed Blueprint Partial/Placeholder status | Delivery teams may trust unfinished rails | APP_PATH defers to Blueprint §§3.2, 8.2 on status | Open — operating path still needs status-column reconciliation |
 | G-05 | No prior ADR-style index for decisions outside Blueprint §18 | Decisions can land in chat or PRs without a home | Blueprint §18 remains the decision register; do not scatter | Accepted — owner: architecture |
 | G-06 | Operational docs (`HANDOFF.md`, root `README.md`) can outrank pillars in practice | Onboarding drift | `docs/README.md` is the architectural entry point; root README points to it | Closed for root README; HANDOFF remains operational only |
-| G-07 | Event bus, outbound rails, longitudinal memory still open (Blueprint §19) | Limits Operations Center maturity | Track only in Blueprint §19; supporting docs must link, not fork | Open — tracked in Blueprint |
+| G-07 | Event bus, outbound rails, longitudinal memory still open (Blueprint §19) | Limits Operation Center maturity | Track only in Blueprint §19; supporting docs must link, not fork | Open — tracked in Blueprint |
+| G-08 | Supporting-architecture set grew without a consolidated ownership/terminology index | Onboarding drift; risk of duplicate ownership claims | README v1.9 ownership/terminology/gap map + `docs/ARCHITECTURE_AUDIT.md` | Closed |
+| G-09 | Architecture Phase lacked an explicit exit / freeze contract | Implementation could invent boundaries without a phase gate | `docs/ARCHITECTURE_FREEZE.md` (Enterprise Architecture v1.0); README v2.0 index | Closed upon Freeze document publication; formal bind upon Freeze §30 approval |
 
 ---
 
@@ -198,6 +215,8 @@ Presentation, Application, Domain, and Infrastructure boundaries are defined in 
 
 *Version:* 1.2
 
+*Version:* 1.3
+
 *Project:* Smart Property Platform (SPP)
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
@@ -208,4 +227,14 @@ Presentation, Application, Domain, and Infrastructure boundaries are defined in 
 
 *v1.2 change:* Scope correction — SPP architectural law covers SPP only; Arabic product folder is out of scope (§6.3 / G-03 corrected).
 
-*Change policy:* Process, precedence, naming, and SSOT rules in this document are normative. Closing a gap in §8 requires either a pillar amendment or an explicit accepted-risk note in §8 with owner and date.
+*Architecture audit:* `docs/ARCHITECTURE_AUDIT.md`
+
+*Architecture freeze:* `docs/ARCHITECTURE_FREEZE.md`
+
+*v1.1 change:* Adopted Option A for `smart-employee/` identity (§6.3 / G-03).
+
+*v1.2 change:* Extended official naming for Operation Center / specialist agent aliases (§6.2); closed G-08 via README ownership map + Architecture Audit.
+
+*v1.3 change:* Linked Architecture Freeze as Architecture Phase exit / v1.0 contract; document class + baseline item 6 + change trigger; closed G-09 upon Freeze publication (bind on Freeze §30 approval).
+
+*Change policy:* Process, precedence, naming, and SSOT rules in this document are normative. Closing a gap in §8 requires either a pillar amendment or an explicit accepted-risk note in §8 with owner and date. Post-freeze structural change also requires Freeze RFC.

@@ -1,14 +1,14 @@
-# SPP Engine Benchmark Gate — run before deploy to Render (master)
+# SPP Engine Benchmark Gate — run before deploy to Render (main)
 name: Benchmark Regression
 
-on:
+"on":
   push:
-    branches: [master]
+    branches: [main]
     paths:
       - 'backend/**'
       - 'benchmarks/**'
   pull_request:
-    branches: [master]
+    branches: [main]
     paths:
       - 'backend/**'
       - 'benchmarks/**'

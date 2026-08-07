@@ -142,4 +142,6 @@
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
+*AI Property Employee architecture:* `docs/AI_PROPERTY_EMPLOYEE.md`
+
 *Note:* الاسم الرسمي للدور المنتج هو AI Employee. **Koil** هو اسم نظام الذكاء خلفه. **Kowil** تهجئة تاريخية مرفوضة في الوثائق الجديدة.

@@ -1,29 +1,15 @@
-
-# Publish docs/portal-open.html to GitHub Pages (optional long-term HTML host).
+# Publish docs/portal-open.html to GitHub Pages as real text/html.
+# Raw GitHub mirrors serve .html as text/plain, which breaks portal deep links.
 # One-time: Repo → Settings → Pages → Source = GitHub Actions.
 name: Portal Pages
 
-on:
-  push:
-    branches: [master]
-    paths:
-      - 'docs/portal-open.html'
-      - '.github/workflows/portal-pages.yml'
-  workflow_dispatch:
-
-# Publish docs/ to GitHub Pages so the portal bridge is served as real text/html.
-# Raw GitHub mirrors answer .html with `content-type: text/plain`, which makes a
-# shared portal link open as page source on the recipient's phone.
-name: Portal Pages (docs)
-
-on:
+"on":
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
+      - 'docs/portal-open.html'
       - '.github/workflows/portal-pages.yml'
-
 
 permissions:
   contents: read
@@ -39,39 +25,26 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+
       - name: Stage portal HTML
         run: |
           mkdir -p _site
           cp docs/portal-open.html _site/portal-open.html
           echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=portal-open.html" /></head><body></body></html>' > _site/index.html
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+
       - id: deployment
-        uses: actions/deploy-pages@v4
-
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
-
-      - id: deploy
         uses: actions/deploy-pages@v4
 
       - name: Verify bridge content type
         run: |
-          BRIDGE="${{ steps.deploy.outputs.page_url }}portal-open.html"
+          BRIDGE="${{ steps.deployment.outputs.page_url }}portal-open.html"
           echo "Bridge: $BRIDGE"
           CT=$(curl -sSL -o /dev/null -w '%{content_type}' "$BRIDGE")
           echo "Content-Type: $CT"
@@ -83,5 +56,4 @@ jobs:
       - name: Summary
         run: |
           echo "## Portal bridge published" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Bridge: ${{ steps.deploy.outputs.page_url }}portal-open.html" >> "$GITHUB_STEP_SUMMARY"
-
+          echo "- Bridge: ${{ steps.deployment.outputs.page_url }}portal-open.html" >> "$GITHUB_STEP_SUMMARY"
