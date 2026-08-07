@@ -585,7 +585,7 @@ Gaps owned elsewhere are linked, not forked.
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
-*Sibling enterprise documents:* `docs/SYSTEM_ARCHITECTURE.md`, `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/AI_PROPERTY_EMPLOYEE.md`
+*Sibling enterprise documents:* `docs/SYSTEM_ARCHITECTURE.md`, `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/AI_PROPERTY_EMPLOYEE.md`, `docs/MULTI_AGENT_ARCHITECTURE.md`
 
 *Governance / index:* `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 
