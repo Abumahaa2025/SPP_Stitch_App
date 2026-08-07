@@ -16,7 +16,7 @@
 
 ## 1. ملخص تنفيذي
 
-الكود يحقق أجزاء كبيرة من مسار Smart Import → Apply → Property OS → AI Employee desk → قرارات gated مع prepare على مسارات المنصات الرسمية. الفجوات الحرجة تتركز في: (1) مسار إرسال واتساب يتجاوز prepare-not-send، (2) webhooks تفتح عند غياب السر، (3) تعطل نشر جسر البوابة بسبب YAML فاسد، (4) انقسام فروع الإصدار `main`/`master` مع ازدواجية OTA. باقي الفجوات إما معترف بها في Blueprint §19 / Domain Model §9 / System Architecture §23، أو انحراف تسمية/طبقات Clean Architecture.
+الكود يحقق أجزاء كبيرة من مسار Smart Import → Apply → Property OS → AI Employee desk → قرارات gated مع prepare على مسارات المنصات الرسمية. الفجوات الحرجة تتركز في: (1) مسار إرسال واتساب يتجاوز prepare-not-send، (2) webhooks تفتح عند غياب السر، (3) تعطل نشر جسر البوابة بسبب YAML فاسد، (4) انقسام فروع الإصدار مع غياب `origin/master`، (5) تخزين أسرار مزوّدين على الجهاز، (6) ملفات واجهة/`app.json` غير قابلة للتحليل تعطل مسارات Live المزعومة. باقي الفجوات إما معترف بها في Blueprint §19 / Domain Model §9 / System Architecture §23، أو انحراف تسمية/طبقات Clean Architecture.
 
 ### ما يطابق المعمارية (مختصر — ليس فجوة)
 
@@ -70,6 +70,33 @@
 | **سبب التعارض** | Blueprint: Placeholder (deep links فقط، لا إرسال خادم). APP_PATH: Live عبر `/api/integrations/*`. الكود: إرسال خادم كامل عبر Green API. هذا كسر لـ status honesty (Governance §5.6) ولـ G-04، ويمكّن GAP-C01. |
 | **خطة الإصلاح المقترحة** | اختيار واحد صريح عبر تعديل Blueprint: إما (أ) إعادة الكود إلى deep-link + prepare-only حتى إقرار السكة، أو (ب) ترقية الحالة إلى Partial/Implemented مع عقد موافقة إلزامي وoutbox. ثم مواءمة APP_PATH مع أسطورة الحالة في Blueprint. |
 
+### GAP-C05 — أسرار مزوّدين تُلتقط وتُخزَّن على الجهاز
+
+| الحقل | التفصيل |
+|---|---|
+| **الوثيقة المرجعية** | Blueprint §8.4؛ System Architecture §§2.3, 13.4؛ Constraint C-11 |
+| **الملفات المتأثرة** | `frontend/src/components/ServiceSetupScreen.tsx` (`apiToken`, HA `token`, `smtpPass`, `webhookSecret`)؛ `frontend/src/hooks/useConnections.ts` (`spp.connections` عبر AsyncStorage عادي)؛ مفاتيح i18n التي تدّعي تشفيراً على الجهاز |
+| **سبب التعارض** | المعمارية: أسرار الاتصال في بيئة الخدمة فقط؛ شاشات الإعداد capturenية نية/حالة محلية وليست قناة اعتماد. التنفيذ يكتب رموزاً/أسراراً في JSON عادي عبر `storage.setItem` دون `secureSet`، بينما النص يعد بالتشفير. |
+| **خطة الإصلاح المقترحة** | 1) إزالة حقول الأسرار من تطبيق العميل. 2) الإبقاء على نية الاتصال محلياً فقط. 3) ربط الصحة بـ endpoints تحقق خادمية. 4) تدوير أي أسرار وُضعت سابقاً في أجهزة beta. |
+
+### GAP-C06 — كسر بناء في عميل الواجهة ومكوّن التفعيل و`app.json`
+
+| الحقل | التفصيل |
+|---|---|
+| **الوثيقة المرجعية** | Blueprint §4.1 / §16 (OTA + تطبيق قابل للشحن)؛ APP_PATH Phase C/D يعتمد على مسارات integrations حية |
+| **الملفات المتأثرة** | `frontend/src/api/client.ts` (`whatsappSend` — استدعاء `req(` بلا إغلاق `})`)؛ `frontend/src/components/ServiceActivationPanel.tsx` (`const SERVICES` مكرّر)؛ `frontend/app.json` (`fallbackToCacheTimeout` مكرّر بلا فاصلة — JSON غير صالح) |
+| **سبب التعارض** | مسارات «Live» وOTA تفترض حزمة صالحة. هذه الأخطاء تمنع تحليلاً/استهلاكاً موثوقاً لـ Expo config ومسار الإرسال، فتفتح فجوة بين ادعاء APP_PATH والواقع القابل للبناء. |
+| **خطة الإصلاح المقترحة** | إصلاح نحوي فوري لكل ملف؛ إضافة فحص `tsc`/`json` في CI قبل OTA؛ عدم نشر OTA حتى يمر الفحص. |
+
+### GAP-C07 — أتمتة `master` بلا فرع بعيد موجود
+
+| الحقل | التفصيل |
+|---|---|
+| **الوثيقة المرجعية** | Blueprint §§4.1, 4.3, 19 |
+| **الملفات المتأثرة** | `render.yaml`؛ `benchmark-regression.yml`؛ `eas-ota-beta.yml`؛ `android-apk-eas.yml`؛ نصف `portal-pages.yml` |
+| **سبب التعارض** | المستودع البعيد يعرض `origin/main` فقط — **لا يوجد `origin/master`**. ادعاءات نشر API/بوابة الجودة/OTA-on-master طوبولوجيا وهمية على هذا الـ remote حتى يُنشأ الفرع أو تُنقل المحفّزات إلى `main`. |
+| **خطة الإصلاح المقترحة** | توحيد كل المحفّزات على `main` (أو إنشاء `master` المتابع صراحة)، وتحديث `render.yaml` وBlueprint §4.1 معاً. |
+
 ---
 
 ## 3. High
@@ -80,7 +107,7 @@
 |---|---|
 | **الوثيقة المرجعية** | Blueprint §§4.1, 4.3, 19؛ System Architecture §18.3؛ `docs/OTA_AUTO_UPDATE.md`؛ `docs/EXPO_BETA_TESTING.md` |
 | **الملفات المتأثرة** | `render.yaml` (`branch: master`)؛ `.github/workflows/benchmark-regression.yml`؛ `eas-ota-beta.yml`؛ `expo-ota-update.yml`؛ `expo-beta-apk.yml`؛ `android-apk-eas.yml`؛ `portal-pages.yml`؛ `deploy-smart-employee.yml` |
-| **سبب التعارض** | HEAD الافتراضي للمستودع هو `main`. API/Render والـ benchmark وOTA القديم على `master`؛ OTA الأحدث وAPK الافتراضي على `main`. ازدواجية مساري OTA (`eas-ota-beta.yml` و`expo-ota-update.yml`). الوثائق التشغيلية تتعارض (master vs main). |
+| **سبب التعارض** | HEAD الافتراضي للمستودع هو `main` و**لا يوجد `origin/master`** (انظر GAP-C07). API/Render والـ benchmark وOTA القديم ما زالت تستهدف `master`؛ OTA الأحدث على `main`. ازدواجية مساري OTA (`eas-ota-beta.yml` و`expo-ota-update.yml`). الوثائق التشغيلية تتعارض (master vs main). |
 | **خطة الإصلاح المقترحة** | 1) اعتماد قطار إصدار واحد موثّق في Blueprint §4.1. 2) تعطيل/دمج أحد مساري OTA. 3) مواءمة Render + CI + docs. 4) إغلاق بند «Branch split» في Blueprint §19 بعد التوثيق أو التوحيد. |
 
 ### GAP-H02 — Clean Architecture غير مُجسَّدة كحدود حزم
@@ -259,8 +286,8 @@
 
 | الأولوية | الفجوات | مبدأ التنفيذ |
 |---|---|---|
-| 1 — ثقة وأمان | C01, C02, C03, C04 | أوقف الإرسال غير المُوافق، أغلق webhooks، أصلح نشر البوابة، صادق حالة التكامل في Blueprint |
-| 2 — قطار الإصدار | H01, M04, C03 | فرع واحد + OTA واحد + وثيقة تشغيل واحدة |
+| 1 — ثقة وأمان | C01, C02, C03, C04, C05, C06 | أوقف الإرسال غير المُوافق، أغلق webhooks، أزل أسرار الجهاز، أصلح البناء/البوابة، صادق حالة التكامل في Blueprint |
+| 2 — قطار الإصدار | C07, H01, M04, C03 | فرع واحد حي + OTA واحد + وثيقة تشغيل واحدة |
 | 3 — نضج العمليات | H04, H05, H06, M05, M06 | envelope، متانة الأحداث، حالة HA، مراقبة، PDF fallback |
 | 4 — الهيكل واللغة | H02, H07, M01, M08 | طبقات Clean Architecture تدريجياً، Koil naming، تصحيح مسارات docs |
 | 5 — اكتمال المجال | H03, M02, M03, L02, L03 | Building، Invoice، Learning، longitudinal memory — بعد استقرار الثقة |
@@ -281,4 +308,5 @@
 *Document Status:* Implementation Gap Report (audit companion — not architectural law)  
 *Class:* Audit / proof companion under repo root (should be promoted into `docs/` only if Governance §7 approves)  
 *Code changes in this task:* **None** (report only)  
-*Related open architecture trackers:* Governance G-04, G-07؛ Blueprint §19؛ Domain Model §9؛ System Architecture §23.3
+*Related open architecture trackers:* Governance G-04, G-07؛ Blueprint §19؛ Domain Model §9؛ System Architecture §23.3  
+*v1.1:* أضيفت C05–C07 بعد تحقق متقاطع من تحليلات Frontend / Backend / CI (أسرار الجهاز، كسر البناء، غياب `origin/master`).
