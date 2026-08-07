@@ -397,6 +397,8 @@ Delivery exists only behind owner-enabled dispatch rails. Utility payments and m
 
 # 10. Operations Center
 
+Normative deep dive: `docs/OPERATION_CENTER.md` (monitoring, queues, incidents, escalation, multi-party orchestration). Processing stages remain Blueprint §7. Decision judgement remains `docs/DECISION_ENGINE.md`.
+
 ## 10.1 Enterprise purpose
 
 Constitution §10: every external event passes through the operation engine before reaching users. The Operations Center is that engine (Blueprint §7).
@@ -984,6 +986,6 @@ Implementation may proceed only when the relevant architectural baseline for the
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
-*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
+*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 
 *Change policy:* Enterprise composition, security control view, scalability/HA/DR/monitoring strategy, and constraints in this document are normative for system-level decisions. Moving a responsibility across a Clean Architecture boundary, changing gate semantics, Smart Import behaviour, or prepare-not-send still requires the owning pillar revision. Adding this document to the index is mandatory when version meaning changes.

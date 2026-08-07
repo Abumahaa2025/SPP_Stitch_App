@@ -778,7 +778,7 @@ Gaps already listed in Blueprint §19 or Governance §8 are not forked here; DA-
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
-*Sibling enterprise document:* `docs/SYSTEM_ARCHITECTURE.md`
+*Sibling enterprise documents:* `docs/SYSTEM_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`
 
 *Governance / index:* `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 
