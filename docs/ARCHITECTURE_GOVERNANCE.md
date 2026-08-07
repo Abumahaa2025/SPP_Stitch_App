@@ -1,20 +1,23 @@
+# SPP Architecture Governance v1.2
 # SPP Architecture Governance v1.3
 
 > Official governance for all architectural truth in the Smart Property Platform (SPP).
 > This document does not redefine product law, domain language, or structural design.
 > It defines how architectural documents are authored, ranked, linked, approved, and changed.
+> Scope: **SPP only** (`frontend/`, `backend/`, and SPP documents under `docs/`).
 > Architecture Phase exit and the v1.0 contractual freeze live in `docs/ARCHITECTURE_FREEZE.md`.
 
 ---
 
 # 1. Mandate
 
-From the moment of adoption of this document, architectural work on SPP is treated as **formal product law**, not informal notes.
+From the moment of adoption of this document, architectural work on **SPP** is treated as **formal product law**, not informal notes.
 
-- Every architectural document created under this governance is an **official project reference**.
+- Every architectural document created under this governance is an **official SPP project reference**.
 - Architectural documents contain **no implementation code**, no sample payloads, no API request bodies, and no executable snippets.
-- Future development must conform to the documents under `docs/` as the **Single Source of Truth (SSOT)**.
+- Future **SPP** development must conform to the SPP documents under `docs/` as the **Single Source of Truth (SSOT)**.
 - Implementation must not begin for a capability until the relevant architectural baseline for that capability is complete and approved under §7.
+- This mandate applies to SPP (`frontend/`, `backend/`, SPP pillars). It does **not** annex other products that happen to share the repository (see §6.3).
 
 This governance is subordinate to the three pillars defined in §3. It cannot override them; it only regulates how they are maintained and how additional documents attach to them.
 
@@ -109,6 +112,8 @@ Documents that describe temporary engineering fixes belong in audit/proof class 
 | AI Employee | The product role: virtual property employee that proposes, explains, and learns; never approves | Use in Constitution-aligned product and architecture prose |
 | Koil | The intelligence system behind the AI Employee (understanding, knowledge, reasoning, learning layers) | Use when discussing engine layers; see `docs/SPP_ENGINE_VISION.md` |
 | Kowil | Deprecated spelling of the on-device deterministic fallback of Koil | Allowed only as a historical alias until implementation rename; new documents must write **Koil** |
+| Smart Employee desk | Owner-facing workplace surface of the AI Employee inside SPP `frontend/` | SPP UI surface name only; not the separate Arabic product folder `smart-employee/` |
+
 | Smart Employee desk | Owner-facing workplace surface of the AI Employee | UI surface name only; not a second product constitution |
 | AI Property Employee | Synonym of AI Employee used in enterprise employee architecture | Prefer in digital-employee and multi-agent org prose; same role as AI Employee |
 | Operation Center | Real-time operations capability (Constitution §10) | Preferred product spelling in new prose |
@@ -117,21 +122,26 @@ Documents that describe temporary engineering fixes belong in audit/proof class 
 | Utility Agent | Multi-Agent utilities specialist | Same role as Blueprint “Utilities agent” |
 | Executive Reporting Agent | Multi-Agent reporting specialist | Same role as Blueprint “Reporting agent” |
 
-## 6.3 `smart-employee/` folder — adopted decision (Option A)
+## 6.3 Repository co-location is not product merger — corrected scope
 
-**Status:** Adopted by product-owner decision (Option A) · 2026-08-07 · closes gap G-03
+**Status:** Corrected 2026-08-07 · replaces the mistaken “Option A absorb” reading of G-03
 
-Earlier copy described `smart-employee/` as an independently branded product. That claim conflicted with Constitution §§3–5 and Identity Protection.
+This monorepo can host more than one product folder. **Co-location must not be read as one product.**
 
-**Normative resolution (Option A):**
+| Product | Home | Architectural law |
+|---|---|---|
+| **SPP** (Smart Property Platform) | `frontend/`, `backend/`, SPP pillars under `docs/` | This governance + Constitution + Domain Model + Blueprint |
+| Arabic Smart Employee product | `smart-employee/` | Its own product docs (`smart-employee/PRODUCT.md`); **out of scope** for SPP architectural law |
 
-1. `smart-employee/` is an **experimental Arabic delivery surface** for locale (RTL), clarity, and Saudi daily-use presentation — **not** a second product and **not** a second constitution.
-2. `docs/SPP_CONSTITUTION.md` remains the **only** product law. SPP identity as a Property Operations Platform is not optional and is not forked.
-3. A lasting brand split, if ever intended, requires an **explicit Constitution amendment** before any divergent product law is written. Until then, architecture, engines, Domain Model, and reporting capability remain shared SPP assets.
-4. The surface must not invent divergent ubiquitous language. Entity names and meanings stay those of `docs/DOMAIN_MODEL.md`.
-5. Visual exploration on this surface (for example a lighter daily-use palette) is a **Presentation experiment** only. It does not redefine SPP brand law for `frontend/`, and it does not authorize a second platform roadmap.
+**Normative rules for SPP architects and agents:**
 
-Consequence: onboarding, PRs, and future documents must describe `smart-employee/` as an experimental SPP surface, never as a competing product.
+1. SPP work targets SPP files only: Constitution, Domain Model, Blueprint, supporting SPP docs, `frontend/`, `backend/`.
+2. Do **not** rewrite, absorb, or re-constitute the Arabic product under SPP identity rules.
+3. Do **not** treat `smart-employee/` UI decisions as amendments to SPP brand law, and do **not** treat SPP Constitution as the constitution of the Arabic product.
+4. Shared technical reuse (if any) is an engineering choice, not identity merger. Domain language for SPP remains `docs/DOMAIN_MODEL.md` regardless.
+5. “Smart Employee desk” inside SPP (`frontend/` AI Employee workplace) is an SPP surface name. It is not the Arabic product in `smart-employee/`.
+
+**Correction note:** An earlier draft of this section wrongly treated `smart-employee/` as an experimental SPP surface. That mixing is rejected. G-03 is closed as a **false conflict caused by co-location**, not as a product merger.
 
 ---
 
@@ -178,7 +188,7 @@ After Architecture Freeze approval, structural change follows the Freeze RFC pro
 |---|---|---|---|---|
 | G-01 | Blueprint and Domain Model lived at repository root while Constitution lived under `docs/` | Broken SSOT; agents and humans followed different homes | Relocate pillars into `docs/`; leave root stubs as redirects only | Closed |
 | G-02 | Triple naming: AI Employee / Koil / Kowil | Fragmented ubiquitous language; review confusion | Adopt §6 naming; new documents must not treat Kowil as a separate product | Closed (normative); residual code aliases may remain until a later rename task |
-| G-03 | `smart-employee/` claims independent product identity | Risks splitting SPP into two products and diluting Property Operations Platform identity | Option A adopted — §6.3: experimental Arabic SPP surface under one Constitution | Closed |
+| G-03 | Co-located Arabic product folder was misread as part of SPP identity law | Architects mixed two products; wrong docs got edited | §6.3 corrected: SPP law applies to SPP only; `smart-employee/` is a separate product and out of SPP architecture scope | Closed (corrected) |
 | G-04 | `docs/APP_PATH.md` marks some integrations as live in ways that may exceed Blueprint Partial/Placeholder status | Delivery teams may trust unfinished rails | APP_PATH defers to Blueprint §§3.2, 8.2 on status | Open — operating path still needs status-column reconciliation |
 | G-05 | No prior ADR-style index for decisions outside Blueprint §18 | Decisions can land in chat or PRs without a home | Blueprint §18 remains the decision register; do not scatter | Accepted — owner: architecture |
 | G-06 | Operational docs (`HANDOFF.md`, root `README.md`) can outrank pillars in practice | Onboarding drift | `docs/README.md` is the architectural entry point; root README points to it | Closed for root README; HANDOFF remains operational only |
@@ -203,6 +213,8 @@ Presentation, Application, Domain, and Infrastructure boundaries are defined in 
 
 *Document Status:* Official Architecture Governance
 
+*Version:* 1.2
+
 *Version:* 1.3
 
 *Project:* Smart Property Platform (SPP)
@@ -210,6 +222,10 @@ Presentation, Application, Domain, and Infrastructure boundaries are defined in 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
 *Index:* `docs/README.md`
+
+*v1.1 change:* (superseded) mistaken absorb reading of `smart-employee/`.
+
+*v1.2 change:* Scope correction — SPP architectural law covers SPP only; Arabic product folder is out of scope (§6.3 / G-03 corrected).
 
 *Architecture audit:* `docs/ARCHITECTURE_AUDIT.md`
 

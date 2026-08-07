@@ -1,10 +1,16 @@
 ﻿# Smart Property Platform (SPP)
 
-AI-powered **Property Operations Platform** — not a traditional property-management app.
+AI-powered **Property Operations Platform**.
 
-## Architectural source of truth
+This repository’s **active SPP product** is:
 
-All architectural law lives under **`docs/`**:
+| Part | Directory |
+|---|---|
+| SPP application (Expo / React Native web) | `frontend/` |
+| SPP API (FastAPI) | `backend/` |
+| SPP architectural law (SSOT) | `docs/` |
+
+## Architectural source of truth (SPP only)
 
 | Pillar | Document |
 |---|---|
@@ -16,12 +22,8 @@ Start here: [`docs/README.md`](docs/README.md) · Governance: [`docs/ARCHITECTUR
 
 Root files `SPP_BLUEPRINT.md` and `DOMAIN_MODEL.md` are redirect stubs only.
 
-## Runtime entry points
+## Out of SPP architecture scope
 
-| Surface | Directory | Notes |
-|---|---|---|
-| SPP application (Expo) | `frontend/` | Primary product surface |
-| SPP API (FastAPI) | `backend/` | Pipelines, engines, integrations |
-| Experimental Arabic surface | `smart-employee/` | Option A adopted — SPP surface under one Constitution (`docs/ARCHITECTURE_GOVERNANCE.md` §6.3) |
+`smart-employee/` is a **separate Arabic product** co-located in this repository. It has its own product docs and is **not** governed by SPP Constitution / Blueprint / Domain Model. SPP architecture work must not rewrite that product’s identity.
 
-Operational runbooks: `HANDOFF.md`, `AGENTS.md`.
+Operational runbooks for SPP agents: `HANDOFF.md`, `AGENTS.md`.
