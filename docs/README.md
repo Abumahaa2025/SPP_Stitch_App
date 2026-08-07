@@ -1,9 +1,11 @@
 # SPP Documentation — Single Source of Truth
 
-> Official index for Smart Property Platform (`docs/`).
+> Official index for **Smart Property Platform (SPP)** under `docs/`.
+> Scope: SPP only (`frontend/`, `backend/`, and these documents).
 > Architectural truth starts here. Do not treat root handoff notes or chat summaries as competing law.
+> Do not apply this index to the separate Arabic product in `smart-employee/`.
 
-For writing rules, precedence, naming, and approval: see [`ARCHITECTURE_GOVERNANCE.md`](./ARCHITECTURE_GOVERNANCE.md).
+For writing rules, precedence, naming, scope, and approval: see [`ARCHITECTURE_GOVERNANCE.md`](./ARCHITECTURE_GOVERNANCE.md).
 
 ---
 
@@ -52,7 +54,7 @@ These help delivery teams navigate the running system. They must not redefine id
 | `AGENTS.md` | Cloud agent runbook |
 | `memory/`, `proofs/`, `test_reports/` | Product memory and evidence |
 | `backend/docs/` | Backend-local technical notes (e.g. data quality) |
-| `smart-employee/` | Experimental Arabic SPP surface — Option A adopted in Governance §6.3 (G-03 closed) |
+| `smart-employee/` | **Separate Arabic product** — out of SPP architecture scope (Governance §6.3) |
 
 ---
 
@@ -69,8 +71,8 @@ These help delivery teams navigate the running system. They must not redefine id
 
 *Document Status:* Official Documentation Index
 
-*Version:* 1.1
+*Version:* 1.2
 
 *Project:* Smart Property Platform (SPP)
 
-*v1.1:* Record Option A adoption for `smart-employee/` (Governance §6.3).
+*v1.2:* Clarify scope — SPP docs govern SPP only; Arabic product folder is out of scope.
