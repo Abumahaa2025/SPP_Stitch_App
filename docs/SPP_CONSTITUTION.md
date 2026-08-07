@@ -214,4 +214,6 @@ The final objective is to evolve SPP into an autonomous Property Operations Plat
 
 *Companion pillars:* `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
+*Enterprise system architecture:* `docs/SYSTEM_ARCHITECTURE.md`
+
 *Governance / index:* `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
