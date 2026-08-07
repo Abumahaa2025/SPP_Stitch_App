@@ -1270,7 +1270,7 @@ Closing a gap must respect Smart Import compatibility, Google Sheets column and 
 
 *Project:* Smart Property Platform (SPP)
 
-*Companion documents:* `docs/SPP_CONSTITUTION.md`, `docs/SPP_BLUEPRINT.md`, `docs/SPP_ENGINE_VISION.md`, `docs/SYSTEM_ARCHITECTURE.md`, `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/KNOWLEDGE_BASE.md`
+*Companion documents:* `docs/SPP_CONSTITUTION.md`, `docs/SPP_BLUEPRINT.md`, `docs/SPP_ENGINE_VISION.md`, `docs/SYSTEM_ARCHITECTURE.md`, `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/KNOWLEDGE_BASE.md`, `docs/AI_PROPERTY_EMPLOYEE.md`, `docs/MULTI_AGENT_ARCHITECTURE.md`
 
 *Governance / index:* `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 

@@ -224,4 +224,8 @@ The final objective is to evolve SPP into an autonomous Property Operations Plat
 
 *Knowledge Base architecture:* `docs/KNOWLEDGE_BASE.md`
 
+*AI Property Employee architecture:* `docs/AI_PROPERTY_EMPLOYEE.md`
+
+*Multi-Agent architecture:* `docs/MULTI_AGENT_ARCHITECTURE.md`
+
 *Governance / index:* `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
