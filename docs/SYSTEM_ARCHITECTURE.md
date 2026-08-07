@@ -298,6 +298,8 @@ Blueprint principle §2.8: every fact carries where it came from and how much it
 
 # 6. Knowledge Base interaction
 
+Normative deep dive: `docs/KNOWLEDGE_BASE.md` (taxonomy, provenance, validation, versioning, knowledge governance). Graph layers remain Blueprint §11.
+
 ## 6.1 Role
 
 The Knowledge Base (Knowledge Graph layers in Blueprint §11) is the **shared memory** of the platform. Intelligence reads it; Ingestion and Operations write through governed pipelines; Presentation never mutates it directly as free-form text.
@@ -986,6 +988,6 @@ Implementation may proceed only when the relevant architectural baseline for the
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
-*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
+*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/KNOWLEDGE_BASE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 
 *Change policy:* Enterprise composition, security control view, scalability/HA/DR/monitoring strategy, and constraints in this document are normative for system-level decisions. Moving a responsibility across a Clean Architecture boundary, changing gate semantics, Smart Import behaviour, or prepare-not-send still requires the owning pillar revision. Adding this document to the index is mandatory when version meaning changes.

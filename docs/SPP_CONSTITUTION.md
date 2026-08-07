@@ -222,4 +222,6 @@ The final objective is to evolve SPP into an autonomous Property Operations Plat
 
 *Operation Center architecture:* `docs/OPERATION_CENTER.md`
 
+*Knowledge Base architecture:* `docs/KNOWLEDGE_BASE.md`
+
 *Governance / index:* `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
