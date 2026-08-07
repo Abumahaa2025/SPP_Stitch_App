@@ -1,5 +1,7 @@
 /**
- * Kowil local brain — grounded answers from Property OS + Smart Employee.
+ * Historical Kowil spelling of the Koil local brain (Governance §6).
+ * Prefer importing from `@/src/utils/koil-local-brain` in new code.
+ * Grounded answers from Property OS + Smart Employee.
  * Never invents phones, contract numbers, or financial totals.
  * Offline-safe; no cloud LLM required.
  */

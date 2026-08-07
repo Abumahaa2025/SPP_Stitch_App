@@ -120,6 +120,8 @@
 
 ### GAP-H02 — Clean Architecture غير مُجسَّدة كحدود حزم
 
+> **Phase 2 status:** Partial→advancing — `docs/LAYER_MAP.md` + `frontend/src/domain/` + `frontend/src/application/` + `backend/routers/` + `adapters/settings.py` introduced; incremental only.
+
 | الحقل | التفصيل |
 |---|---|
 | **الوثيقة المرجعية** | Blueprint §5؛ Domain Model §3.2؛ Architecture Governance §9؛ System Architecture §§2–3, C-02 |
@@ -165,6 +167,8 @@
 
 ### GAP-H07 — محركات/محولات تقرأ أسرار البيئة مباشرة
 
+> **Phase 2 status:** Closed for Phase 2 paths — `adapters/settings.py` port; Green/HA/webhook/ejar/utilities/platform secrets + enable flags via `get_settings()`; legacy LLM/live_data env reads deferred.
+
 | الحقل | التفصيل |
 |---|---|
 | **الوثيقة المرجعية** | Blueprint §5.4 («An engine reading environment variables… is misplaced»)؛ System Architecture §3.4 |
@@ -178,6 +182,8 @@
 
 ### GAP-M01 — تسمية Kowil ما زالت سائدة في الكود والواجهة
 
+> **Phase 2 status:** Advancing — `koil-local-brain.ts` / `koil-platform-dispatch.ts` normative aliases; Kowil modules marked historical.
+
 | الحقل | التفصيل |
 |---|---|
 | **الوثيقة المرجعية** | Architecture Governance §6 (G-02 مغلق معيارياً)؛ Engine Vision ملاحظة التسمية |
@@ -187,6 +193,8 @@
 
 ### GAP-M02 — كيان Building ما زال Planned (عدد فقط)
 
+> **Phase 2 status:** Closed (first slice) — `buildings[]` + `unit.buildingId` + registry sync; `buildingCount` retained for compatibility.
+
 | الحقل | التفصيل |
 |---|---|
 | **الوثيقة المرجعية** | Domain Model §5.2, §9 |
@@ -195,6 +203,8 @@
 | **خطة الإصلاح المقترحة** | إدخال هوية مبنى + ربط الوحدات + خدمات مشتركة دون كسر Smart Import أو أعمدة Sheets. |
 
 ### GAP-M03 — فجوات كيانات Domain Model §9 ما زالت مفتوحة
+
+> **Phase 2 status:** Partial — `UtilityAccount` standing entity advanced (domain + application + API + tests). Other §9 entities remain open.
 
 | الحقل | التفصيل |
 |---|---|

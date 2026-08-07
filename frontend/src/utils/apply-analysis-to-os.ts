@@ -30,6 +30,10 @@ import { storage } from '@/src/utils/storage';
 import { syncCanonicalFromPropertyOS } from '@/src/utils/canonical-tenant-store';
 import { takePendingPropertyName } from '@/src/utils/pending-property-name';
 import { notifyPropertySaved } from '@/src/utils/local-notifications';
+import {
+  attachUnitToDefaultBuilding,
+  ensureBuildingsForProperty,
+} from '@/src/application/building-registry';
 
 const OS_KEY = 'spp.propertyOS';
 const REPORTS_KEY = 'spp.importedReports';
@@ -235,6 +239,7 @@ function countLedgerMonths(ledger: PaymentLedgerEntry[]): { paid: number; late: 
 
 type IncomingRecords = {
   property: PropertyRecord;
+  buildings: import('@/src/domain/building').BuildingRecord[];
   units: UnitRecord[];
   tenants: TenantRecord[];
   contracts: ContractRecord[];
@@ -272,6 +277,13 @@ export function buildIncomingRecords(
     createdAt: now,
   };
 
+  // First-class Building identity (Domain Model §5.2) — no Smart Import column changes.
+  const buildings = ensureBuildingsForProperty({
+    propertyId: propId,
+    buildingCount: property.buildingCount,
+    existing: [],
+  });
+
   const units: UnitRecord[] = [];
   const tenants: TenantRecord[] = [];
   const contracts: ContractRecord[] = [];
@@ -289,6 +301,7 @@ export function buildIncomingRecords(
     units.push({
       id: unitId,
       propertyId: propId,
+      buildingId: attachUnitToDefaultBuilding(undefined, buildings),
       number: unitNum,
       type: isShop ? 'shop' : 'apartment',
       status: 'occupied',
@@ -361,8 +374,9 @@ export function buildIncomingRecords(
   });
 
   property.unitCount = Math.max(property.unitCount, units.length);
+  property.buildingCount = Math.max(property.buildingCount, buildings.length);
 
-  return { property, units, tenants, contracts, ledger, payments };
+  return { property, buildings, units, tenants, contracts, ledger, payments };
 }
 
 function buildReport(analysis: PortfolioAnalysis, lang: 'ar' | 'en'): ReportT {
@@ -387,7 +401,7 @@ export function buildPropertyOSFromAnalysis(
   lang: 'ar' | 'en',
 ): { state: PropertyOSState; report: ReportT; commit: ApplyCommit } {
   const now = new Date().toISOString();
-  const { property, units, tenants, contracts, ledger, payments } = buildIncomingRecords(analysis, lang);
+  const { property, buildings, units, tenants, contracts, ledger, payments } = buildIncomingRecords(analysis, lang);
   const report = buildReport(analysis, lang);
   const m = analysis.metrics;
   const period = analysis.executive_brief?.period || '';
@@ -412,6 +426,7 @@ export function buildPropertyOSFromAnalysis(
 
   const state: PropertyOSState = {
     property,
+    buildings,
     units,
     tenants,
     contracts,
@@ -422,6 +437,7 @@ export function buildPropertyOSFromAnalysis(
     unitHistory: [],
     payments,
     paymentLedger: ledger,
+    utilityAccounts: [],
     startedAt: now,
     lastImportAt: now,
   };
@@ -629,8 +645,18 @@ export async function persistApplyFromAnalysis(
         ...prevState.property,
         district: incoming.property.district || prevState.property.district,
         unitCount: Math.max(prevState.property.unitCount, units.length),
+        buildingCount: Math.max(
+          prevState.property.buildingCount || 0,
+          incoming.buildings.length || prevState.buildings?.length || 1,
+        ),
       }
     : incoming.property;
+
+  const buildings = ensureBuildingsForProperty({
+    propertyId: property.id,
+    buildingCount: property.buildingCount || incoming.buildings.length || 1,
+    existing: prevState?.buildings?.length ? prevState.buildings : incoming.buildings,
+  });
 
   const summary = analysis.summary;
   const added = changeLog.filter((c) => c.type === 'added').length;
@@ -748,7 +774,11 @@ export async function persistApplyFromAnalysis(
 
   const nextState: PropertyOSState = {
     property,
-    units,
+    buildings,
+    units: units.map((u) => ({
+      ...u,
+      buildingId: attachUnitToDefaultBuilding(u.buildingId, buildings),
+    })),
     tenants,
     contracts,
     alertsEnabled: prevState?.alertsEnabled ?? true,
@@ -758,6 +788,7 @@ export async function persistApplyFromAnalysis(
     unitHistory: [...(prevState?.unitHistory ?? []), ...historyFromMoves],
     payments,
     paymentLedger: ledger,
+    utilityAccounts: prevState?.utilityAccounts ?? [],
     occupancyMoves,
     startedAt: prevState?.startedAt ?? now,
     lastImportAt: now,

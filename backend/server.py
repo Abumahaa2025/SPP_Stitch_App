@@ -189,6 +189,11 @@ def _gas_live_mode() -> bool:
 app = FastAPI(title="SPP — Smart Property Platform")
 api_router = APIRouter(prefix="/api")
 
+# Thin Interface routers (Blueprint §5.3) — Phase 2 incremental extraction.
+from routers.utility_accounts import router as utility_accounts_router  # noqa: E402
+
+api_router.include_router(utility_accounts_router)
+
 # ---------------------------------------------------------------------------
 # AI Layer (swappable). Currently OpenAI GPT-5.2 via Emergent LLM key.
 # ---------------------------------------------------------------------------

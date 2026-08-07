@@ -1,4 +1,5 @@
 /**
+ * Historical Kowil spelling — prefer `@/src/utils/koil-platform-dispatch`.
  * Open prepared messages (wa.me / share) after owner approval.
  * Prepare-not-send: never server-dispatches; delivery remains a deep-link open.
  */

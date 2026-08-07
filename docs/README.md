@@ -125,6 +125,7 @@ These help delivery teams navigate the running system. They must not redefine id
 | Document | Use |
 |---|---|
 | [`APP_PATH.md`](./APP_PATH.md) | End-to-end intake → employee → actions → integrations map |
+| [`LAYER_MAP.md`](./LAYER_MAP.md) | Clean Architecture package map for new/migrated code (Blueprint §5) |
 | [`DATA_SPINE_AUDIT.md`](./DATA_SPINE_AUDIT.md) | Historical audit of upload → apply → Property OS fields |
 | [`ENGINE_APPLY_CONTINUATION.md`](./ENGINE_APPLY_CONTINUATION.md) | Continuation notes for apply work |
 | [`STITCH_SCREEN_MAP.md`](./STITCH_SCREEN_MAP.md) | Screen map reference |

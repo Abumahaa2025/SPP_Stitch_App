@@ -1,4 +1,10 @@
-/** Official SPP data model: owner → property → unit → tenant → contract → payments → maintenance → technician → documents → wallet */
+/** Official SPP data model: owner → property → building → unit → tenant → contract → payments → maintenance → technician → documents → wallet */
+
+import type { BuildingRecord } from '@/src/domain/building';
+import type { UtilityAccountRecord } from '@/src/domain/utility-account';
+
+export type { BuildingRecord } from '@/src/domain/building';
+export type { UtilityAccountRecord } from '@/src/domain/utility-account';
 
 export type PropertyType = 'residential' | 'commercial' | 'mixed' | 'land' | 'other';
 export type UnitType = 'apartment' | 'shop' | 'office' | 'warehouse' | 'villa' | 'room' | 'other';
@@ -15,6 +21,7 @@ export type PropertyRecord = {
   type: PropertyType;
   city: string;
   district: string;
+  /** Legacy count — kept for backward compatibility; prefer `buildings[]`. */
   buildingCount: number;
   unitCount: number;
   createdAt: string;
@@ -23,6 +30,8 @@ export type PropertyRecord = {
 export type UnitRecord = {
   id: string;
   propertyId: string;
+  /** Optional first-class Building attachment (Domain Model §5.2 / §5.3). */
+  buildingId?: string;
   number: string;
   type: UnitType;
   rooms?: number;
@@ -181,6 +190,8 @@ export type OccupancyMoveSnapshot = {
 
 export type PropertyOSState = {
   property: PropertyRecord | null;
+  /** First-class Building identities (Domain Model §5.2). Optional for older device state. */
+  buildings?: BuildingRecord[];
   units: UnitRecord[];
   tenants: TenantRecord[];
   contracts: ContractRecord[];
@@ -192,6 +203,8 @@ export type PropertyOSState = {
   payments?: PaymentRecord[];
   /** WP-1: full per-month operational ledger materialised from analysis. */
   paymentLedger?: PaymentLedgerEntry[];
+  /** Standing utility accounts (Domain Model §5.20) — local registry; not a Sheets rename. */
+  utilityAccounts?: UtilityAccountRecord[];
   /** Lifecycle moves from consecutive statement applies (months 1–8…). */
   occupancyMoves?: OccupancyMoveSnapshot[];
   lastImportAt?: string;

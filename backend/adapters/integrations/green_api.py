@@ -10,16 +10,14 @@ GREEN_API_* env may still be present for status/health honesty, but
 
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, Optional
 from urllib.parse import quote
 
+from adapters.settings import get_settings
+
 
 def green_configured() -> bool:
-    return bool(
-        os.environ.get("GREEN_API_INSTANCE_ID", "").strip()
-        and os.environ.get("GREEN_API_TOKEN", "").strip()
-    )
+    return get_settings().green_configured
 
 
 def _digits(phone: str) -> str:

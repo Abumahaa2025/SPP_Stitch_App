@@ -7,22 +7,22 @@ until credentials are provided; webhook reception is the primary path.
 from __future__ import annotations
 
 import hmac
-import os
 from typing import Optional
 
+from adapters.settings import get_settings
 from adapters.webhook_security import webhook_fail_open_allowed
 
 
 def ejar_enabled() -> bool:
     """True when the owner has opted into Ejar (secret or explicit flag)."""
-    flag = (os.environ.get("EJAR_ENABLED") or "").strip().lower()
-    if flag in ("1", "true", "yes", "on"):
+    s = get_settings()
+    if s.ejar_enabled:
         return True
-    return bool((os.environ.get("EJAR_WEBHOOK_SECRET") or "").strip())
+    return bool(s.ejar_webhook_secret)
 
 
 def webhook_secret() -> str:
-    return (os.environ.get("EJAR_WEBHOOK_SECRET") or "").strip()
+    return get_settings().ejar_webhook_secret
 
 
 def verify_webhook_secret(provided: Optional[str]) -> bool:
