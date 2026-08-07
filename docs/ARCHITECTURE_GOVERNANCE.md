@@ -109,7 +109,7 @@ Documents that describe temporary engineering fixes belong in audit/proof class 
 | AI Employee | The product role: virtual property employee that proposes, explains, and learns; never approves | Use in Constitution-aligned product and architecture prose |
 | Koil | The intelligence system behind the AI Employee (understanding, knowledge, reasoning, learning layers) | Use when discussing engine layers; see `docs/SPP_ENGINE_VISION.md` |
 | Kowil | Deprecated spelling of the on-device deterministic fallback of Koil | Allowed only as a historical alias until implementation rename; new documents must write **Koil** |
-| Smart Employee desk | Owner-facing workplace surface of the AI Employee | UI surface name only; not a second product constitution |
+| Smart Employee desk | Owner-facing workplace surface of the AI Employee inside SPP `frontend/` | SPP UI surface name only; not the separate Arabic product folder `smart-employee/` |
 
 ## 6.3 Repository co-location is not product merger — corrected scope
 
