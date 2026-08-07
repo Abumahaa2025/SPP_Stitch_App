@@ -1,6 +1,8 @@
 # SPP Application Path — Intake → Integrations
 
-> Single operating reference for the end-to-end path (phases A→D).
+> Operating-path reference for the end-to-end path (phases A→D). **Not a pillar.**
+> Status claims defer to `docs/SPP_BLUEPRINT.md`. Identity defers to `docs/SPP_CONSTITUTION.md`.
+> Index: `docs/README.md`. Naming: `docs/ARCHITECTURE_GOVERNANCE.md` §6 (AI Employee / Koil).
 > Do not redesign UI identity. Do not change Smart Import column/sheet mapping unless explicitly tasked.
 
 ## Overview

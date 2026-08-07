@@ -1,20 +1,27 @@
-﻿# الموظف العقاري الذكي — Smart Employee
+﻿# Smart Property Platform (SPP)
 
-مستودع تطوير منتج عربي مستقل لإدارة العقارات.
+AI-powered **Property Operations Platform** — not a traditional property-management app.
 
-> هذا المنتج **بهوية مستقلة** عن SPP الداكن.  
-> التطبيق الجديد للمستخدم السعودي موجود في مجلد:
+## Architectural source of truth
 
-## `smart-employee/`
+All architectural law lives under **`docs/`**:
 
-```bash
-cd smart-employee
-npm install
-npm run dev
-```
+| Pillar | Document |
+|---|---|
+| Why / identity | [`docs/SPP_CONSTITUTION.md`](docs/SPP_CONSTITUTION.md) |
+| What / language | [`docs/DOMAIN_MODEL.md`](docs/DOMAIN_MODEL.md) |
+| How / structure | [`docs/SPP_BLUEPRINT.md`](docs/SPP_BLUEPRINT.md) |
 
-راجع:
-- `smart-employee/PRODUCT.md` — قرارات الهوية والمنتج
-- `smart-employee/README.md` — التشغيل السريع
+Start here: [`docs/README.md`](docs/README.md) · Governance: [`docs/ARCHITECTURE_GOVERNANCE.md`](docs/ARCHITECTURE_GOVERNANCE.md)
 
-المجلدات `frontend/` و `backend/` تمثل البنية السابقة المرتبطة بـ SPP Stitch، وتبقى مرجعاً تقنياً للمحركات لاحقاً دون فرض الهوية الداكنة على المنتج الجديد.
+Root files `SPP_BLUEPRINT.md` and `DOMAIN_MODEL.md` are redirect stubs only.
+
+## Runtime entry points
+
+| Surface | Directory | Notes |
+|---|---|---|
+| SPP application (Expo) | `frontend/` | Primary product surface |
+| SPP API (FastAPI) | `backend/` | Pipelines, engines, integrations |
+| Experimental Arabic surface | `smart-employee/` | Option A adopted — SPP surface under one Constitution (`docs/ARCHITECTURE_GOVERNANCE.md` §6.3) |
+
+Operational runbooks: `HANDOFF.md`, `AGENTS.md`.

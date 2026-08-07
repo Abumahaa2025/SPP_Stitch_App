@@ -1,6 +1,9 @@
 # SPP Engine Vision — الرؤية الرسمية لمحرك SPP
 
-> **المنتج الحقيقي هو Koil.** الملفات أدوات. Benchmark عدسة فحص — ليس منطق المحرك.
+> **المنتج الحقيقي هو Koil** — نظام ذكاء الـ AI Employee داخل SPP.
+> الملفات أدوات. Benchmark عدسة فحص — ليس منطق المحرك.
+> هذه وثيقة داعمة؛ لا تستبدل الدستور أو نموذج المجال أو الـ Blueprint.
+> الحوكمة والتسمية الرسمية: `docs/ARCHITECTURE_GOVERNANCE.md` (§6). الفهرس: `docs/README.md`.
 
 ---
 
@@ -131,4 +134,12 @@
 
 ---
 
-*اعتماد رسمي — يبنى عليه SPP وKoil.*
+*اعتماد رسمي — وثيقة داعمة للمحرك (Supporting architecture).*
+
+*Version:* 1.0
+
+*Project:* Smart Property Platform (SPP)
+
+*Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
+
+*Note:* الاسم الرسمي للدور المنتج هو AI Employee. **Koil** هو اسم نظام الذكاء خلفه. **Kowil** تهجئة تاريخية مرفوضة في الوثائق الجديدة.
