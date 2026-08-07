@@ -103,14 +103,10 @@
     "updates": {
       "url": "https://u.expo.dev/405761ee-fac3-4b25-9784-23f7441535e3",
       "checkAutomatically": "ON_LOAD",
-
-      "fallbackToCacheTimeout": 4000
-
       "fallbackToCacheTimeout": 0,
       "requestHeaders": {
         "expo-channel-name": "beta"
       }
-
     },
     "runtimeVersion": {
       "policy": "appVersion"

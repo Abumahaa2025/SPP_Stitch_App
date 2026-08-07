@@ -83,6 +83,7 @@ export const api = {
     req<WhatsAppSendResponse>('/integrations/whatsapp/send', {
       method: 'POST',
       body: JSON.stringify({ phone, message, dry_run: dryRun }),
+    }),
 
   ejarStatus: () =>
     req<{
