@@ -563,7 +563,7 @@ Every item above must be closed without reducing reporting capability, without b
 
 *Independent companion documents:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`
 
-*Supporting documents:* `docs/SYSTEM_ARCHITECTURE.md`, `docs/DATA_ARCHITECTURE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/MERGE_GATE_PLAN.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
+*Supporting documents:* `docs/SYSTEM_ARCHITECTURE.md`, `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/KNOWLEDGE_BASE.md`, `docs/AI_PROPERTY_EMPLOYEE.md`, `docs/MULTI_AGENT_ARCHITECTURE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/MERGE_GATE_PLAN.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 
 *Technical notes outside architectural law:* `backend/docs/DATA_QUALITY.md`
 
