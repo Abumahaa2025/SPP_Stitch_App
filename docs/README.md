@@ -4,7 +4,8 @@
 > Architectural truth starts here. Do not treat root handoff notes or chat summaries as competing law.
 
 For writing rules, precedence, naming, and approval: see [`ARCHITECTURE_GOVERNANCE.md`](./ARCHITECTURE_GOVERNANCE.md).  
-For the latest architecture audit (ownership, terminology, conflicts, gaps): see [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md).
+For the latest architecture audit (ownership, terminology, conflicts, gaps): see [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md).  
+For Architecture Phase exit and the v1.0 architectural contract: see [`ARCHITECTURE_FREEZE.md`](./ARCHITECTURE_FREEZE.md).
 
 ---
 
@@ -36,6 +37,8 @@ These three are independent. None absorbs another. Conflicts resolve by Architec
 | [`SPP_ENGINE_VISION.md`](./SPP_ENGINE_VISION.md) | Koil layers: deterministic / AI understanding / learning | Constitution, Blueprint AI Employee, Domain Model Knowledge |
 | [`MERGE_GATE_PLAN.md`](./MERGE_GATE_PLAN.md) | Merge / gate delivery intent | Blueprint gate semantics |
 | [`ARCHITECTURE_GOVERNANCE.md`](./ARCHITECTURE_GOVERNANCE.md) | Document law, SSOT, naming, approval | All pillars |
+| [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) | Ownership / terminology / conflict / gap proof | Does not redefine pillars |
+| [`ARCHITECTURE_FREEZE.md`](./ARCHITECTURE_FREEZE.md) | Architecture Phase exit; Enterprise Architecture v1.0 contract; RFC gate | Freeze set in Freeze §4 |
 
 **Division of labour (quick):** Decision Engine **decides** · Operation Center **coordinates** · Knowledge Base **remembers** · AI Property Employee / Chief **faces the owner** · Specialists **propose under the Chief**.
 
@@ -74,6 +77,7 @@ Full audit notes: [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) §4.
 | AIE-* | [`AI_PROPERTY_EMPLOYEE.md`](./AI_PROPERTY_EMPLOYEE.md) | Digital employee gaps |
 | MA-* | [`MULTI_AGENT_ARCHITECTURE.md`](./MULTI_AGENT_ARCHITECTURE.md) | Multi-agent org gaps |
 | AUD-* | [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) | Audit/process findings |
+| Freeze §21 | [`ARCHITECTURE_FREEZE.md`](./ARCHITECTURE_FREEZE.md) | Accepted/open gaps carried into Implementation Phase (points at owning registries) |
 
 **Rule:** Supporting docs may **link** Blueprint §19 / peer gaps; they must not fork a second conflicting roadmap for the same item.
 
@@ -92,16 +96,17 @@ Full audit notes: [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) §4.
 9. Digital employee identity / ethics / interactions → AI Property Employee.  
 10. Specialist workforce / registry / collaboration → Multi-Agent Architecture.  
 11. Koil layer placement → Engine Vision.  
-12. “May we implement yet?” → Architecture Governance §7.  
-13. Ownership / terminology / conflict doubt → Architecture Audit + this README.  
-14. Discovered contradiction → record a gap in the **owning** document; do not silently pick a side.
+12. “May we implement yet?” → Architecture Freeze §25 + Architecture Governance §7.  
+13. Structural change after freeze → Architecture Freeze RFC (§9) **before** code.  
+14. Ownership / terminology / conflict doubt → Architecture Audit + this README.  
+15. Discovered contradiction → record a gap in the **owning** document; do not silently pick a side.
 
 ---
 
 # 6. Recommended reading order (architecture baseline)
 
 1. Constitution → Domain Model → Blueprint  
-2. Architecture Governance → this README → Architecture Audit  
+2. Architecture Governance → this README → Architecture Audit → Architecture Freeze  
 3. System Architecture → Data Architecture  
 4. Knowledge Base → Decision Engine → Operation Center  
 5. AI Property Employee → Multi-Agent Architecture  
@@ -121,7 +126,9 @@ These help delivery teams navigate the running system. They must not redefine id
 | [`STITCH_SCREEN_MAP.md`](./STITCH_SCREEN_MAP.md) | Screen map reference |
 | [`EXPO_BETA_TESTING.md`](./EXPO_BETA_TESTING.md) | Beta testing notes |
 | [`OTA_AUTO_UPDATE.md`](./OTA_AUTO_UPDATE.md) | OTA channel notes |
-| [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) | Architecture SSOT audit findings |
+| [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) | Architecture SSOT audit findings (also freeze-set companion) |
+
+Governance / freeze contracts are indexed in §2 (not operating path).
 
 ---
 
@@ -141,9 +148,11 @@ These help delivery teams navigate the running system. They must not redefine id
 
 *Document Status:* Official Documentation Index
 
-*Version:* 1.9
+*Version:* 2.0
 
 *Project:* Smart Property Platform (SPP)
+
+*Architecture contract:* [`ARCHITECTURE_FREEZE.md`](./ARCHITECTURE_FREEZE.md) (Enterprise Architecture v1.0)
 
 *v1.1:* Record Option A adoption for `smart-employee/` (Governance §6.3).  
 *v1.2:* Index `SYSTEM_ARCHITECTURE.md`.  
@@ -153,4 +162,5 @@ These help delivery teams navigate the running system. They must not redefine id
 *v1.6:* Index `KNOWLEDGE_BASE.md`.  
 *v1.7:* Index `AI_PROPERTY_EMPLOYEE.md`.  
 *v1.8:* Index `MULTI_AGENT_ARCHITECTURE.md`.  
-*v1.9:* Final architecture map — ownership matrix, terminology, gap registries, reading order, Architecture Audit link.
+*v1.9:* Final architecture map — ownership matrix, terminology, gap registries, reading order, Architecture Audit link.  
+*v2.0:* Index Architecture Freeze — Architecture Phase exit / v1.0 architectural contract.
