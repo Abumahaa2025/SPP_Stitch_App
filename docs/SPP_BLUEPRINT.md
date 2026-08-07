@@ -529,6 +529,7 @@ Every delegated task carries: the subject entity, the goal, the scope of allowed
 | Unified decision list across four engines | The owner needs one agenda, not four opinions | Deduplication keys and scoring are load-bearing |
 | Static HTTPS bridge for portal links | Portal recipients must not install anything | Bridge hosting must serve real HTML; content type is a functional requirement |
 | Optional document store with in-memory fallback | Beta and demonstration must run with zero infrastructure | Some streams currently lose history on restart |
+| `smart-employee/` is an experimental Arabic SPP surface, not a second product (Governance Option A) | Constitution allows one product law; locale and clarity experiments must not fork identity or domain language | Shared Domain Model and engines; Presentation may explore a lighter Saudi daily-use palette without amending brand law for `frontend/` |
 
 ---
 
@@ -554,9 +555,11 @@ Every item above must be closed without reducing reporting capability, without b
 
 *Document Status:* Official Architecture Blueprint
 
-*Version:* 1.0
+*Version:* 1.1
 
 *Project:* Smart Property Platform (SPP)
+
+*v1.1:* Record Option A — `smart-employee/` experimental Arabic SPP surface (Governance §6.3).
 
 *Independent companion documents:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`
 

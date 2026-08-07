@@ -22,6 +22,6 @@ Root files `SPP_BLUEPRINT.md` and `DOMAIN_MODEL.md` are redirect stubs only.
 |---|---|---|
 | SPP application (Expo) | `frontend/` | Primary product surface |
 | SPP API (FastAPI) | `backend/` | Pipelines, engines, integrations |
-| Experimental Arabic surface | `smart-employee/` | Not a second constitution — see Governance gap G-03 |
+| Experimental Arabic surface | `smart-employee/` | Option A adopted — SPP surface under one Constitution (`docs/ARCHITECTURE_GOVERNANCE.md` §6.3) |
 
 Operational runbooks: `HANDOFF.md`, `AGENTS.md`.

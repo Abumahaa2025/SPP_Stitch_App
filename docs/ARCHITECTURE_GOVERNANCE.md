@@ -1,4 +1,4 @@
-# SPP Architecture Governance v1.0
+# SPP Architecture Governance v1.1
 
 > Official governance for all architectural truth in the Smart Property Platform (SPP).
 > This document does not redefine product law, domain language, or structural design.
@@ -109,16 +109,21 @@ Documents that describe temporary engineering fixes belong in audit/proof class 
 | Kowil | Deprecated spelling of the on-device deterministic fallback of Koil | Allowed only as a historical alias until implementation rename; new documents must write **Koil** |
 | Smart Employee desk | Owner-facing workplace surface of the AI Employee | UI surface name only; not a second product constitution |
 
-## 6.3 Related identity gap — `smart-employee/` folder
+## 6.3 `smart-employee/` folder — adopted decision (Option A)
 
-`README.md` and `smart-employee/PRODUCT.md` currently describe an independently branded product that must not copy SPP identity. That claim **conflicts** with Constitution §§3–5 and Identity Protection.
+**Status:** Adopted by product-owner decision (Option A) · 2026-08-07 · closes gap G-03
 
-**Proposed resolution (pending product-owner confirmation):**
+Earlier copy described `smart-employee/` as an independently branded product. That claim conflicted with Constitution §§3–5 and Identity Protection.
 
-1. Treat `smart-employee/` as an **experimental Arabic delivery surface** exploring locale and clarity — not a second constitution.
-2. SPP Constitution remains the only product law.
-3. Any lasting brand split requires an explicit Constitution amendment; until then, architecture and engines remain SPP Property Operations Platform assets.
-4. Do not implement divergent domain language inside `smart-employee/`; Domain Model names stay shared.
+**Normative resolution (Option A):**
+
+1. `smart-employee/` is an **experimental Arabic delivery surface** for locale (RTL), clarity, and Saudi daily-use presentation — **not** a second product and **not** a second constitution.
+2. `docs/SPP_CONSTITUTION.md` remains the **only** product law. SPP identity as a Property Operations Platform is not optional and is not forked.
+3. A lasting brand split, if ever intended, requires an **explicit Constitution amendment** before any divergent product law is written. Until then, architecture, engines, Domain Model, and reporting capability remain shared SPP assets.
+4. The surface must not invent divergent ubiquitous language. Entity names and meanings stay those of `docs/DOMAIN_MODEL.md`.
+5. Visual exploration on this surface (for example a lighter daily-use palette) is a **Presentation experiment** only. It does not redefine SPP brand law for `frontend/`, and it does not authorize a second platform roadmap.
+
+Consequence: onboarding, PRs, and future documents must describe `smart-employee/` as an experimental SPP surface, never as a competing product.
 
 ---
 
@@ -157,15 +162,15 @@ Until that baseline is adopted, new feature implementation is deferred; bug fixe
 
 # 8. Architecture gaps discovered at governance adoption
 
-| ID | Gap | Impact | Proposed resolution |
-|---|---|---|---|
-| G-01 | Blueprint and Domain Model lived at repository root while Constitution lived under `docs/` | Broken SSOT; agents and humans followed different homes | Relocate pillars into `docs/`; leave root stubs as redirects only |
-| G-02 | Triple naming: AI Employee / Koil / Kowil | Fragmented ubiquitous language; review confusion | Adopt §6 naming; update supporting docs to stop introducing Kowil as a separate product |
-| G-03 | `smart-employee/` claims independent product identity | Risks splitting SPP into two products and diluting Property Operations Platform identity | Apply §6.3; confirm with product owner; amend Constitution only if a true brand split is intended |
-| G-04 | `docs/APP_PATH.md` marks some integrations as live in ways that may exceed Blueprint Partial/Placeholder status | Delivery teams may trust unfinished rails | Reconcile APP_PATH status column against Blueprint §§3.2, 8.2; APP_PATH defers to Blueprint on status |
-| G-05 | No prior ADR-style index for decisions outside Blueprint §18 | Decisions can land in chat or PRs without a home | Blueprint §18 remains the decision register; material new decisions amend Blueprint §18 or a future `docs/ADR/` index linked from README — do not scatter |
-| G-06 | Operational docs (`HANDOFF.md`, root `README.md`) can outrank pillars in practice | Onboarding drift | `docs/README.md` is the entry point for architectural onboarding; root README must point to it for SPP architecture |
-| G-07 | Event bus, outbound rails, longitudinal memory still open (Blueprint §19) | Limits Operations Center maturity | Remain tracked only in Blueprint §19; supporting docs must link, not fork a second roadmap |
+| ID | Gap | Impact | Resolution | Status |
+|---|---|---|---|---|
+| G-01 | Blueprint and Domain Model lived at repository root while Constitution lived under `docs/` | Broken SSOT; agents and humans followed different homes | Relocate pillars into `docs/`; leave root stubs as redirects only | Closed |
+| G-02 | Triple naming: AI Employee / Koil / Kowil | Fragmented ubiquitous language; review confusion | Adopt §6 naming; new documents must not treat Kowil as a separate product | Closed (normative); residual code aliases may remain until a later rename task |
+| G-03 | `smart-employee/` claims independent product identity | Risks splitting SPP into two products and diluting Property Operations Platform identity | Option A adopted — §6.3: experimental Arabic SPP surface under one Constitution | Closed |
+| G-04 | `docs/APP_PATH.md` marks some integrations as live in ways that may exceed Blueprint Partial/Placeholder status | Delivery teams may trust unfinished rails | APP_PATH defers to Blueprint §§3.2, 8.2 on status | Open — operating path still needs status-column reconciliation |
+| G-05 | No prior ADR-style index for decisions outside Blueprint §18 | Decisions can land in chat or PRs without a home | Blueprint §18 remains the decision register; do not scatter | Accepted — owner: architecture |
+| G-06 | Operational docs (`HANDOFF.md`, root `README.md`) can outrank pillars in practice | Onboarding drift | `docs/README.md` is the architectural entry point; root README points to it | Closed for root README; HANDOFF remains operational only |
+| G-07 | Event bus, outbound rails, longitudinal memory still open (Blueprint §19) | Limits Operations Center maturity | Track only in Blueprint §19; supporting docs must link, not fork | Open — tracked in Blueprint |
 
 ---
 
@@ -184,12 +189,14 @@ Presentation, Application, Domain, and Infrastructure boundaries are defined in 
 
 *Document Status:* Official Architecture Governance
 
-*Version:* 1.0
+*Version:* 1.1
 
 *Project:* Smart Property Platform (SPP)
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
 *Index:* `docs/README.md`
+
+*v1.1 change:* Adopted Option A for `smart-employee/` identity (§6.3 / G-03).
 
 *Change policy:* Process, precedence, naming, and SSOT rules in this document are normative. Closing a gap in §8 requires either a pillar amendment or an explicit accepted-risk note in §8 with owner and date.

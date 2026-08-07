@@ -52,7 +52,7 @@ These help delivery teams navigate the running system. They must not redefine id
 | `AGENTS.md` | Cloud agent runbook |
 | `memory/`, `proofs/`, `test_reports/` | Product memory and evidence |
 | `backend/docs/` | Backend-local technical notes (e.g. data quality) |
-| `smart-employee/` | Experimental surface — identity conflict tracked in Governance §6.3 / gap G-03 |
+| `smart-employee/` | Experimental Arabic SPP surface — Option A adopted in Governance §6.3 (G-03 closed) |
 
 ---
 
@@ -69,6 +69,8 @@ These help delivery teams navigate the running system. They must not redefine id
 
 *Document Status:* Official Documentation Index
 
-*Version:* 1.0
+*Version:* 1.1
 
 *Project:* Smart Property Platform (SPP)
+
+*v1.1:* Record Option A adoption for `smart-employee/` (Governance §6.3).
