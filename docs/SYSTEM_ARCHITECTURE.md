@@ -739,6 +739,8 @@ flowchart TB
 
 # 17. Multi-agent interaction
 
+Normative deep dive: `docs/MULTI_AGENT_ARCHITECTURE.md` (enterprise digital workforce, registry, charters, collaboration). Phase prerequisites remain Blueprint §17.5.
+
 ## 17.1 Direction
 
 The current AI Employee is one generalist. The target is a small team of specialists under one coordinator — Collection, Leasing, Maintenance, Utilities, Data quality, Reporting — as defined in Blueprint §17.
