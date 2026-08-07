@@ -25,6 +25,43 @@ export type ConnectionsState = Record<ServiceKey, ServiceConfig>;
 
 const KEY = 'spp.connections';
 
+/** Provider secrets must never live in device storage (Blueprint §8.4 / GAP-C05). */
+const SECRET_FIELD_KEYS = new Set([
+  'apiToken',
+  'token',
+  'smtpPass',
+  'webhookSecret',
+  'apiKey',
+  'password',
+  'secret',
+]);
+
+export function stripSecretFields(fields: Record<string, string> | undefined): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!fields) return out;
+  for (const [k, v] of Object.entries(fields)) {
+    if (SECRET_FIELD_KEYS.has(k)) continue;
+    out[k] = v;
+  }
+  return out;
+}
+
+function sanitizeService(svc: ServiceConfig | undefined): ServiceConfig {
+  const base = svc || empty();
+  return {
+    ...base,
+    fields: stripSecretFields(base.fields),
+  };
+}
+
+function sanitizeState(raw: Partial<ConnectionsState>): ConnectionsState {
+  const next = { ...DEFAULT };
+  (Object.keys(DEFAULT) as ServiceKey[]).forEach((key) => {
+    next[key] = sanitizeService(raw[key] as ServiceConfig | undefined);
+  });
+  return next;
+}
+
 const empty = (): ServiceConfig => ({
   connected: false,
   completedSteps: 0,
@@ -55,7 +92,10 @@ export function useConnections() {
       if (stored) {
         try {
           const parsed = JSON.parse(stored) as Partial<ConnectionsState>;
-          setState({ ...DEFAULT, ...parsed });
+          const cleaned = sanitizeState(parsed);
+          setState(cleaned);
+          // Migrate: rewrite storage without any previously saved secrets.
+          await storage.setItem(KEY, JSON.stringify(cleaned));
         } catch { /* ignore */ }
       }
       setReady(true);
@@ -67,9 +107,13 @@ export function useConnections() {
     patch: Partial<ServiceConfig>,
   ) => {
     setState((prev) => {
+      const mergedFields = stripSecretFields({
+        ...prev[key].fields,
+        ...(patch.fields || {}),
+      });
       const next = {
         ...prev,
-        [key]: { ...prev[key], ...patch },
+        [key]: sanitizeService({ ...prev[key], ...patch, fields: mergedFields }),
       };
       storage.setItem(KEY, JSON.stringify(next));
       return next;
@@ -79,7 +123,7 @@ export function useConnections() {
   const completeStep = useCallback((key: ServiceKey, step: number, fields?: Record<string, string>) => {
     setState((prev) => {
       const svc = prev[key];
-      const mergedFields = { ...svc.fields, ...fields };
+      const mergedFields = stripSecretFields({ ...svc.fields, ...fields });
       const completedSteps = Math.max(svc.completedSteps, step);
       const connected = completedSteps >= 3;
       const next = {
@@ -113,8 +157,8 @@ function maskSummary(key: ServiceKey, fields: Record<string, string>): string {
   if (key === 'whatsapp' || key === 'greenApi') return fields.phone?.slice(-4) ? `··${fields.phone.slice(-4)}` : 'connected';
   if (key === 'email') return fields.fromEmail?.split('@')[0] ?? 'connected';
   if (key === 'homeAssistant') return fields.url?.replace(/^https?:\/\//, '').slice(0, 20) ?? 'connected';
-  if (key === 'ejar') return fields.organizationId?.slice(-6) || fields.webhookSecret?.slice(-4) || 'ejar';
-  if (key === 'electricity' || key === 'water') return fields.accountNumber?.slice(-4) || fields.webhookSecret?.slice(-4) || key;
+  if (key === 'ejar') return fields.organizationId?.slice(-6) || 'ejar';
+  if (key === 'electricity' || key === 'water') return fields.accountNumber?.slice(-4) || key;
   if (key === 'messagingAutomation') return fields.provider?.slice(0, 12) || 'messaging';
   if (key === 'intelligenceHub') return fields.workspace?.slice(0, 12) || 'intel';
   return 'connected';

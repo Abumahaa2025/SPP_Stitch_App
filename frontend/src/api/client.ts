@@ -79,10 +79,24 @@ export const api = {
       `/koil/executions${analysisId ? `?analysis_id=${encodeURIComponent(analysisId)}&limit=${limit}` : `?limit=${limit}`}`,
     ),
   integrationsStatus: () => req<IntegrationsStatusResponse>('/integrations/status'),
-  whatsappSend: (phone: string, message: string, dryRun = false) =>
+  /**
+   * Prepare WhatsApp deep link only (Blueprint Placeholder — no Green dispatch).
+   * Pass approvalId to bind prepare to a persisted approval. dryRun defaults true.
+   */
+  whatsappSend: (
+    phone: string,
+    message: string,
+    dryRun = true,
+    approvalId?: string,
+  ) =>
     req<WhatsAppSendResponse>('/integrations/whatsapp/send', {
       method: 'POST',
-      body: JSON.stringify({ phone, message, dry_run: dryRun }),
+      body: JSON.stringify({
+        phone,
+        message,
+        dry_run: dryRun,
+        approval_id: approvalId || null,
+      }),
     }),
 
   ejarStatus: () =>
@@ -142,6 +156,10 @@ export type WhatsAppSendResponse = {
   deep_link?: string | null;
   provider_id?: string;
   error?: string;
+  server_dispatch?: boolean;
+  outbound_rail?: string;
+  approval_id?: string | null;
+  approval_bound?: boolean;
 };
 
 export type KoilExecutionT = {

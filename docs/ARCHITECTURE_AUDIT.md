@@ -115,7 +115,7 @@ Audit result: **Aligned** across System Architecture, Decision Engine, Operation
 | AUD-C1 | Operation Center vs Operations Center naming | Same capability; Constitution spelling preferred in product prose | Closed (alias) |
 | AUD-C2 | Generalist AI Employee today vs multi-agent org chart | Multi-Agent status Planned/Partial; Blueprint phases bind rollout | Closed (status honesty) |
 | AUD-C3 | Automatic decisions exist as class vs “AI never approves” | Automatic class limited to internal non-outbound effects (Decision Engine §9) | Closed (aligned) |
-| AUD-C4 | APP_PATH may overstate integration liveness | Governance G-04 remains Open; Blueprint status wins | Open (G-04) |
+| AUD-C4 | APP_PATH may overstate integration liveness | Governance G-04 closed in Phase 1; Blueprint status wins | Closed (G-04) |
 | AUD-C5 | Parallel process gaps DA-12 / DE-12 (doc landing lag) | Marked Closed after stack rebase | Closed |
 | AUD-C6 | Blueprint specialist list shorter than Multi-Agent org | Multi-Agent is enterprise expansion; Blueprint list remains minimal structural set; aliases mapped | Closed (complementary) |
 
@@ -142,7 +142,7 @@ Residual risk: operating-path docs may lag Blueprint status (G-04) — not a bro
 
 | Prefix | Owning document | Count (this audit) | Notes |
 |---|---|---|---|
-| G- | Architecture Governance §8 | G-01…G-07 | G-01, G-02, G-03, G-05, G-06 closed/accepted; G-04, G-07 open |
+| G- | Architecture Governance §8 | G-01…G-07 | G-01, G-02, G-03, G-04, G-05, G-06 closed/accepted; G-07 open |
 | Blueprint §19 | Blueprint | Unnumbered list | Structural roadmap gaps; supporting docs must link, not fork |
 | SA- | System Architecture | SA-01…SA-08 | Enterprise ops/scale/DR/obs |
 | DA- | Data Architecture | DA-01…DA-12 | DA-12 closed |
@@ -162,7 +162,7 @@ Examples verified: OC-04 → DA-01; KB-01 → DA-04 / Blueprint §11.4; AIE-01 �
 | ID | Gap | Impact | Direction | Status |
 |---|---|---|---|---|
 | AUD-G1 | No prior consolidated ownership/terminology index in README | Onboarding drift across many supporting docs | README v1.9 final structure + this audit | Closed by this audit |
-| AUD-G2 | Operating-path status reconciliation still open | Delivery trust risk | Keep G-04 open until APP_PATH status column fixed | Open (owned by G-04) |
+| AUD-G2 | Operating-path status reconciliation still open | Delivery trust risk | APP_PATH status column reconciled to Blueprint §§3.2 / 8.2 | Closed (owned by G-04 / Phase 1) |
 
 ---
 

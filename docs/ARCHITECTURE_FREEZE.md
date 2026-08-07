@@ -384,11 +384,12 @@ Freezing architecture **accepts that open gaps remain**. They are not defects of
 
 | Class | Where tracked | Freeze stance |
 |---|---|---|
-| Governance open | G-04 (APP_PATH vs Blueprint status); G-07 → Blueprint §19 | Remain Open; Blueprint wins on status |
+| Governance open | G-07 → Blueprint §19 | Remain Open; Blueprint wins on status |
+| Governance closed (Phase 1) | G-04 (APP_PATH vs Blueprint status) | Closed — APP_PATH status column matches Blueprint §§3.2 / 8.2 |
 | Governance accepted | G-05 (ADR index = Blueprint §18) | Accepted — do not scatter decisions |
 | Blueprint roadmap | Blueprint §19 (event bus, outbound rails, longitudinal memory, …) | Link only; do not fork |
 | Supporting registries | SA-*, DA-*, DE-*, OC-*, KB-*, AIE-*, MA-* | Owned by respective docs; Implementation closes without inventing law |
-| Audit | AUD-G2 tracks G-04 | Open until G-04 closes |
+| Audit | AUD-G2 tracked G-04 | Closed with G-04 (Phase 1) |
 
 Detail and IDs: [`ARCHITECTURE_AUDIT.md`](./ARCHITECTURE_AUDIT.md) §8; [`ARCHITECTURE_GOVERNANCE.md`](./ARCHITECTURE_GOVERNANCE.md) §8; [`README.md`](./README.md) §4.
 
@@ -494,7 +495,7 @@ Implementation Phase **enters** when Architecture Phase has exited (§24) and te
 | Risk | Acceptance | Owner |
 |---|---|---|
 | Open Blueprint §19 / G-07 structural gaps | Accepted for Implementation Phase entry; tracked only in Blueprint §19 | Architecture |
-| G-04 operating-path status drift | Accepted as Open; Blueprint status wins until reconciled | Architecture + delivery |
+| G-04 operating-path status drift | Closed in Phase 1 — APP_PATH status column matches Blueprint §§3.2 / 8.2; Blueprint still wins on conflict | Architecture + delivery |
 | Residual naming aliases (Operations Center, Collection/Utilities agent spelling) | Accepted — documented aliases | Architecture |
 | Kowil historical spelling in older notes/code | Accepted as historical only; new normative prose uses Koil | Architecture |
 | Engine Vision / Merge Gate Plan outside freeze inventory as peer law | Accepted — subordinate supporting; must not contradict freeze set | Architecture |

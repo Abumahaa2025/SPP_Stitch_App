@@ -36,6 +36,8 @@
 
 ### GAP-C01 — إرسال واتساب من مكتب الموظف يتجاوز prepare-not-send
 
+> **Phase 1 status:** Closed — desk collection/escalation requires owner approval + persisted prepared content; Green outbound forced to deep-link Placeholder (no server dispatch).
+
 | الحقل | التفصيل |
 |---|---|
 | **الوثيقة المرجعية** | Constitution §11؛ Blueprint §§2.5, 8.2, 13.3؛ System Architecture C-03 / C-04 |
@@ -44,6 +46,8 @@
 | **خطة الإصلاح المقترحة** | 1) جعل كل إرسال منظم يمر بموافقة persist ثم حالة `delivery_status=unsent/prepared`. 2) تقييد `/integrations/whatsapp/send` ليطلب معرف موافقة صالح أو فرض `dry_run` افتراضياً. 3) فصل «تحضير الرسالة» عن «فتح wa.me / إرسال Green». 4) تعديل Blueprint §3.2/§8.2 فقط بعد إقرار سكة إرسال صريحة خلف سياسة المالك. |
 
 ### GAP-C02 — Webhooks تفتح عند غياب السر المشترك (fail-open)
+
+> **Phase 1 status:** Closed — production/non-beta fails closed when secret unset; beta/local may fail open.
 
 | الحقل | التفصيل |
 |---|---|
@@ -63,6 +67,8 @@
 
 ### GAP-C04 — تعارض ثلاثي لحالة Green API / WhatsApp outbound
 
+> **Phase 1 status:** Closed (Option A) — code conformed to Blueprint Placeholder (deep links only); no RFC; APP_PATH reconciled.
+
 | الحقل | التفصيل |
 |---|---|
 | **الوثيقة المرجعية** | Blueprint §§3.2, 8.2, 19؛ Governance G-04؛ `docs/APP_PATH.md` Phase C/D؛ System Architecture §12.1 |
@@ -71,6 +77,8 @@
 | **خطة الإصلاح المقترحة** | اختيار واحد صريح عبر تعديل Blueprint: إما (أ) إعادة الكود إلى deep-link + prepare-only حتى إقرار السكة، أو (ب) ترقية الحالة إلى Partial/Implemented مع عقد موافقة إلزامي وoutbox. ثم مواءمة APP_PATH مع أسطورة الحالة في Blueprint. |
 
 ### GAP-C05 — أسرار مزوّدين تُلتقط وتُخزَّن على الجهاز
+
+> **Phase 1 status:** Closed — setup screens store intent only; secrets stripped from `spp.connections` on read/write.
 
 | الحقل | التفصيل |
 |---|---|
@@ -272,6 +280,8 @@
 | **خطة الإصلاح المقترحة** | الإبقاء على التتبع في Blueprint §19 / SA §23 فقط؛ منع اختصارات broker قبل envelope. |
 
 ### GAP-L04 — وثائق تشغيل APP_PATH ما زالت تحتاج عمود حالة (G-04)
+
+> **Phase 1 status:** Closed — APP_PATH Blueprint status column added; Governance G-04 closed.
 
 | الحقل | التفصيل |
 |---|---|

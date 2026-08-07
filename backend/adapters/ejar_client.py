@@ -10,6 +10,8 @@ import hmac
 import os
 from typing import Optional
 
+from adapters.webhook_security import webhook_fail_open_allowed
+
 
 def ejar_enabled() -> bool:
     """True when the owner has opted into Ejar (secret or explicit flag)."""
@@ -24,10 +26,10 @@ def webhook_secret() -> str:
 
 
 def verify_webhook_secret(provided: Optional[str]) -> bool:
-    """Constant-time compare. If no secret configured, accept (dev/beta)."""
+    """Constant-time compare. Empty secret fails closed outside beta/local."""
     expected = webhook_secret()
     if not expected:
-        return True
+        return webhook_fail_open_allowed()
     got = (provided or "").strip()
     if not got:
         return False
@@ -35,12 +37,15 @@ def verify_webhook_secret(provided: Optional[str]) -> bool:
 
 
 def status_payload(*, event_count: int = 0, last_event_at: Optional[str] = None) -> dict:
+    secret_set = bool(webhook_secret())
     return {
         "service": "ejar",
         "label_ar": "منصة إيجار",
         "label_en": "Ejar",
         "configured": ejar_enabled(),
-        "webhook_ready": bool(webhook_secret()) or ejar_enabled(),
+        "webhook_ready": secret_set,
+        "webhook_secret_configured": secret_set,
+        "webhook_fail_open": (not secret_set) and webhook_fail_open_allowed(),
         "event_count": event_count,
         "last_event_at": last_event_at,
         "scopes": ["contract_expiry", "contract_renewal", "official_notices"],

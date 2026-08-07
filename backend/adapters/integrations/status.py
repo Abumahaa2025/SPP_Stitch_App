@@ -53,15 +53,24 @@ def _sheets_status() -> Dict[str, Any]:
 
 
 def _green_status() -> Dict[str, Any]:
+    """Blueprint §8.2: Green API outbound is Placeholder (deep links only)."""
     configured = green_configured()
     return {
         "id": "whatsapp",
         "configured": configured,
-        "status": "active" if configured else "not_connected",
+        # Do not claim "active" send — rail is Placeholder until RFC elevates it.
+        "status": "placeholder" if configured else "not_connected",
         "label": "WhatsApp · Green API",
-        "detail": "GREEN_API_INSTANCE_ID + GREEN_API_TOKEN" if configured else "env keys missing",
+        "detail": (
+            "env keys present; outbound Placeholder — deep links only (Blueprint §8.2)"
+            if configured
+            else "env keys missing; client uses wa.me deep links"
+        ),
         "provider": "green_api",
         "fallback": "wa_me",
+        "outbound_rail": "placeholder",
+        "server_dispatch": False,
+        "blueprint_status": "Placeholder",
     }
 
 

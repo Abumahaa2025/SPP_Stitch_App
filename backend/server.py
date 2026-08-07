@@ -1897,13 +1897,38 @@ class WhatsAppSendRequest(BaseModel):
 
     phone: str
     message: str
-    dry_run: bool = False
+    # Default True — Blueprint Placeholder: never server-dispatch Green API.
+    dry_run: bool = True
+    approval_id: Optional[str] = None
 
 
 @api_router.post("/integrations/whatsapp/send")
 async def integrations_whatsapp_send(req: WhatsAppSendRequest):
-    """Send via Green API when configured; otherwise return wa.me deep link."""
-    result = send_whatsapp_message(req.phone, req.message, dry_run=req.dry_run)
+    """Prepare wa.me deep link only (Blueprint §8.2 Placeholder — no Green dispatch).
+
+    ``approval_id`` binds the prepare call to a persisted approval when available.
+    ``dry_run=false`` does not enable server send; outbound rail remains Placeholder.
+    """
+    if req.dry_run is False and not (req.approval_id or "").strip():
+        raise HTTPException(
+            403,
+            {
+                "ok": False,
+                "error": "approval_required",
+                "detail": (
+                    "Outbound WhatsApp is Placeholder (deep links only). "
+                    "Provide approval_id to bind a prepare call, or use dry_run."
+                ),
+                "outbound_rail": "placeholder",
+                "server_dispatch": False,
+            },
+        )
+    result = send_whatsapp_message(
+        req.phone,
+        req.message,
+        dry_run=True,
+        approval_id=(req.approval_id or "").strip() or None,
+    )
     status_code = 200 if result.get("ok") or result.get("deep_link") else 422
     if status_code != 200:
         raise HTTPException(status_code, result)
@@ -2901,7 +2926,8 @@ def _portal_open_html() -> str:
 </body>
 </html>
 """
-=======
+
+
 @app.exception_handler(HTTPException)
 async def _http_exception_handler(request: Request, exc: HTTPException):
     """Ensure HTTPException details never echo secrets/paths."""
@@ -2935,10 +2961,8 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-
 @app.get("/portal/open", response_class=HTMLResponse)
 async def portal_open_bridge(request: Request):
-
     """HTTPS bridge for WhatsApp/SMS portal links — always text/html page."""
     html = _portal_open_html()
     return HTMLResponse(
@@ -2950,19 +2974,6 @@ async def portal_open_bridge(request: Request):
             "Content-Disposition": "inline; filename=portal-open.html",
         },
     )
-
-    """HTTPS bridge for WhatsApp/SMS portal links — opens spp:// or shows web card."""
-    html_path = ROOT_DIR.parent / "docs" / "portal-open.html"
-    if html_path.exists():
-        return HTMLResponse(html_path.read_text(encoding="utf-8"))
-    # Fallback: GitHub Pages copy — raw CDNs serve .html as text/plain, which
-    # shows the page source instead of the portal card.
-    q = request.url.query
-    target = "https://abumahaa2025.github.io/SPP_Stitch_App/portal-open.html"
-    if q:
-        target = f"{target}?{q}"
-    return RedirectResponse(target, status_code=302)
-
 
 
 app.add_middleware(

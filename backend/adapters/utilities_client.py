@@ -10,6 +10,8 @@ import hmac
 import os
 from typing import Literal, Optional
 
+from adapters.webhook_security import webhook_fail_open_allowed
+
 UtilityKind = Literal["electricity", "water"]
 
 
@@ -45,7 +47,7 @@ def webhook_secret(kind: UtilityKind) -> str:
 def verify_webhook_secret(kind: UtilityKind, provided: Optional[str]) -> bool:
     expected = webhook_secret(kind)
     if not expected:
-        return True
+        return webhook_fail_open_allowed()
     got = (provided or "").strip()
     if not got:
         return False
@@ -62,12 +64,15 @@ def status_payload(
         "electricity": {"ar": "شركة الكهرباء", "en": "Electricity company"},
         "water": {"ar": "شركة المياه", "en": "Water company"},
     }[kind]
+    secret_set = bool(webhook_secret(kind))
     return {
         "service": kind,
         "label_ar": labels["ar"],
         "label_en": labels["en"],
         "configured": utility_enabled(kind),
-        "webhook_ready": bool(webhook_secret(kind)) or utility_enabled(kind),
+        "webhook_ready": secret_set,
+        "webhook_secret_configured": secret_set,
+        "webhook_fail_open": (not secret_set) and webhook_fail_open_allowed(),
         "event_count": event_count,
         "last_event_at": last_event_at,
         "scopes": ["bill_notice", "bill_due", "payment_prepare"],
