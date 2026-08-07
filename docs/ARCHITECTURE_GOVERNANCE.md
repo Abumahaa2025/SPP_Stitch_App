@@ -65,7 +65,7 @@ Detailed structure and status legends remain in the Blueprint and Domain Model; 
 | Class | Role | May redefine pillars? | Code allowed? |
 |---|---|---|---|
 | Pillar | Constitution, Domain Model, Blueprint | N/A — they are the law | No |
-| Supporting architecture | System architecture, data architecture, decision engine, operation center, knowledge base, AI property employee, engine vision, merge-gate intent, quality architecture expansions | No — only deepen a scoped concern | No |
+| Supporting architecture | System architecture, data architecture, decision engine, operation center, knowledge base, AI property employee, multi-agent organization, engine vision, merge-gate intent, quality architecture expansions | No — only deepen a scoped concern | No |
 | Operating path | End-to-end path maps used by delivery teams | No | No architectural code; may name routes and modules as references only when unavoidable |
 | Audit / proof companion | Historical findings, continuation notes, beta install notes | No | Prefer linking to proofs outside `docs/` |
 | Index / governance | This document and `docs/README.md` | No — regulate process only | No |

@@ -465,7 +465,7 @@ Executive Report truthfulness: Blueprint §10; Knowledge Base §24.
 
 # 26. Multi-Agent Collaboration
 
-Target specialist agents (collection, leasing, maintenance, utilities, data quality, reporting): Blueprint §17.
+Normative organizational deep dive: `docs/MULTI_AGENT_ARCHITECTURE.md`. Target specialist agents also summarized in Blueprint §17.
 
 | Employee role | Statement |
 |---|---|
@@ -657,7 +657,7 @@ Gaps owned elsewhere are linked, not forked.
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
-*Sibling enterprise documents:* `docs/SYSTEM_ARCHITECTURE.md`, `docs/DATA_ARCHITECTURE.md`, `docs/KNOWLEDGE_BASE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`
+*Sibling enterprise documents:* `docs/SYSTEM_ARCHITECTURE.md`, `docs/DATA_ARCHITECTURE.md`, `docs/KNOWLEDGE_BASE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/MULTI_AGENT_ARCHITECTURE.md`
 
 *Related:* `docs/SPP_ENGINE_VISION.md` (Koil layers)
 

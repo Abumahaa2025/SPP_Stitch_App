@@ -29,6 +29,7 @@ These three are independent. None absorbs another. Conflicts resolve by the prec
 | [`OPERATION_CENTER.md`](./OPERATION_CENTER.md) | Operation Center: real-time monitoring, event coordination, queues, incidents, escalation, multi-party orchestration | Constitution (§10), Domain Model (`Operation`/`SmartEvent`), Blueprint (§7/§12), Decision Engine, Data Architecture |
 | [`KNOWLEDGE_BASE.md`](./KNOWLEDGE_BASE.md) | Knowledge Base: institutional memory, taxonomy, graph obligations, validation, versioning, knowledge governance | Constitution (§9), Domain Model (`KnowledgeBase`), Blueprint (§11), Data/Decision/Operation Center architectures |
 | [`AI_PROPERTY_EMPLOYEE.md`](./AI_PROPERTY_EMPLOYEE.md) | AI Property Employee: digital employee identity, authority, interactions, learning, ethics, collaboration contracts | Constitution (§§3–7), Domain Model (`AIEmployee`), Blueprint (§6), Decision/Operation/Knowledge architectures |
+| [`MULTI_AGENT_ARCHITECTURE.md`](./MULTI_AGENT_ARCHITECTURE.md) | Multi-Agent Organization: Chief + specialist digital employees, registry, collaboration, escalation, workforce governance | Constitution (§11), Blueprint (§17), AI Property Employee, Decision/Operation/Knowledge architectures |
 | [`SPP_ENGINE_VISION.md`](./SPP_ENGINE_VISION.md) | Koil engine layers: deterministic, AI understanding, learning | Constitution (identity), Blueprint (AI Employee), Domain Model (Knowledge) |
 | [`MERGE_GATE_PLAN.md`](./MERGE_GATE_PLAN.md) | Merge / gate delivery intent | Blueprint (gate semantics, quality) |
 | [`ARCHITECTURE_GOVERNANCE.md`](./ARCHITECTURE_GOVERNANCE.md) | Document law, SSOT, naming, approval | All pillars |
@@ -73,15 +74,16 @@ These help delivery teams navigate the running system. They must not redefine id
 7. Real-time monitoring, event coordination, queues, incidents, or escalation → Operation Center.
 8. Institutional memory, knowledge taxonomy, provenance, or knowledge governance → Knowledge Base.
 9. Digital employee identity, authority, interactions, learning, or AI ethics → AI Property Employee.
-10. Koil layer placement (rules vs understanding vs learning) → Engine Vision.
-11. “May we implement yet?” → Architecture Governance §7.
-12. Discovered contradiction → record as a gap; propose a resolution; do not silently pick a side.
+10. Specialist digital workforce, agent registry, hierarchy, or multi-agent collaboration → Multi-Agent Architecture.
+11. Koil layer placement (rules vs understanding vs learning) → Engine Vision.
+12. “May we implement yet?” → Architecture Governance §7.
+13. Discovered contradiction → record as a gap; propose a resolution; do not silently pick a side.
 
 ---
 
 *Document Status:* Official Documentation Index
 
-*Version:* 1.7
+*Version:* 1.8
 
 *Project:* Smart Property Platform (SPP)
 
@@ -98,3 +100,5 @@ These help delivery teams navigate the running system. They must not redefine id
 *v1.6:* Index official `KNOWLEDGE_BASE.md` as supporting Knowledge Base architecture.
 
 *v1.7:* Index official `AI_PROPERTY_EMPLOYEE.md` as supporting AI Property Employee architecture.
+
+*v1.8:* Index official `MULTI_AGENT_ARCHITECTURE.md` as supporting Multi-Agent Organization architecture.

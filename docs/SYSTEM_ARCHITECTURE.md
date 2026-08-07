@@ -739,6 +739,8 @@ flowchart TB
 
 # 17. Multi-agent interaction
 
+Normative deep dive: `docs/MULTI_AGENT_ARCHITECTURE.md` (enterprise digital workforce, registry, charters, collaboration). Phase prerequisites remain Blueprint §17.5.
+
 ## 17.1 Direction
 
 The current AI Employee is one generalist. The target is a small team of specialists under one coordinator — Collection, Leasing, Maintenance, Utilities, Data quality, Reporting — as defined in Blueprint §17.
@@ -990,6 +992,6 @@ Implementation may proceed only when the relevant architectural baseline for the
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
-*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/KNOWLEDGE_BASE.md`, `docs/AI_PROPERTY_EMPLOYEE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
+*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/KNOWLEDGE_BASE.md`, `docs/AI_PROPERTY_EMPLOYEE.md`, `docs/MULTI_AGENT_ARCHITECTURE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 
 *Change policy:* Enterprise composition, security control view, scalability/HA/DR/monitoring strategy, and constraints in this document are normative for system-level decisions. Moving a responsibility across a Clean Architecture boundary, changing gate semantics, Smart Import behaviour, or prepare-not-send still requires the owning pillar revision. Adding this document to the index is mandatory when version meaning changes.
