@@ -213,6 +213,8 @@ Inherited from Blueprint §5.4 and Governance §9: routers must not own business
 
 # 4. AI Property Employee architecture
 
+Normative deep dive: `docs/AI_PROPERTY_EMPLOYEE.md` (identity, authority boundaries, interactions, learning, ethics). Components and guardrails remain Blueprint §6.
+
 ## 4.1 Product placement
 
 The AI Employee is the product's centre of gravity (Constitution §§3–7; Blueprint §6). **Koil** is the intelligence system behind that role (Engine Vision; Governance §6). Enterprise architecture treats the AI Employee as a **platform capability**, not a chatbot feature bolted onto screens.
@@ -298,6 +300,8 @@ Blueprint principle §2.8: every fact carries where it came from and how much it
 
 # 6. Knowledge Base interaction
 
+Normative deep dive: `docs/KNOWLEDGE_BASE.md` (taxonomy, provenance, validation, versioning, knowledge governance). Graph layers remain Blueprint §11.
+
 ## 6.1 Role
 
 The Knowledge Base (Knowledge Graph layers in Blueprint §11) is the **shared memory** of the platform. Intelligence reads it; Ingestion and Operations write through governed pipelines; Presentation never mutates it directly as free-form text.
@@ -375,6 +379,8 @@ Any new data source (integration event, sensor, payment rail) must eventually be
 
 # 9. Decision Engine
 
+Normative deep dive: `docs/DECISION_ENGINE.md` (authority classes, categories, learning, forbidden decisions). Pipeline stages and gate semantics remain Blueprint §13.
+
 ## 9.1 Enterprise purpose
 
 Produce **one owner agenda**: ranked, evidence-bearing, gate-aware proposals that prepare actions without silent execution. Pipeline stages and gate semantics: Blueprint §13.
@@ -394,6 +400,8 @@ Delivery exists only behind owner-enabled dispatch rails. Utility payments and m
 ---
 
 # 10. Operations Center
+
+Normative deep dive: `docs/OPERATION_CENTER.md` (monitoring, queues, incidents, escalation, multi-party orchestration). Processing stages remain Blueprint §7. Decision judgement remains `docs/DECISION_ENGINE.md`.
 
 ## 10.1 Enterprise purpose
 
@@ -731,6 +739,8 @@ flowchart TB
 
 # 17. Multi-agent interaction
 
+Normative deep dive: `docs/MULTI_AGENT_ARCHITECTURE.md` (enterprise digital workforce, registry, charters, collaboration). Phase prerequisites remain Blueprint §17.5.
+
 ## 17.1 Direction
 
 The current AI Employee is one generalist. The target is a small team of specialists under one coordinator — Collection, Leasing, Maintenance, Utilities, Data quality, Reporting — as defined in Blueprint §17.
@@ -982,6 +992,6 @@ Implementation may proceed only when the relevant architectural baseline for the
 
 *Pillars:* `docs/SPP_CONSTITUTION.md`, `docs/DOMAIN_MODEL.md`, `docs/SPP_BLUEPRINT.md`
 
-*Related:* `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
+*Related:* `docs/DATA_ARCHITECTURE.md`, `docs/DECISION_ENGINE.md`, `docs/OPERATION_CENTER.md`, `docs/KNOWLEDGE_BASE.md`, `docs/AI_PROPERTY_EMPLOYEE.md`, `docs/MULTI_AGENT_ARCHITECTURE.md`, `docs/SPP_ENGINE_VISION.md`, `docs/ARCHITECTURE_GOVERNANCE.md`, `docs/README.md`
 
 *Change policy:* Enterprise composition, security control view, scalability/HA/DR/monitoring strategy, and constraints in this document are normative for system-level decisions. Moving a responsibility across a Clean Architecture boundary, changing gate semantics, Smart Import behaviour, or prepare-not-send still requires the owning pillar revision. Adding this document to the index is mandatory when version meaning changes.
