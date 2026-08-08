@@ -42,16 +42,26 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verify bridge content type
+      - name: Verify bridge content type and structure
         run: |
           BRIDGE="${{ steps.deployment.outputs.page_url }}portal-open.html"
           echo "Bridge: $BRIDGE"
-          CT=$(curl -sSL -o /dev/null -w '%{content_type}' "$BRIDGE")
+          CT=$(curl -sSL -o /tmp/portal-bridge.html -w '%{content_type}' "$BRIDGE")
           echo "Content-Type: $CT"
           case "$CT" in
             text/html*) echo "OK — bridge renders as HTML." ;;
             *) echo "::error::Bridge served as '$CT' — portal links would show source code."; exit 1 ;;
           esac
+          BODY=$(grep -c '<body' /tmp/portal-bridge.html || true)
+          HTML=$(grep -c '</html>' /tmp/portal-bridge.html || true)
+          TITLES=$(grep -c 'var titles =' /tmp/portal-bridge.html || true)
+          if ! grep -q 'id="portalManifest"' /tmp/portal-bridge.html; then
+            echo "::error::Missing portalManifest marker — app bridge probe would fail."; exit 1
+          fi
+          if [ "$BODY" != "1" ] || [ "$HTML" != "1" ] || [ "$TITLES" != "1" ]; then
+            echo "::error::Corrupted bridge HTML (body=$BODY html=$HTML titles=$TITLES). Refusing merge-corrupted page."; exit 1
+          fi
+          echo "OK — single document with portalManifest."
 
       - name: Summary
         run: |
