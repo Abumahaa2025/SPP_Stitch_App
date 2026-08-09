@@ -234,7 +234,27 @@ export default function PortalsManagementScreen() {
             </Text>
           </View>
         </View>
+        <Text style={[styles.dim, isRTL && styles.rtl, { marginTop: 8 }]}>
+          {t('opsv2.portalInstall.ownerHint' as any)}
+        </Text>
         <View style={[styles.actions, isRTL && styles.rowRtl]}>
+          <Pressable
+            style={[styles.actionBtn, { backgroundColor: colors.emerald }]}
+            onPress={() => {
+              Haptics.selectionAsync();
+              sharePortalInstallLink({
+                url: techUrl,
+                roleLabel: t('opsv2.portalInstall.role.tech' as any),
+                ar,
+                tip: t('opsv2.portalInstall.shareTip' as any),
+              });
+            }}
+            testID="install-tech-default"
+          >
+            <Text style={[styles.actionText, { color: colors.bg }]}>
+              {t('opsv2.portalInstall.downloadBtn' as any)}
+            </Text>
+          </Pressable>
           <Pressable
             style={styles.actionBtn}
             onPress={() => router.push(inAppTechRoute(techToken) as any)}
@@ -245,7 +265,10 @@ export default function PortalsManagementScreen() {
             style={styles.actionBtn}
             onPress={() => {
               Haptics.selectionAsync();
-              shareWhatsApp('', `${t('opsv2.portals.techLink' as any)}: ${techUrl}`);
+              shareWhatsApp(
+                '',
+                `${t('opsv2.portals.techLink' as any)} — ${ar ? 'تنزيل كتطبيق' : 'install as app'}:\n${techUrl}\n\n${t('opsv2.portalInstall.shareTip' as any)}`,
+              );
             }}
           >
             <Text style={[styles.actionText, { color: colors.gold }]}>{t('result.sendLink' as any)}</Text>
