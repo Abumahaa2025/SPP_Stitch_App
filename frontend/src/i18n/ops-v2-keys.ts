@@ -198,6 +198,14 @@ export const opsV2En = {
   'opsv2.portals.shareGuard': 'Send guard link',
   'opsv2.portals.guardInstallHint': 'The guard sees install-as-app steps when opening the link.',
 
+  'opsv2.ownerOps.requests': 'Operations path',
+  'opsv2.ownerOps.requestsHint': 'Blinking step path for every tenant payment or maintenance request.',
+  'opsv2.ownerOps.reports': 'Ops reports',
+  'opsv2.ownerOps.reportsHint': 'Completed payment/maintenance reports — separate from the tenants table.',
+  'opsv2.portal.pinLabel': 'Portal password',
+  'opsv2.portal.techCreate': 'Create technician portal link',
+
+
   'opsv2.portalDesk.limitedTitle': 'Limited portal app',
   'opsv2.portalDesk.limitedBody': 'This link shows only your portal — not the full owner app or permissions.',
   'opsv2.portalDesk.contactAdmin': 'Contact administration',
@@ -513,6 +521,13 @@ export const opsV2Ar = {
   'opsv2.portalInstall.shareTip': 'عند فتح الرابط: ثبّته كتطبيق على جوالك (إضافة إلى الشاشة الرئيسية) ليفتح كأي تطبيق في أي وقت.',
   'opsv2.portals.shareGuard': 'إرسال رابط الحارس',
   'opsv2.portals.guardInstallHint': 'عند فتح الرابط يظهر للحارس توضيح تثبيته كتطبيق على الجوال.',
+
+  'opsv2.ownerOps.requests': 'مسار العمليات',
+  'opsv2.ownerOps.requestsHint': 'مسار وامض لكل طلب سداد أو صيانة من المستأجر.',
+  'opsv2.ownerOps.reports': 'تقارير العمليات',
+  'opsv2.ownerOps.reportsHint': 'تقارير السداد والصيانة المكتملة — منفصلة عن جدول المستأجرين.',
+  'opsv2.portal.pinLabel': 'كلمة سر البوابة',
+  'opsv2.portal.techCreate': 'إنشاء رابط بوابة الفني',
 
   'opsv2.portalDesk.limitedTitle': 'بوابة محدودة',
   'opsv2.portalDesk.limitedBody': 'هذا الرابط يعرض بوابتك فقط — وليس تطبيق المالك الكامل أو صلاحياته.',

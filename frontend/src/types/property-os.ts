@@ -73,6 +73,8 @@ export type TenantRecord = {
   portalUrl: string;
   qrData: string;
   whatsAppMessage: string;
+  /** PIN / password for tenant portal app login (shared with the link). */
+  portalPin?: string;
   /** When true, manual official edits survive re-import of latest statement. */
   manualOfficial?: boolean;
   /** Official rent amount used for auto-communication when set. */

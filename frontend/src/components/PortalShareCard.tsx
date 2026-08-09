@@ -37,10 +37,12 @@ export function PortalShareCard({ tenant, unitNumber, testID = 'portal-share' }:
   const shareUrl = live?.url || normalizePortalBridgeUrl(tenant.portalUrl);
   const inApp = live?.inApp || inAppTenantRoute(tenant.id, token);
   const installTip = t('opsv2.portalInstall.shareTip' as any);
+  const pin = tenant.portalPin
+    || (token ? String(token).replace(/\D/g, '').slice(-6) : '');
   const storedMessage = normalizePortalBridgeText(tenant.whatsAppMessage);
-  const message = storedMessage.includes('spp.beta') || storedMessage.includes('spp://')
-    ? `مرحبًا ${tenant.name} 👋\n\nرابط بوابة المستأجر:\n${shareUrl}\n\n${installTip}`
-    : `${storedMessage || `${t('pos.portal.link')}: ${shareUrl}`}\n\n${installTip}`;
+  const message = (storedMessage.includes('كلمة السر') || storedMessage.toLowerCase().includes('password'))
+    ? storedMessage
+    : `مرحبًا ${tenant.name} 👋\n\nرابط بوابة المستأجر (ثبّته كتطبيق):\n${shareUrl}\n\nكلمة السر للدخول: ${pin || '—'}\n\n${installTip}`;
   const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
 
   const shareWhatsApp = () => {
@@ -58,6 +60,11 @@ export function PortalShareCard({ tenant, unitNumber, testID = 'portal-share' }:
       {unitNumber ? (
         <Text style={[styles.sub, isRTL && styles.rtl]}>
           {t('op.tenant.unit')}: {unitNumber}
+        </Text>
+      ) : null}
+      {pin ? (
+        <Text style={[styles.sub, isRTL && styles.rtl]} testID={`${testID}-pin`}>
+          {isRTL ? 'كلمة السر: ' : 'Password: '}{pin}
         </Text>
       ) : null}
       <View style={styles.qrRow}>

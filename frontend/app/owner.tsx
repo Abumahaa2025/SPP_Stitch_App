@@ -32,6 +32,22 @@ type HubLink = {
  */
 const PRIMARY_TOOLS: HubLink[] = [
   {
+    key: 'opsRequests',
+    icon: 'git-branch',
+    labelKey: 'opsv2.ownerOps.requests',
+    hintKey: 'opsv2.ownerOps.requestsHint',
+    route: '/operational/requests',
+    tone: 'emerald',
+  },
+  {
+    key: 'opsReports',
+    icon: 'clipboard',
+    labelKey: 'opsv2.ownerOps.reports',
+    hintKey: 'opsv2.ownerOps.reportsHint',
+    route: '/operational/ops-reports',
+    tone: 'gold',
+  },
+  {
     key: 'dataCenter',
     icon: 'database',
     labelKey: 'op.owner.dataCenter',
