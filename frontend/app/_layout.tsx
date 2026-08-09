@@ -15,9 +15,7 @@ import { WorkspaceProvider } from "@/src/context/WorkspaceContext";
 import { WorkspaceChrome } from "@/src/components/WorkspaceChrome";
 import { isPathAllowedForPersona, personaHomeRoute } from "@/src/utils/role-scope";
 
-import { resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
 import { applySilentOtaUpdate } from "@/src/utils/ota-updates";
-
 import { ensurePortalBridge, resolvePortalInAppFromUrl } from "@/src/utils/portal-links";
 import { migrateStoredPortalLinks } from "@/src/utils/portal-link-migration";
 import { applyExpoOtaIfAvailable } from "@/src/utils/expo-ota";
