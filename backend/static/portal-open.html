@@ -7,9 +7,12 @@
   <meta name="robots" content="noindex" />
   <meta name="theme-color" content="#050A12" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="SPP Portal" />
   <title>SPP — فتح البوابة</title>
   <link rel="manifest" id="portalManifest" href="#" />
+  <link rel="apple-touch-icon" id="appleIcon" href="portal-icon.png" />
   <style>
     :root {
       --bg: #050A12;
@@ -68,6 +71,7 @@
       border: 1px solid var(--border); color: var(--gold); font-size: 12px; margin-bottom: 10px;
     }
     .hidden { display: none !important; }
+    ol.steps { margin: 8px 0 0; padding: 0 18px 0 0; color: var(--dim); font-size: 12px; line-height: 1.7; }
   </style>
 </head>
 <body>
@@ -75,6 +79,16 @@
     <p class="brand">Smart Property Platform</p>
     <h1 id="title">بوابة المستأجر</h1>
     <p class="lead" id="subtitle">جاري تجهيز بوابتك…</p>
+
+    <div class="card" id="installCard">
+      <h2>تنزيل كتطبيق على الجوال</h2>
+      <p class="hint" id="installLead">احفظ رابط هذه البوابة على الشاشة الرئيسية ليفتح كأي تطبيق — مستأجر · فني · وكيل · حارس.</p>
+      <div class="actions">
+        <button type="button" class="btn primary" id="installApp">تنزيل / تثبيت كتطبيق</button>
+      </div>
+      <ol class="steps" id="installSteps"></ol>
+      <p class="ok hidden" id="installStatus"></p>
+    </div>
 
     <div class="card" id="infoCard">
       <h2>بيانات الوحدة</h2>
@@ -239,20 +253,76 @@
       openApp.href = deep;
       intentApp.href = intent;
 
+      var iconHref = (function () {
+        try {
+          return new URL('portal-icon.png', location.href).href;
+        } catch (e) {
+          return 'portal-icon.png';
+        }
+      })();
+      try {
+        document.getElementById('appleIcon').href = iconHref;
+      } catch (e) { /* ignore */ }
+
       try {
         var manifest = {
           name: 'SPP — ' + info.ar,
           short_name: 'SPP ' + info.label,
-          start_url: location.href,
+          start_url: location.href.split('#')[0],
+          scope: './',
           display: 'standalone',
           background_color: '#050A12',
           theme_color: '#050A12',
           lang: 'ar',
-          dir: 'rtl'
+          dir: 'rtl',
+          icons: [
+            { src: iconHref, sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: iconHref, sizes: '512x512', type: 'image/png', purpose: 'any' }
+          ]
         };
         var blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
         document.getElementById('portalManifest').href = URL.createObjectURL(blob);
       } catch (e) { /* ignore */ }
+
+      if ('serviceWorker' in navigator) {
+        try {
+          navigator.serviceWorker.register(new URL('sw-portal.js', location.href).href, { scope: './' }).catch(function () {});
+        } catch (e) { /* ignore */ }
+      }
+
+      var deferredInstall = null;
+      var installBtn = document.getElementById('installApp');
+      var installStatus = document.getElementById('installStatus');
+      var installSteps = document.getElementById('installSteps');
+      var ua = navigator.userAgent || '';
+      var isIOS = /iPad|iPhone|iPod/i.test(ua);
+      var steps = isIOS
+        ? ['افتح هذه الصفحة في Safari', 'اضغط مشاركة □↑', 'اختر «إضافة إلى الشاشة الرئيسية»', 'افتح الأيقونة من الشاشة الرئيسية كتطبيق']
+        : ['افتح هذه الصفحة في Chrome', 'القائمة ⋮ ← تثبيت التطبيق / إضافة إلى الشاشة الرئيسية', 'أو اضغط الزر أعلاه إن ظهر', 'افتح الأيقونة من الشاشة الرئيسية لاحقاً'];
+      installSteps.innerHTML = steps.map(function (s) { return '<li>' + s + '</li>'; }).join('');
+
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault();
+        deferredInstall = e;
+        installBtn.textContent = 'ثبّت الآن كتطبيق';
+      });
+
+      installBtn.addEventListener('click', function () {
+        if (deferredInstall) {
+          deferredInstall.prompt();
+          deferredInstall.userChoice.finally(function () {
+            deferredInstall = null;
+            installStatus.textContent = 'أكمل التثبيت من نافذة المتصفح.';
+            installStatus.classList.remove('hidden');
+          });
+          return;
+        }
+        installStatus.textContent = isIOS
+          ? 'على iPhone: استخدم Safari ← مشاركة ← إضافة إلى الشاشة الرئيسية.'
+          : 'استخدم قائمة المتصفح لتثبيت التطبيق / إضافة إلى الشاشة الرئيسية.';
+        installStatus.classList.remove('hidden');
+        try { installSteps.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
+      });
 
       function tryOpen() {
         document.getElementById('status').classList.remove('hidden');

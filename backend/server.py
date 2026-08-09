@@ -12,7 +12,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Request
 
 from fastapi.responses import StreamingResponse, HTMLResponse
 from dotenv import load_dotenv
-from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import StreamingResponse, HTMLResponse, RedirectResponse, JSONResponse, FileResponse
 
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -2966,6 +2966,22 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
+def _portal_static_file(name: str) -> Optional[Path]:
+    """Resolve portal bridge companion assets (icon / service worker)."""
+    candidates = [
+        ROOT_DIR / "static" / name,
+        ROOT_DIR / "docs" / name,
+        ROOT_DIR.parent / "docs" / name,
+    ]
+    for path in candidates:
+        try:
+            if path.exists():
+                return path
+        except OSError:
+            continue
+    return None
+
+
 @app.get("/portal/open", response_class=HTMLResponse)
 async def portal_open_bridge(request: Request):
     """HTTPS bridge for WhatsApp/SMS portal links — always text/html page."""
@@ -2977,6 +2993,31 @@ async def portal_open_bridge(request: Request):
             "Cache-Control": "no-store",
             "X-Content-Type-Options": "nosniff",
             "Content-Disposition": "inline; filename=portal-open.html",
+        },
+    )
+
+
+@app.get("/portal/portal-icon.png")
+async def portal_bridge_icon():
+    """Home-screen icon for portal install-as-app (relative to /portal/open)."""
+    path = _portal_static_file("portal-icon.png")
+    if not path:
+        raise HTTPException(status_code=404, detail="Portal icon missing")
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "public, max-age=86400"})
+
+
+@app.get("/portal/sw-portal.js")
+async def portal_bridge_sw():
+    """Minimal service worker for portal PWA installability."""
+    path = _portal_static_file("sw-portal.js")
+    if not path:
+        raise HTTPException(status_code=404, detail="Portal service worker missing")
+    return FileResponse(
+        path,
+        media_type="application/javascript; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache",
+            "Service-Worker-Allowed": "/portal/",
         },
     )
 
