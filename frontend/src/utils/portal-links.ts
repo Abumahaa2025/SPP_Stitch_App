@@ -14,9 +14,7 @@ export const PORTAL_BRIDGE_PAGES_URL =
   'https://abumahaa2025.github.io/SPP_Stitch_App/portal-open.html';
 
 /**
- * githack mirror of the same file — served as text/html without any deploy, but
- * browsers navigating to it get a one-tap "One more step" notice first, so it is
- * only the last-resort host.
+ * githack mirror — text/html but may show an interstitial; last-resort only.
  */
 export const PORTAL_BRIDGE_CDN_URL =
   'https://raw.githack.com/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html';
@@ -24,17 +22,21 @@ export const PORTAL_BRIDGE_CDN_URL =
 /** Same bridge on API host (when backend route is deployed). */
 export const PORTAL_BRIDGE_API_URL = 'https://spp-beta-api.onrender.com/portal/open';
 
-/** Default bridge — the mirror that is verified to render HTML today. */
-export const PORTAL_BRIDGE_URL = PORTAL_BRIDGE_CDN_URL;
+/** Default bridge — GitHub Pages verified as text/html. */
+export const PORTAL_BRIDGE_URL = PORTAL_BRIDGE_PAGES_URL;
 
-/** Hosts that return the bridge file as plain text (link shows source code). */
+/** Hosts that return the bridge file as plain text (or outdated mirrors). */
 export const LEGACY_PORTAL_BRIDGE_URLS = [
-  // Built with concat so older import parsers do not misread `@main` in a string.
   'https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App' + '@main/docs/portal-open.html',
   'https://cdn.jsdelivr.net/gh/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
   'https://cdn.statically.io/gh/Abumahaa2025/SPP_Stitch_App' + '@main/docs/portal-open.html',
   'https://cdn.statically.io/gh/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
   'https://raw.githubusercontent.com/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
+  // Prefer Pages over githack (interstitial / stale / merge-corrupted copies).
+  'https://raw.githack.com/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
+  'https://raw.githack.com/Abumahaa2025/SPP_Stitch_App/master/docs/portal-open.html',
+  'https://rawcdn.githack.com/Abumahaa2025/SPP_Stitch_App/main/docs/portal-open.html',
+  'https://rawcdn.githack.com/Abumahaa2025/SPP_Stitch_App/master/docs/portal-open.html',
 ];
 
 /** Preference order for the shared HTTPS bridge — first-party hosts first. */
@@ -85,12 +87,13 @@ export function ensurePortalBridge(): Promise<string> {
   return bridgeProbe;
 }
 
-/** Rewrite plain-text bridge URLs (stored links, WhatsApp drafts) to a working host. */
+/** Rewrite plain-text / legacy bridge URLs (stored links, WhatsApp drafts) to the active host. */
 export function normalizePortalBridgeText(text?: string | null): string {
   let out = String(text ?? '');
   if (!out) return out;
+  const target = portalBridgeUrl();
   LEGACY_PORTAL_BRIDGE_URLS.forEach((legacy) => {
-    if (out.includes(legacy)) out = out.split(legacy).join(portalBridgeUrl());
+    if (out.includes(legacy)) out = out.split(legacy).join(target);
   });
   return out;
 }
@@ -111,6 +114,8 @@ export type PortalShareMeta = {
   name?: string;
   unit?: string;
   property?: string;
+  techName?: string;
+  techPhone?: string;
 };
 
 function qs(params: Record<string, string | undefined>) {
@@ -128,6 +133,8 @@ export function inAppTenantPortal(tenantId: string, token: string, meta?: Portal
     n: meta?.name,
     u: meta?.unit,
     prop: meta?.property,
+    tn: meta?.techName,
+    tp: meta?.techPhone,
   });
   return `/portal/tenant?${q}`;
 }
@@ -159,7 +166,9 @@ function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: Po
     n: meta?.name,
     u: meta?.unit,
     prop: meta?.property,
-    v: '36',
+    tn: meta?.techName,
+    tp: meta?.techPhone,
+    v: '38',
   });
   return `${portalBridgeUrl()}?${q}`;
 }
@@ -174,6 +183,8 @@ export function buildTenantPortalLink(tenantId: string, token: string, meta?: Po
       ...(meta?.name ? { n: meta.name } : {}),
       ...(meta?.unit ? { u: meta.unit } : {}),
       ...(meta?.property ? { prop: meta.property } : {}),
+      ...(meta?.techName ? { tn: meta.techName } : {}),
+      ...(meta?.techPhone ? { tp: meta.techPhone } : {}),
     },
   });
   return { url, qrData: url, deep, token, inApp };
@@ -218,6 +229,30 @@ export function buildGuardPortalLink(guardId: string, token: string, meta?: Port
   return { url, qrData: url, deep, token, inApp };
 }
 
+function metaFromParams(get: (k: string) => string | null | undefined): PortalShareMeta {
+  return {
+    name: get('n') || get('name') || undefined,
+    unit: get('u') || get('unit') || undefined,
+    property: get('prop') || undefined,
+    techName: get('tn') || get('techName') || undefined,
+    techPhone: get('tp') || get('techPhone') || undefined,
+  };
+}
+
+function routeFromRole(
+  role: string,
+  id: string,
+  t: string,
+  meta: PortalShareMeta,
+): string | null {
+  if (!t) return null;
+  if (role === 'tech') return inAppTechPortal(t, id || undefined, meta);
+  if (role === 'agent' && id) return inAppAgentPortal(id, t, meta);
+  if (role === 'guard' && id) return inAppGuardPortal(id, t, meta);
+  if (id) return inAppTenantPortal(id, t, meta);
+  return null;
+}
+
 /** Map any shared / deep URL to an in-app portal route. */
 export function resolvePortalInAppFromUrl(url: string): string | null {
   const raw = String(url || '').trim();
@@ -235,19 +270,18 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
     const parsed = ExpoLinking.parse(raw);
     const path = `/${(parsed.path || '').replace(/^\//, '')}`;
     const q = parsed.queryParams || {};
-    const role = String(q.role || '');
-    const id = String(q.id || '');
-    const t = String(q.t || '');
-    const n = q.n ? String(q.n) : q.name ? String(q.name) : undefined;
-    const u = q.u ? String(q.u) : q.unit ? String(q.unit) : undefined;
-    const prop = q.prop ? String(q.prop) : undefined;
-    const meta = { name: n, unit: u, property: prop };
+    const get = (k: string) => {
+      const v = (q as Record<string, unknown>)[k];
+      return v != null && String(v).trim() !== '' ? String(v) : undefined;
+    };
+    const role = String(get('role') || get('r') || '');
+    const id = String(get('id') || '');
+    const t = String(get('t') || get('token') || '');
+    const meta = metaFromParams((k) => get(k) ?? null);
 
-    if (path.includes('portal/open') || path.endsWith('portal-open.html') || path.includes('portal-open')) {
-      if (role === 'tech' && t) return inAppTechPortal(t, id || undefined, meta);
-      if (role === 'agent' && id && t) return inAppAgentPortal(id, t, meta);
-      if (role === 'guard' && id && t) return inAppGuardPortal(id, t, meta);
-      if (t && id) return inAppTenantPortal(id, t, meta);
+    if (path.includes('portal/open') || path.includes('portal-open')) {
+      const hit = routeFromRole(role, id, t, meta);
+      if (hit) return hit;
     }
 
     if (path.includes('portal/tenant') || /\/tenant(\/|\?|$)/.test(raw)) {
@@ -270,24 +304,23 @@ export function resolvePortalInAppFromUrl(url: string): string | null {
     }
   } catch { /* ignore */ }
 
-  // Query-only fallback for bridge URLs
+  // Query / hash fallback for bridge URLs (Pages, API, githack, htmlpreview).
   try {
     const u = new URL(raw);
-    const role = u.searchParams.get('role') || '';
-    const id = u.searchParams.get('id') || '';
-    const t = u.searchParams.get('t') || '';
-    const meta = {
-      name: u.searchParams.get('n') || u.searchParams.get('name') || undefined,
-      unit: u.searchParams.get('u') || u.searchParams.get('unit') || undefined,
-      property: u.searchParams.get('prop') || undefined,
-    };
-    const bridgeHost = ['githack', 'github.io', 'jsdelivr', 'statically', 'raw.githubusercontent', 'onrender']
-      .some((h) => u.hostname.includes(h));
-    if (t && (u.pathname.includes('portal') || bridgeHost)) {
-      if (role === 'tech') return inAppTechPortal(t, id || undefined, meta);
-      if (role === 'agent' && id) return inAppAgentPortal(id, t, meta);
-      if (role === 'guard' && id) return inAppGuardPortal(id, t, meta);
-      if (id) return inAppTenantPortal(id, t, meta);
+    const hashQ = u.hash.replace(/^#/, '');
+    const sp = hashQ && hashQ.includes('=')
+      ? new URLSearchParams(hashQ)
+      : u.searchParams;
+    const role = sp.get('role') || sp.get('r') || '';
+    const id = sp.get('id') || '';
+    const t = sp.get('t') || sp.get('token') || '';
+    const meta = metaFromParams((k) => sp.get(k));
+    const bridgeHost = [
+      'githack', 'github.io', 'jsdelivr', 'statically',
+      'raw.githubusercontent', 'onrender', 'htmlpreview.github.io',
+    ].some((h) => u.hostname.includes(h));
+    if (t && (u.pathname.includes('portal') || bridgeHost || raw.includes('portal-open'))) {
+      return routeFromRole(role, id, t, meta);
     }
   } catch { /* ignore */ }
 

@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta name="robots" content="noindex" />
-  <title>SPP — بوابة المستأجر</title>
+  <meta name="theme-color" content="#050A12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>SPP — فتح البوابة</title>
+  <link rel="manifest" id="portalManifest" href="#" />
   <style>
     :root {
       --bg: #050A12;
@@ -15,7 +19,6 @@
       --dim: #9CA3AF;
       --card: rgba(255,255,255,0.04);
       --border: rgba(212,175,55,0.35);
-      --danger: #F87171;
     }
     * { box-sizing: border-box; }
     body {
@@ -52,7 +55,7 @@
     .primary { background: var(--emerald); color: #04110C; }
     .secondary { background: transparent; color: var(--gold); border: 1px solid var(--border); }
     .ghost { background: rgba(255,255,255,0.06); color: var(--text); }
-    textarea, input, select {
+    textarea, select {
       width: 100%; margin-top: 8px; padding: 12px; border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.25);
       color: var(--text); font-size: 14px; font-family: inherit;
@@ -128,32 +131,36 @@
       function readParams() {
         var hash = (location.hash || '').replace(/^#/, '');
         if (hash && hash.indexOf('=') >= 0) return new URLSearchParams(hash);
-        // htmlpreview puts the source URL in search — ignore non-portal queries
         var sp = new URLSearchParams(location.search || '');
         if (sp.has('role') || sp.has('t') || sp.has('id')) return sp;
         return new URLSearchParams();
       }
+
       var q = readParams();
-      var role = (q.get('role') || 'tenant').toLowerCase();
+      // `r` is a legacy short alias used by older shared links.
+      var role = (q.get('role') || q.get('r') || 'tenant').toLowerCase();
       var id = q.get('id') || '';
-      var t = q.get('t') || '';
+      var t = q.get('t') || q.get('token') || '';
       var name = q.get('n') || q.get('name') || '';
       var unit = q.get('u') || q.get('unit') || '';
-      var prop = q.get('prop') || '';
+      var prop = q.get('prop') || q.get('property') || '';
       var techName = q.get('tn') || q.get('techName') || '';
       var techPhone = (q.get('tp') || q.get('techPhone') || '').replace(/\D/g, '');
 
       var titles = {
-        tenant: 'بوابة المستأجر',
-        tech: 'بوابة الفني',
-        agent: 'بوابة الوكيل'
+        tenant: { ar: 'بوابة المستأجر', label: 'مستأجر' },
+        tech: { ar: 'بوابة الفني', label: 'فني' },
+        agent: { ar: 'بوابة الوكيل', label: 'وكيل' },
+        guard: { ar: 'بوابة الحارس', label: 'حارس' }
       };
-      document.getElementById('title').textContent = titles[role] || titles.tenant;
+      var info = titles[role] || titles.tenant;
+      document.getElementById('title').textContent = info.ar;
       document.getElementById('subtitle').textContent = name
         ? ('مرحباً، ' + name + ' — هذه بوابتك الرسمية')
         : 'بوابتك الرسمية في Smart Property Platform';
 
       var rows = [];
+      rows.push(['النوع', info.label]);
       if (name) rows.push(['الاسم', name]);
       if (unit) rows.push(['الوحدة', unit]);
       if (prop) rows.push(['العقار', prop]);
@@ -195,18 +202,24 @@
           (prop ? ('العقار: ' + prop + '\n') : '') +
           'النوع: ' + typ + '\n' +
           'الوصف: ' + desc;
-        var phone = techPhone;
-        var url = phone
-          ? ('https://wa.me/' + phone + '?text=' + encodeURIComponent(msg))
+        var url = techPhone
+          ? ('https://wa.me/' + techPhone + '?text=' + encodeURIComponent(msg))
           : ('https://wa.me/?text=' + encodeURIComponent(msg));
         location.href = url;
       });
 
-      var path = role === 'tech'
-        ? ('/portal/tech' + (id ? ('?id=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(t)) : ('?t=' + encodeURIComponent(t))))
-        : role === 'agent'
-          ? ('/portal/agent?id=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(t))
-          : ('/portal/tenant?id=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(t));
+      var path;
+      if (role === 'tech') {
+        path = '/portal/tech' + (id
+          ? ('?id=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(t))
+          : ('?t=' + encodeURIComponent(t)));
+      } else if (role === 'agent') {
+        path = '/portal/agent?id=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(t);
+      } else if (role === 'guard') {
+        path = '/portal/guard?id=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(t);
+      } else {
+        path = '/portal/tenant?id=' + encodeURIComponent(id) + '&t=' + encodeURIComponent(t);
+      }
 
       var extra = [];
       if (name) extra.push('n=' + encodeURIComponent(name));
@@ -226,10 +239,24 @@
       openApp.href = deep;
       intentApp.href = intent;
 
+      try {
+        var manifest = {
+          name: 'SPP — ' + info.ar,
+          short_name: 'SPP ' + info.label,
+          start_url: location.href,
+          display: 'standalone',
+          background_color: '#050A12',
+          theme_color: '#050A12',
+          lang: 'ar',
+          dir: 'rtl'
+        };
+        var blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+        document.getElementById('portalManifest').href = URL.createObjectURL(blob);
+      } catch (e) { /* ignore */ }
+
       function tryOpen() {
         document.getElementById('status').classList.remove('hidden');
         var isAndroid = /Android/i.test(navigator.userAgent);
-        // Soft attempt only — keep this HTML page usable if app is missing.
         var iframe = document.createElement('iframe');
         iframe.style.display = 'none';
         iframe.src = isAndroid ? intent : deep;
