@@ -13,11 +13,7 @@
     "web": "expo start --web",
     "export:web": "expo export -p web",
     "build:android:beta": "node ./scripts/build-android-beta.mjs",
-
-    "update:beta": "eas update --channel beta --environment preview --non-interactive",
-
     "update:beta": "eas update --channel beta",
-
     "lint": "expo lint"
   },
   "dependencies": {
@@ -33,6 +29,7 @@
     "expo-font": "14.0.12",
     "expo-haptics": "15.0.8",
     "expo-image": "3.0.11",
+    "expo-image-picker": "~17.0.11",
     "expo-linear-gradient": "15.0.8",
     "expo-linking": "8.0.12",
     "expo-localization": "17.0.9",

@@ -11,7 +11,11 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "ai.spp.stitch"
+      "bundleIdentifier": "ai.spp.stitch",
+      "infoPlist": {
+        "NSCameraUsageDescription": "SPP needs the camera so tenants, technicians, agents, and guards can capture live photos and videos in portal links.",
+        "NSMicrophoneUsageDescription": "SPP needs the microphone to record video proof in portal task desks."
+      }
     },
     "android": {
       "package": "ai.spp.stitch",
@@ -23,9 +27,12 @@
       },
       "edgeToEdgeEnabled": true,
       "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "READ_MEDIA_IMAGES",
+        "READ_MEDIA_VIDEO",
         "READ_MEDIA_VISUAL_USER_SELECTED"
       ],
       "intentFilters": [
@@ -93,6 +100,14 @@
         "expo-document-picker",
         {
           "iCloudContainerEnvironment": "Production"
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SPP to attach photos from your library in portal desks.",
+          "cameraPermission": "Allow SPP to capture live photos and videos in portal links.",
+          "microphonePermission": "Allow SPP to record video proof in portal task desks."
         }
       ],
       "./plugins/withAndroidShareImport.js"

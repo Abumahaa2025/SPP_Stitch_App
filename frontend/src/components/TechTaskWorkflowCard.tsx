@@ -5,7 +5,6 @@
  */
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 
@@ -13,6 +12,7 @@ import { GlassCard } from '@/src/components/GlassCard';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
 import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
 import type { MaintenanceTicket, MediaAttachment } from '@/src/types/operational';
+import { capturePortalMedia } from '@/src/utils/portal-media-capture';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -92,15 +92,11 @@ export function TechTaskWorkflowCard({
   ]), [t]);
 
   const pick = async (kind: 'photo' | 'video', phase: 'before' | 'after' | 'general') => {
-    const res = await DocumentPicker.getDocumentAsync({
-      copyToCacheDirectory: true,
-      type: kind === 'photo' ? ['image/*'] : ['video/*'],
-    });
-    if (res.canceled || !res.assets?.[0]) return;
-    const a = res.assets[0];
+    const a = await capturePortalMedia(kind);
+    if (!a) return;
     await onUpload([{
       uri: a.uri,
-      type: kind,
+      type: a.kind,
       name: a.name,
       addedAt: new Date().toISOString(),
       phase,

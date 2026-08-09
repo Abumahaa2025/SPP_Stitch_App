@@ -4,7 +4,6 @@
  */
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 
@@ -12,6 +11,7 @@ import { GlassCard } from '@/src/components/GlassCard';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
 import { usePortalDesk } from '@/src/hooks/usePortalDesk';
 import type { PortalDeskActor, PortalMediaItem } from '@/src/types/portal-desk';
+import { capturePortalMedia } from '@/src/utils/portal-media-capture';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -32,12 +32,10 @@ export function LimitedPortalContact({ actor, actorId, actorName, threadId }: Pr
   const notices = audienceNotices(actor, actorId);
 
   const pick = async (kind: 'photo' | 'video') => {
-    const res = await DocumentPicker.getDocumentAsync({
-      type: kind === 'photo' ? ['image/*'] : ['video/*'],
-      copyToCacheDirectory: true,
-    });
-    if (res.canceled || !res.assets?.[0]) return;
-    setMedia((prev) => [...prev, { uri: res.assets![0].uri, kind, name: res.assets![0].name }].slice(0, 6));
+    const asset = await capturePortalMedia(kind);
+    if (!asset) return;
+    setMedia((prev) => [...prev, { uri: asset.uri, kind: asset.kind, name: asset.name }].slice(0, 6));
+    Haptics.selectionAsync();
   };
 
   const send = async () => {
