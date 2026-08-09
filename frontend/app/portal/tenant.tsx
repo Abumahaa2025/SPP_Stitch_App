@@ -160,29 +160,10 @@ export default function TenantPortalScreen() {
 
   return (
     <ScreenScaffold testID="tenant-portal">
-
-        <StoryScreenHeader
-          question={`${t('opsv2.tenant.welcome' as any)}، ${tenant.name}`}
-          hint={guestMode
-            ? (ar ? 'تم فتح رابط البوابة بنجاح — يمكنك المتابعة من هنا' : 'Portal link opened — continue below')
-            : t('op.tenant.sub')}
-          showBack
-        />
-
-        <ActingAsBadge
-          role="tenant"
-          displayName={tenant.name}
-          scope={`${t('op.tenant.unit')} ${unitLabel} · ${propertyLabel}`}
-        />
-
-        <GlassCard padding={18} radiusToken="md" edge="gold">
-          <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'وحدتك' : 'Your unit'}</Text>
-          <Text style={[styles.body, ar && styles.rtl]}>
-            {unitLabel} · {propertyLabel}
       <StoryScreenHeader
         question={`${t('opsv2.tenant.welcome' as any)}، ${tenant.name}`}
         hint={guestMode
-          ? (isRTL ? 'تم فتح رابط البوابة بنجاح' : 'Portal link opened successfully')
+          ? (ar ? 'تم فتح رابط البوابة بنجاح — يمكنك المتابعة من هنا' : 'Portal link opened — continue below')
           : t('op.tenant.sub')}
         showBack
       />
@@ -195,49 +176,53 @@ export default function TenantPortalScreen() {
       <PortalInstallHint role="tenant" />
 
       <GlassCard padding={18} radiusToken="md" edge="gold">
-        <Text style={[styles.section, isRTL && styles.rtl]}>{t('op.tenant.unit')}</Text>
-        <Text style={[styles.body, isRTL && styles.rtl]}>
+        <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'وحدتك' : 'Your unit'}</Text>
+        <Text style={[styles.body, ar && styles.rtl]}>
           {unitLabel} · {propertyLabel}
+        </Text>
+        <Text style={[styles.dim, ar && styles.rtl]}>
+          {ar ? 'الحالة: رابط البوابة نشط' : 'Status: portal link active'}
         </Text>
       </GlassCard>
 
-      {guestMode ? (
-        <GlassCard padding={18} radiusToken="md" edge="emerald" style={styles.gap}>
-          <Text style={[styles.section, isRTL && styles.rtl]}>
-            {isRTL ? 'الرابط يعمل' : 'Link is active'}
+      <GlassCard padding={16} radiusToken="md" edge="emerald" style={styles.gap}>
+        <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'مزايا بوابتك' : 'Your portal'}</Text>
+        {[
+          ar ? 'عرض الوحدة والعقار' : 'View unit & property',
+          ar ? 'متابعة العقد والمدفوعات' : 'Contract & payments',
+          ar ? 'طلب صيانة ومتابعة البلاغ' : 'Request & track maintenance',
+          ar ? 'تواصل مباشر مع الفني' : 'Direct technician contact',
+        ].map((line) => (
+          <Text key={line} style={[styles.feature, ar && styles.rtl]}>· {line}</Text>
+        ))}
+      </GlassCard>
 
-          </Text>
+      {contract ? (
+        <GlassCard padding={18} radiusToken="md" style={styles.gap}>
+          <Text style={[styles.section, ar && styles.rtl]}>{t('op.tenant.contract')}</Text>
+          <Text style={[styles.body, ar && styles.rtl]}>#{contract.number}</Text>
           <Text style={[styles.dim, ar && styles.rtl]}>
-            {ar ? 'الحالة: رابط البوابة نشط' : 'Status: portal link active'}
+            {formatDate(contract.startDate)} — {formatDate(contract.endDate)}
           </Text>
+          {contract.rentAmount ? (
+            <Text style={[styles.body, ar && styles.rtl]}>
+              {ar ? 'الإيجار: ' : 'Rent: '}
+              {Number(contract.rentAmount).toLocaleString()}
+            </Text>
+          ) : null}
         </GlassCard>
-
-        <GlassCard padding={16} radiusToken="md" edge="emerald" style={styles.gap}>
-          <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'مزايا بوابتك' : 'Your portal'}</Text>
-          {[
-            ar ? 'عرض الوحدة والعقار' : 'View unit & property',
-            ar ? 'متابعة العقد والمدفوعات' : 'Contract & payments',
-            ar ? 'طلب صيانة ومتابعة البلاغ' : 'Request & track maintenance',
-            ar ? 'تواصل مباشر مع الفني' : 'Direct technician contact',
-          ].map((line) => (
-            <Text key={line} style={[styles.feature, ar && styles.rtl]}>· {line}</Text>
-          ))}
-        </GlassCard>
-
-
-        {contract ? (
-          <GlassCard padding={18} radiusToken="md" style={styles.gap}>
-            <Text style={[styles.section, ar && styles.rtl]}>{t('op.tenant.contract')}</Text>
-            <Text style={[styles.body, ar && styles.rtl]}>#{contract.number}</Text>
-            <Text style={[styles.dim, ar && styles.rtl]}>
-              {formatDate(contract.startDate)} — {formatDate(contract.endDate)}
-
       ) : null}
 
       <GlassCard padding={18} radiusToken="md" edge="emerald" style={styles.gap}>
-        <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.tenant.payments' as any)}</Text>
-        <Text style={[styles.body, isRTL && styles.rtl]}>
-          {paymentOk ? t('opsv2.tenant.paid' as any) : t('opsv2.tenant.due' as any)}
+        <Text style={[styles.section, ar && styles.rtl]}>{t('opsv2.tenant.payments' as any)}</Text>
+        <Text style={[styles.body, ar && styles.rtl]}>
+          {guestMode
+            ? (ar ? 'التفاصيل تظهر عند مزامنة بيانات العقار على هذا الجهاز' : 'Details appear when property data is synced on this device')
+            : paymentOk
+              ? t('opsv2.tenant.paid' as any)
+              : ledgerDue > 0
+                ? `${t('opsv2.tenant.due' as any)} · ${ledgerDue.toLocaleString()}`
+                : t('opsv2.tenant.due' as any)}
         </Text>
       </GlassCard>
 
@@ -248,186 +233,156 @@ export default function TenantPortalScreen() {
         guestMode={guestMode}
       />
 
+      <GlassCard padding={16} radiusToken="md" edge="gold" style={styles.gap}>
+        <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'تواصل مع الفني مباشرة' : 'Contact technician'}</Text>
+        <Text style={[styles.body, ar && styles.rtl]}>
+          {assignedTech?.name || (ar ? 'فني الصيانة' : 'Technician')}
+          {assignedTech?.phone ? ` · ${assignedTech.phone}` : ''}
+        </Text>
+        {!assignedTech?.phone && !guestTechPhone ? (
+          <Text style={[styles.dim, ar && styles.rtl]}>
+            {ar ? 'لا يوجد رقم فني بعد — سيظهر عند ربطه من الإدارة' : 'No technician phone yet — it appears once linked by management'}
+          </Text>
+        ) : (
+          <View style={styles.row}>
+            <Pressable style={styles.approveBtn} onPress={contactTechWa}>
+              <Feather name="message-circle" size={16} color={colors.bg} />
+              <Text style={styles.approveText}>{ar ? 'واتساب' : 'WhatsApp'}</Text>
+            </Pressable>
+            <Pressable style={styles.reprocessBtn} onPress={callTech}>
+              <Feather name="phone" size={16} color={colors.gold} />
+              <Text style={styles.reprocessText}>{ar ? 'اتصال' : 'Call'}</Text>
+            </Pressable>
+          </View>
+        )}
+      </GlassCard>
+
       {myTickets[0]?.tenantNotifications?.length ? (
         <GlassCard padding={16} radiusToken="md" style={styles.gap}>
-          <Text style={[styles.section, isRTL && styles.rtl]}>{t('opsv2.tenant.notifications' as any)}</Text>
+          <Text style={[styles.section, ar && styles.rtl]}>{t('opsv2.tenant.notifications' as any)}</Text>
           {myTickets[0].tenantNotifications!.slice(0, 5).map((n, i) => (
-            <Text key={i} style={[styles.dim, isRTL && styles.rtl]}>
+            <Text key={i} style={[styles.dim, ar && styles.rtl]}>
               · {t(n.messageKey as any)}
-
             </Text>
-            {contract.rentAmount ? (
-              <Text style={[styles.body, ar && styles.rtl]}>
-                {ar ? 'الإيجار: ' : 'Rent: '}
-                {Number(contract.rentAmount).toLocaleString()}
-              </Text>
-            ) : null}
-          </GlassCard>
-        ) : null}
-
-        <GlassCard padding={18} radiusToken="md" edge="emerald" style={styles.gap}>
-          <Text style={[styles.section, ar && styles.rtl]}>{t('opsv2.tenant.payments' as any)}</Text>
-          <Text style={[styles.body, ar && styles.rtl]}>
-            {guestMode
-              ? (ar ? 'التفاصيل تظهر عند مزامنة بيانات العقار على هذا الجهاز' : 'Details appear when property data is synced on this device')
-              : paymentOk
-                ? t('opsv2.tenant.paid' as any)
-                : ledgerDue > 0
-                  ? `${t('opsv2.tenant.due' as any)} · ${ledgerDue.toLocaleString()}`
-                  : t('opsv2.tenant.due' as any)}
-          </Text>
+          ))}
         </GlassCard>
+      ) : null}
 
+      {awaitingTicket ? (
         <GlassCard padding={16} radiusToken="md" edge="gold" style={styles.gap}>
-          <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'تواصل مع الفني مباشرة' : 'Contact technician'}</Text>
-          <Text style={[styles.body, ar && styles.rtl]}>
-            {assignedTech?.name || (ar ? 'فني الصيانة' : 'Technician')}
-            {assignedTech?.phone ? ` · ${assignedTech.phone}` : ''}
-          </Text>
-          {!assignedTech?.phone && !guestTechPhone ? (
-            <Text style={[styles.dim, ar && styles.rtl]}>
-              {ar ? 'لا يوجد رقم فني بعد — سيظهر عند ربطه من الإدارة' : 'No technician phone yet — it appears once linked by management'}
-            </Text>
-          ) : (
-            <View style={styles.row}>
-              <Pressable style={styles.approveBtn} onPress={contactTechWa}>
-                <Feather name="message-circle" size={16} color={colors.bg} />
-                <Text style={styles.approveText}>{ar ? 'واتساب' : 'WhatsApp'}</Text>
+          <Text style={[styles.section, ar && styles.rtl]}>{t('maint.rating' as any)}</Text>
+          <View style={styles.stars}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Pressable key={n} onPress={() => setRating(n)}>
+                <Text style={styles.star}>{n <= rating ? '⭐' : '☆'}</Text>
               </Pressable>
-              <Pressable style={styles.reprocessBtn} onPress={callTech}>
-                <Feather name="phone" size={16} color={colors.gold} />
-                <Text style={styles.reprocessText}>{ar ? 'اتصال' : 'Call'}</Text>
-              </Pressable>
-            </View>
-          )}
-        </GlassCard>
-
-        {myTickets[0]?.tenantNotifications?.length ? (
-          <GlassCard padding={16} radiusToken="md" style={styles.gap}>
-            <Text style={[styles.section, ar && styles.rtl]}>{t('opsv2.tenant.notifications' as any)}</Text>
-            {myTickets[0].tenantNotifications!.slice(0, 5).map((n, i) => (
-              <Text key={i} style={[styles.dim, ar && styles.rtl]}>
-                · {t(n.messageKey as any)}
-              </Text>
             ))}
-          </GlassCard>
-        ) : null}
-
-        {awaitingTicket ? (
-          <GlassCard padding={16} radiusToken="md" edge="gold" style={styles.gap}>
-            <Text style={[styles.section, ar && styles.rtl]}>{t('maint.rating' as any)}</Text>
-            <View style={styles.stars}>
-              {[1, 2, 3, 4, 5].map((n) => (
-                <Pressable key={n} onPress={() => setRating(n)}>
-                  <Text style={styles.star}>{n <= rating ? '⭐' : '☆'}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <KeyboardAwareTextInput
-              value={comment}
-              onChangeText={setComment}
-              placeholder={t('maint.comment' as any)}
-              placeholderTextColor={colors.textSubtle}
-              style={[styles.input, ar && styles.rtl]}
-              multiline
-            />
-            <View style={styles.row}>
-              <Pressable
-                style={styles.approveBtn}
-                onPress={async () => {
-                  await tenantApprove(awaitingTicket.id, rating, comment.trim());
-                  Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                }}
-              >
-                <Text style={styles.approveText}>{t('maint.approve' as any)}</Text>
-              </Pressable>
-              <Pressable
-                style={styles.reprocessBtn}
-                onPress={() => tenantReprocess(awaitingTicket.id, comment.trim())}
-              >
-                <Text style={styles.reprocessText}>{t('maint.reprocessBtn' as any)}</Text>
-              </Pressable>
-            </View>
-          </GlassCard>
-        ) : null}
-
-        {!guestMode && !showJourney ? (
-          <Pressable style={styles.requestBtn} onPress={() => setShowJourney(true)}>
-            <Text style={styles.requestBtnText}>{t('op.tenant.requestMaintenance')}</Text>
-          </Pressable>
-        ) : null}
-
-        {!guestMode && showJourney ? (
-          <View style={styles.gap}>
-            <MaintenanceJourney
-              unitId={tenant.unitId}
-              unitLabel={`${t('op.tenant.unit')} ${unit?.number ?? ''}`}
-              tenantId={tenant.id}
-              technicianList={technicians}
-              onCreateTechnician={create}
-              onSubmit={async (data) => {
-                await openTicket(tenant.unitId, data.title, tenant.id, data.description, unit?.number, {
-                  category: data.category,
-                  priority: data.priority,
-                  technicianId: data.technicianId,
-                  technicianName: data.technicianName,
-                  media: data.media,
-                });
-                setShowJourney(false);
+          </View>
+          <KeyboardAwareTextInput
+            value={comment}
+            onChangeText={setComment}
+            placeholder={t('maint.comment' as any)}
+            placeholderTextColor={colors.textSubtle}
+            style={[styles.input, ar && styles.rtl]}
+            multiline
+          />
+          <View style={styles.row}>
+            <Pressable
+              style={styles.approveBtn}
+              onPress={async () => {
+                await tenantApprove(awaitingTicket.id, rating, comment.trim());
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
               }}
-              onCancel={() => setShowJourney(false)}
-            />
-          </View>
-        ) : null}
-
-        {guestMode ? (
-          <GlassCard padding={16} radiusToken="md" style={styles.gap}>
-            <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'طلب صيانة' : 'Maintenance request'}</Text>
-            <View style={styles.typeRow}>
-              {(ar ? ['سباكة', 'كهرباء', 'تكييف', 'أخرى'] : ['Plumbing', 'Electrical', 'AC', 'Other']).map((label) => (
-                <Pressable
-                  key={label}
-                  onPress={() => setGuestType(label)}
-                  style={[styles.typeChip, guestType === label && styles.typeChipOn]}
-                >
-                  <Text style={[styles.typeChipText, guestType === label && styles.typeChipTextOn]}>{label}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <KeyboardAwareTextInput
-              value={guestMaint}
-              onChangeText={setGuestMaint}
-              placeholder={ar ? 'وصف المشكلة…' : 'Describe the issue…'}
-              placeholderTextColor={colors.textSubtle}
-              style={[styles.input, ar && styles.rtl]}
-              multiline
-            />
-            <Pressable style={styles.requestBtn} onPress={sendGuestMaintenance}>
-              <Text style={styles.requestBtnText}>{ar ? 'إرسال للفني عبر واتساب' : 'Send to technician via WhatsApp'}</Text>
+            >
+              <Text style={styles.approveText}>{t('maint.approve' as any)}</Text>
             </Pressable>
-          </GlassCard>
-        ) : null}
+            <Pressable
+              style={styles.reprocessBtn}
+              onPress={() => tenantReprocess(awaitingTicket.id, comment.trim())}
+            >
+              <Text style={styles.reprocessText}>{t('maint.reprocessBtn' as any)}</Text>
+            </Pressable>
+          </View>
+        </GlassCard>
+      ) : null}
 
-        {myTickets.length ? (
-          <View style={styles.gap}>
-            <Text style={[styles.section, ar && styles.rtl]}>{t('opsv2.tenant.track' as any)}</Text>
-            {myTickets.map((tk) => (
-              <GlassCard key={tk.id} padding={14} radiusToken="md" style={{ marginBottom: spacing.sm }}>
-                <Text style={[styles.body, ar && styles.rtl]}>{tk.title}</Text>
-                {tk.technicianName ? (
-                  <Text style={[styles.dim, ar && styles.rtl]}>
-                    {ar ? 'الفني: ' : 'Tech: '}{tk.technicianName}
-                  </Text>
-                ) : null}
-                <MaintenanceTimeline ticket={tk} showEta={false} />
-              </GlassCard>
+      {!guestMode && !showJourney ? (
+        <Pressable style={styles.requestBtn} onPress={() => setShowJourney(true)}>
+          <Text style={styles.requestBtnText}>{t('op.tenant.requestMaintenance')}</Text>
+        </Pressable>
+      ) : null}
+
+      {!guestMode && showJourney ? (
+        <View style={styles.gap}>
+          <MaintenanceJourney
+            unitId={tenant.unitId}
+            unitLabel={`${t('op.tenant.unit')} ${unit?.number ?? ''}`}
+            tenantId={tenant.id}
+            technicianList={technicians}
+            onCreateTechnician={create}
+            onSubmit={async (data) => {
+              await openTicket(tenant.unitId, data.title, tenant.id, data.description, unit?.number, {
+                category: data.category,
+                priority: data.priority,
+                technicianId: data.technicianId,
+                technicianName: data.technicianName,
+                media: data.media,
+              });
+              setShowJourney(false);
+            }}
+            onCancel={() => setShowJourney(false)}
+          />
+        </View>
+      ) : null}
+
+      {guestMode ? (
+        <GlassCard padding={16} radiusToken="md" style={styles.gap}>
+          <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'طلب صيانة' : 'Maintenance request'}</Text>
+          <View style={styles.typeRow}>
+            {(ar ? ['سباكة', 'كهرباء', 'تكييف', 'أخرى'] : ['Plumbing', 'Electrical', 'AC', 'Other']).map((label) => (
+              <Pressable
+                key={label}
+                onPress={() => setGuestType(label)}
+                style={[styles.typeChip, guestType === label && styles.typeChipOn]}
+              >
+                <Text style={[styles.typeChipText, guestType === label && styles.typeChipTextOn]}>{label}</Text>
+              </Pressable>
             ))}
           </View>
-        ) : (
-          <Text style={[styles.dim, styles.gap, ar && styles.rtl]}>
-            {ar ? 'لا توجد بلاغات حالياً — يمكنك إنشاء طلب جديد أعلاه' : 'No tickets yet — create a request above'}
-          </Text>
-        )}
+          <KeyboardAwareTextInput
+            value={guestMaint}
+            onChangeText={setGuestMaint}
+            placeholder={ar ? 'وصف المشكلة…' : 'Describe the issue…'}
+            placeholderTextColor={colors.textSubtle}
+            style={[styles.input, ar && styles.rtl]}
+            multiline
+          />
+          <Pressable style={styles.requestBtn} onPress={sendGuestMaintenance}>
+            <Text style={styles.requestBtnText}>{ar ? 'إرسال للفني عبر واتساب' : 'Send to technician via WhatsApp'}</Text>
+          </Pressable>
+        </GlassCard>
+      ) : null}
+
+      {myTickets.length ? (
+        <View style={styles.gap}>
+          <Text style={[styles.section, ar && styles.rtl]}>{t('opsv2.tenant.track' as any)}</Text>
+          {myTickets.map((tk) => (
+            <GlassCard key={tk.id} padding={14} radiusToken="md" style={{ marginBottom: spacing.sm }}>
+              <Text style={[styles.body, ar && styles.rtl]}>{tk.title}</Text>
+              {tk.technicianName ? (
+                <Text style={[styles.dim, ar && styles.rtl]}>
+                  {ar ? 'الفني: ' : 'Tech: '}{tk.technicianName}
+                </Text>
+              ) : null}
+              <MaintenanceTimeline ticket={tk} showEta={false} />
+            </GlassCard>
+          ))}
+        </View>
+      ) : (
+        <Text style={[styles.dim, styles.gap, ar && styles.rtl]}>
+          {ar ? 'لا توجد بلاغات حالياً — يمكنك إنشاء طلب جديد أعلاه' : 'No tickets yet — create a request above'}
+        </Text>
+      )}
     </ScreenScaffold>
   );
 }
