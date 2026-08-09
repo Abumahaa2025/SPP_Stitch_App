@@ -27,6 +27,14 @@ export const OPERATION_TOOLS: OperationTool[] = [
     accent: 'gold',
   },
   {
+    key: 'portal-links',
+    icon: 'share-2',
+    labelKey: 'ops.portalLinks',
+    hintKey: 'ops.portalLinks.hint',
+    route: '/operational/portals',
+    accent: 'emerald',
+  },
+  {
     key: 'tenant-portal',
     icon: 'users',
     labelKey: 'ops.tenantPortal',

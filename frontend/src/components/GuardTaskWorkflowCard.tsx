@@ -5,13 +5,13 @@
  */
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import * as DocumentPicker from 'expo-document-picker';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 
 import { GlassCard } from '@/src/components/GlassCard';
 import { KeyboardAwareTextInput } from '@/src/components/KeyboardAwareTextInput';
 import type { AgentFollowUp, FollowUpMediaItem } from '@/src/types/portal-access';
+import { capturePortalMedia } from '@/src/utils/portal-media-capture';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 
@@ -89,13 +89,9 @@ export function GuardTaskWorkflowCard({
   ]), [t]);
 
   const pick = async (kind: 'photo' | 'video') => {
-    const res = await DocumentPicker.getDocumentAsync({
-      copyToCacheDirectory: true,
-      type: kind === 'photo' ? ['image/*'] : ['video/*'],
-    });
-    if (res.canceled || !res.assets?.[0]) return;
-    const a = res.assets[0];
-    setPendingMedia((prev) => [...prev, { uri: a.uri, kind, name: a.name }].slice(0, 6));
+    const a = await capturePortalMedia(kind);
+    if (!a) return;
+    setPendingMedia((prev) => [...prev, { uri: a.uri, kind: a.kind, name: a.name }].slice(0, 6));
     Haptics.selectionAsync();
   };
 

@@ -40,6 +40,14 @@ const PRIMARY_TOOLS: HubLink[] = [
     tone: 'emerald',
   },
   {
+    key: 'portalLinks',
+    icon: 'share-2',
+    labelKey: 'ops.portalLinks',
+    hintKey: 'ops.portalLinks.hint',
+    route: '/operational/portals',
+    tone: 'emerald',
+  },
+  {
     key: 'opsReports',
     icon: 'clipboard',
     labelKey: 'opsv2.ownerOps.reports',
