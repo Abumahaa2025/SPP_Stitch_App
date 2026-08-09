@@ -18,17 +18,21 @@ import {
 } from '@/src/components/OperationalTenantCard';
 import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useOperational } from '@/src/hooks/useOperational';
+import { useTenantOps } from '@/src/hooks/useTenantOps';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
+import { BlinkStepPath } from '@/src/components/BlinkStepPath';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
+import { formatDate } from '@/src/utils/locale';
 
-type TabId = 'overview' | 'contracts' | 'payments' | 'maintenance';
+type TabId = 'overview' | 'contracts' | 'payments' | 'maintenance' | 'notes';
 
 const TABS: { id: TabId; ar: string; en: string }[] = [
   { id: 'overview', ar: 'نظرة عامة', en: 'Overview' },
   { id: 'contracts', ar: 'العقود', en: 'Contracts' },
   { id: 'payments', ar: 'المدفوعات', en: 'Payments' },
   { id: 'maintenance', ar: 'الصيانة', en: 'Maintenance' },
+  { id: 'notes', ar: 'ملاحظات', en: 'Notes' },
 ];
 
 function fmtMoney(n: number, ar: boolean) {
@@ -43,7 +47,9 @@ export default function TenantDetailScreen() {
   const { countEnabled } = useNotificationPrefs();
   const { state } = usePropertyOS(countEnabled);
   const { ticketsForUnit, openTickets } = useOperational();
+  const { forTenant, reportsFor } = useTenantOps();
   const [tab, setTab] = useState<TabId>('overview');
+  const [openNoteId, setOpenNoteId] = useState<string | null>(null);
 
   const tenant = state.tenants.find((x) => x.id === id);
   const view = useMemo(
@@ -240,6 +246,69 @@ export default function TenantDetailScreen() {
               </Pressable>
             ))
           )}
+        </View>
+      ) : null}
+
+      {tab === 'notes' ? (
+        <View style={{ gap: 10 }}>
+          <Text style={[styles.dim, isRTL && styles.rtl]}>
+            {ar
+              ? 'اضغط أي ملاحظة لعرض مسار السداد / الصيانة / التنقلات الخاصة بهذا المستأجر.'
+              : 'Tap any note to open payment / maintenance / move paths for this tenant.'}
+          </Text>
+          {forTenant(tenant.id).filter((j) => j.status === 'open').map((j) => (
+            <Pressable
+              key={j.id}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setOpenNoteId(openNoteId === j.id ? null : j.id);
+              }}
+            >
+              <GlassCard padding={14} radiusToken="md" edge="gold">
+                <Text style={[styles.payMonth, isRTL && styles.rtl]}>
+                  {ar ? j.titleAr : j.titleEn}
+                </Text>
+                <Text style={[styles.dim, isRTL && styles.rtl]}>{j.kind}</Text>
+              </GlassCard>
+              {openNoteId === j.id ? (
+                <View style={{ marginTop: 8 }}>
+                  <BlinkStepPath title={ar ? 'المسار' : 'Path'} steps={j.steps} />
+                </View>
+              ) : null}
+            </Pressable>
+          ))}
+          {reportsFor(tenant.id).map((r) => (
+            <Pressable
+              key={r.id}
+              onPress={() => {
+                Haptics.selectionAsync();
+                setOpenNoteId(openNoteId === r.id ? null : r.id);
+              }}
+            >
+              <GlassCard padding={14} radiusToken="md" edge="emerald">
+                <Text style={[styles.payMonth, isRTL && styles.rtl]}>
+                  {ar ? r.noteLineAr : r.noteLineEn}
+                </Text>
+                <Text style={[styles.dim, isRTL && styles.rtl]}>
+                  {r.kind} · {formatDate(r.createdAt)}
+                </Text>
+                {openNoteId === r.id ? (
+                  <Text style={[styles.dim, isRTL && styles.rtl, { marginTop: 8 }]}>
+                    {ar ? r.summaryAr : r.summaryEn}
+                    {r.techName ? `\n${ar ? 'الفني' : 'Tech'}: ${r.techName}` : ''}
+                    {r.costTotal != null ? `\n${ar ? 'التكلفة' : 'Cost'}: ${r.costTotal}` : ''}
+                  </Text>
+                ) : null}
+              </GlassCard>
+            </Pressable>
+          ))}
+          {!forTenant(tenant.id).length && !reportsFor(tenant.id).length ? (
+            <GlassCard padding={18} radiusToken="lg">
+              <Text style={[styles.dim, isRTL && styles.rtl]}>
+                {ar ? 'لا ملاحظات عمليات بعد لهذا المستأجر.' : 'No operations notes for this tenant yet.'}
+              </Text>
+            </GlassCard>
+          ) : null}
         </View>
       ) : null}
     </ScreenScaffold>

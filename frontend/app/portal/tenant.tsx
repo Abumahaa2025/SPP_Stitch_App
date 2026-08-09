@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Linking, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -10,6 +10,8 @@ import { GlassCard } from '@/src/components/GlassCard';
 import { AliveEmpty } from '@/src/components/AliveEmpty';
 import { ActingAsBadge } from '@/src/components/ActingAsBadge';
 import { PortalInstallHint } from '@/src/components/PortalInstallHint';
+import { PortalPinGate } from '@/src/components/PortalPinGate';
+import { BlinkStepPath } from '@/src/components/BlinkStepPath';
 import { TenantPortalDesk } from '@/src/components/TenantPortalDesk';
 import { MaintenanceJourney } from '@/src/components/maintenance/MaintenanceJourney';
 import { MaintenanceTimeline } from '@/src/components/maintenance/MaintenanceTimeline';
@@ -18,10 +20,12 @@ import { usePropertyOS } from '@/src/hooks/usePropertyOS';
 import { useOperational } from '@/src/hooks/useOperational';
 import { useTechnicians } from '@/src/hooks/useTechnicians';
 import { usePortalAccess } from '@/src/hooks/usePortalAccess';
+import { useTenantOps } from '@/src/hooks/useTenantOps';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import { formatDate } from '@/src/utils/locale';
+import { startMaintenanceJourney } from '@/src/utils/tenant-ops-journey-store';
 
 function digitsPhone(raw?: string) {
   return String(raw || '').replace(/\D/g, '');
@@ -58,11 +62,14 @@ export default function TenantPortalScreen() {
   const { tickets, openTicket, tenantApprove, tenantReprocess } = useOperational();
   const { technicians, create } = useTechnicians();
   const { logLogin } = usePortalAccess();
+  const { forTenant, reportsFor } = useTenantOps();
+  const [unlocked, setUnlocked] = useState(false);
   const [showJourney, setShowJourney] = useState(false);
   const [guestMaint, setGuestMaint] = useState('');
   const [guestType, setGuestType] = useState('سباكة');
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
+  const onUnlocked = useCallback(() => setUnlocked(true), []);
 
   const localTenant = state.tenants.find((x) => x.id === params.id && x.portalToken === params.t);
   const guestName = String(params.n || params.name || '').trim();
@@ -149,14 +156,48 @@ export default function TenantPortalScreen() {
     void Linking.openURL(`tel:+${phone}`);
   };
 
-  const sendGuestMaintenance = () => {
+  const sendGuestMaintenance = async () => {
     Haptics.selectionAsync();
     const desc = guestMaint.trim() || (ar ? 'بلاغ صيانة' : 'Maintenance request');
     const msg = ar
       ? `🛠 طلب صيانة من بوابة المستأجر\nالمستأجر: ${tenant.name}\nالوحدة: ${unitLabel}\nالعقار: ${propertyLabel}\nالنوع: ${guestType}\nالوصف: ${desc}`
       : `🛠 Maintenance request\nTenant: ${tenant.name}\nUnit: ${unitLabel}\nProperty: ${propertyLabel}\nType: ${guestType}\nDetails: ${desc}`;
+    try {
+      await startMaintenanceJourney({
+        tenantId: tenant.id,
+        tenantName: tenant.name,
+        unitId: localTenant?.unitId,
+        unitNumber: unitLabel !== '—' ? unitLabel : undefined,
+        propertyName: propertyLabel !== '—' ? propertyLabel : undefined,
+        ticketId: `guest_${tenant.id}_${Date.now().toString(36)}`,
+        title: `${guestType}: ${desc}`,
+        techName: assignedTech?.name,
+      });
+    } catch { /* ignore */ }
     void openWhatsApp(assignedTech?.phone || guestTechPhone, msg);
   };
+
+  const expectedPin = String(
+    localTenant?.portalPin
+    || (params.t ? String(params.t).replace(/\D/g, '').slice(-6) : '')
+    || '',
+  );
+  const tenantJourneys = forTenant(tenant.id);
+  const tenantReports = reportsFor(tenant.id);
+
+  if (!unlocked) {
+    return (
+      <ScreenScaffold testID="tenant-portal">
+        <PortalPinGate
+          role="tenant"
+          subjectId={tenant.id}
+          expectedPin={expectedPin}
+          displayName={tenant.name}
+          onUnlocked={onUnlocked}
+        />
+      </ScreenScaffold>
+    );
+  }
 
   return (
     <ScreenScaffold testID="tenant-portal">
@@ -174,6 +215,29 @@ export default function TenantPortalScreen() {
         scope={`${t('op.tenant.unit')} ${unitLabel} · ${propertyLabel}`}
       />
       <PortalInstallHint role="tenant" />
+
+      {tenantJourneys.filter((j) => j.status === 'open').map((j) => (
+        <View key={j.id} style={styles.gap}>
+          <BlinkStepPath
+            title={ar ? j.titleAr : j.titleEn}
+            steps={j.steps}
+            testID={`tenant-journey-${j.id}`}
+          />
+        </View>
+      ))}
+
+      {tenantReports.length ? (
+        <GlassCard padding={14} radiusToken="md" edge="gold" style={styles.gap}>
+          <Text style={[styles.section, ar && styles.rtl]}>
+            {ar ? 'تقارير مكتملة' : 'Completed reports'}
+          </Text>
+          {tenantReports.slice(0, 5).map((r) => (
+            <Text key={r.id} style={[styles.dim, ar && styles.rtl, { marginTop: 6 }]}>
+              · {ar ? r.summaryAr : r.summaryEn}
+            </Text>
+          ))}
+        </GlassCard>
+      ) : null}
 
       <GlassCard padding={18} radiusToken="md" edge="gold">
         <Text style={[styles.section, ar && styles.rtl]}>{ar ? 'وحدتك' : 'Your unit'}</Text>

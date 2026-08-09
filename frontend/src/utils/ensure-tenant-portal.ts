@@ -13,11 +13,24 @@ function uid(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function welcomeMessage(name: string, portalUrl: string, lang: 'ar' | 'en', techName?: string) {
+function makePortalPin(token: string, existing?: string) {
+  if (existing && String(existing).trim()) return String(existing).trim();
+  const digits = String(token || '').replace(/\D/g, '');
+  if (digits.length >= 6) return digits.slice(-6);
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+function welcomeMessage(
+  name: string,
+  portalUrl: string,
+  lang: 'ar' | 'en',
+  techName?: string,
+  pin?: string,
+) {
   if (lang === 'ar') {
-    return `مرحبًا ${name} 👋\n\nتم تفعيل بوابة المستأجر في SPP.\n\nافتح رابطك (صفحة بوابة وليس ملف نصي):\n${portalUrl}\n\nمن خلاله يمكنك:\n• عرض وحدتك وعقارك\n• طلب صيانة ومتابعة البلاغ\n• التواصل مباشرة مع الفني${techName ? ` (${techName})` : ''}`;
+    return `مرحبًا ${name} 👋\n\nتم تفعيل بوابة المستأجر في SPP.\n\nرابط بوابتك (ثبّته كتطبيق على جوالك):\n${portalUrl}\n\nكلمة السر للدخول: ${pin || '—'}\n\nمن خلاله يمكنك:\n• عرض وحدتك وعقارك\n• طلب صيانة ومتابعة مسار التنفيذ\n• متابعة السداد\n• التواصل مباشرة مع الفني${techName ? ` (${techName})` : ''}`;
   }
-  return `Welcome ${name} 👋\n\nYour SPP tenant portal is ready.\n\nOpen your portal page:\n${portalUrl}\n\nYou can:\n• View your unit\n• Request & track maintenance\n• Contact the technician directly${techName ? ` (${techName})` : ''}`;
+  return `Welcome ${name} 👋\n\nYour SPP tenant portal is ready.\n\nPortal link (install as an app on your phone):\n${portalUrl}\n\nLogin password: ${pin || '—'}\n\nYou can:\n• View your unit\n• Request & track maintenance\n• Follow payment status\n• Contact the technician directly${techName ? ` (${techName})` : ''}`;
 }
 
 export async function ensureTenantPortalLink(
@@ -47,12 +60,14 @@ export async function ensureTenantPortalLink(
     techPhone: primaryTech?.phone ? digits(primaryTech.phone) : undefined,
   };
   const built = buildTenantPortalLink(tenant.id, token, meta);
-  const message = welcomeMessage(tenant.name, built.url, lang, primaryTech?.name);
+  const portalPin = makePortalPin(token, tenant.portalPin);
+  const message = welcomeMessage(tenant.name, built.url, lang, primaryTech?.name, portalPin);
   const updated: TenantRecord = {
     ...tenant,
     portalToken: token,
     portalUrl: built.url,
     qrData: built.qrData,
+    portalPin,
     whatsAppMessage: message,
   };
 

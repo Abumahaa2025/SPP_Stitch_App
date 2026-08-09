@@ -86,6 +86,39 @@ export async function createOwnerTicket(
     relatedUnitId: unitId,
     relatedTenantId: tenantId,
   });
+  if (tenantId) {
+    try {
+      const { startMaintenanceJourney, advanceMaintenanceJourney } = await import('@/src/utils/tenant-ops-journey-store');
+      let tenantName = title;
+      try {
+        const { storage } = await import('@/src/utils/storage');
+        const raw = await storage.getItem<string>('spp.propertyOS', '');
+        if (raw) {
+          const os = JSON.parse(raw);
+          const tn = (os.tenants || []).find((x: { id?: string }) => x.id === tenantId);
+          if (tn?.name) tenantName = tn.name;
+        }
+      } catch { /* ignore */ }
+      await startMaintenanceJourney({
+        tenantId,
+        tenantName,
+        unitId,
+        unitNumber,
+        ticketId: ticket.id,
+        title,
+        techName: extras.technicianName,
+      });
+      // Owner-created ticket implies owner approval of the request path.
+      await advanceMaintenanceJourney(ticket.id, 'owner_approved', {
+        techName: extras.technicianName,
+      });
+      if (extras.technicianId) {
+        await advanceMaintenanceJourney(ticket.id, 'tech_received', {
+          techName: extras.technicianName,
+        });
+      }
+    } catch { /* ignore */ }
+  }
   if (extras.technicianId) {
     await appendEvent({
       kind: 'maintenance_assigned',
@@ -143,6 +176,13 @@ export async function techAcceptTicket(ticket: MaintenanceTicket): Promise<Maint
     timeline,
   });
   await upsertTicket(next);
+  try {
+    const { advanceMaintenanceJourney } = await import('@/src/utils/tenant-ops-journey-store');
+    await advanceMaintenanceJourney(ticket.id, 'owner_approved');
+    await advanceMaintenanceJourney(ticket.id, 'tech_received', {
+      techName: ticket.technicianName,
+    });
+  } catch { /* ignore */ }
   return next;
 }
 
@@ -169,6 +209,12 @@ export async function techStartTicket(ticket: MaintenanceTicket): Promise<Mainte
     timeline,
   });
   await upsertTicket(next);
+  try {
+    const { advanceMaintenanceJourney } = await import('@/src/utils/tenant-ops-journey-store');
+    await advanceMaintenanceJourney(ticket.id, 'in_progress', {
+      techName: ticket.technicianName,
+    });
+  } catch { /* ignore */ }
   return next;
 }
 
@@ -225,6 +271,19 @@ export async function techCompleteTicket(
     relatedTicketId: ticket.id,
     relatedUnitId: ticket.unitId,
   });
+  try {
+    const { advanceMaintenanceJourney } = await import('@/src/utils/tenant-ops-journey-store');
+    await advanceMaintenanceJourney(ticket.id, 'completed', {
+      techName: ticket.technicianName,
+    });
+    const cost = Number(ticket.estimatedCost || 0) || undefined;
+    await advanceMaintenanceJourney(ticket.id, 'cost_report', {
+      techName: ticket.technicianName,
+      costTotal: cost,
+      noteAr: note || 'تقرير تكاليف الصيانة',
+      noteEn: note || 'Maintenance cost report',
+    });
+  } catch { /* ignore */ }
   return next;
 }
 

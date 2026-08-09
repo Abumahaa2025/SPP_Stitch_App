@@ -40,8 +40,11 @@ export default function PortalsManagementScreen() {
     addAgent, addGuard, getLastLogin, setAgentActive,
     replyFollowUp, setFollowUpStatus,
   } = usePortalAccess();
-  const { technicians } = useTechnicians();
+  const { technicians, create: createTechnician } = useTechnicians();
 
+  const [techName, setTechName] = useState('');
+  const [techPhone, setTechPhone] = useState('');
+  const [showTechForm, setShowTechForm] = useState(false);
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [agentName, setAgentName] = useState('');
   const [agentPhone, setAgentPhone] = useState('');
@@ -137,7 +140,15 @@ export default function PortalsManagementScreen() {
               </Text>
               <Pressable
                 style={styles.resend}
-                onPress={() => shareWhatsApp(tenant.phone, tenant.whatsAppMessage)}
+                onPress={async () => {
+                  try {
+                    const { ensureTenantPortalLink } = await import('@/src/utils/ensure-tenant-portal');
+                    const ensured = await ensureTenantPortalLink(tenant.id, ar ? 'ar' : 'en');
+                    shareWhatsApp(tenant.phone, ensured?.message || tenant.whatsAppMessage);
+                  } catch {
+                    shareWhatsApp(tenant.phone, tenant.whatsAppMessage);
+                  }
+                }}
               >
                 <Feather name="send" size={12} color={colors.emerald} />
                 <Text style={styles.resendText}>{t('opsv2.portals.resend' as any)}</Text>
@@ -148,6 +159,66 @@ export default function PortalsManagementScreen() {
       })}
 
       <Text style={[styles.section, isRTL && styles.rtl, { marginTop: spacing.xl }]}>
+        {t('opsv2.portal.techCreate' as any)}
+      </Text>
+      <GlassCard padding={14} radiusToken="md" edge="emerald" style={styles.gap}>
+        <Text style={[styles.meta, isRTL && styles.rtl]}>
+          {ar
+            ? 'أنشئ رابط فني مستقل مع بطاقة مشاركة وواتساب.'
+            : 'Create a dedicated technician link with share card and WhatsApp.'}
+        </Text>
+        {showTechForm ? (
+          <View style={{ gap: 8, marginTop: 10 }}>
+            <KeyboardAwareTextInput
+              value={techName}
+              onChangeText={setTechName}
+              placeholder={ar ? 'اسم الفني' : 'Technician name'}
+              placeholderTextColor={colors.textSubtle}
+              style={[styles.input, isRTL && styles.rtl]}
+            />
+            <KeyboardAwareTextInput
+              value={techPhone}
+              onChangeText={setTechPhone}
+              placeholder={ar ? 'جوال الفني' : 'Technician phone'}
+              placeholderTextColor={colors.textSubtle}
+              keyboardType="phone-pad"
+              style={[styles.input, isRTL && styles.rtl]}
+            />
+            <Pressable
+              style={styles.actionBtn}
+              testID="create-tech-portal"
+              onPress={async () => {
+                if (!techName.trim()) return;
+                const tech = await createTechnician({
+                  name: techName.trim(),
+                  phone: techPhone.trim(),
+                  specialty: 'general',
+                });
+                setShowTechForm(false);
+                setTechName('');
+                setTechPhone('');
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                if (tech.phone) {
+                  shareWhatsApp(
+                    tech.phone,
+                    ar
+                      ? `رابط بوابة الفني:\n${tech.portalUrl}`
+                      : `Technician portal link:\n${tech.portalUrl}`,
+                  );
+                }
+              }}
+            >
+              <Text style={styles.actionText}>{ar ? 'إنشاء وإرسال الرابط' : 'Create & send link'}</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable style={[styles.actionBtn, { marginTop: 10 }]} onPress={() => setShowTechForm(true)}>
+            <Text style={styles.actionText}>{ar ? '＋ فني جديد' : '+ New technician'}</Text>
+          </Pressable>
+        )}
+      </GlassCard>
+
+      <Text style={[styles.section, isRTL && styles.rtl, { marginTop: spacing.lg }]}>
         {t('opsv2.portals.techLink' as any)}
       </Text>
       <GlassCard padding={16} radiusToken="md" edge="emerald">

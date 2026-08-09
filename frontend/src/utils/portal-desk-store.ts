@@ -135,6 +135,31 @@ export async function submitTenantPayment(input: {
     payload: { paymentId: item.id, tenantId: input.tenantId },
   });
 
+  try {
+    const { startPaymentJourney } = await import('@/src/utils/tenant-ops-journey-store');
+    let unitNumber: string | undefined;
+    let propertyName: string | undefined;
+    try {
+      const raw = await storage.getItem<string>(OS_KEY, '');
+      if (raw) {
+        const os = JSON.parse(raw);
+        propertyName = os.property?.name;
+        const unit = (os.units || []).find((u: { id?: string }) => u.id === input.unitId);
+        unitNumber = unit?.number;
+      }
+    } catch { /* ignore */ }
+    await startPaymentJourney({
+      tenantId: input.tenantId,
+      tenantName: input.tenantName,
+      unitId: input.unitId,
+      unitNumber,
+      propertyName,
+      paymentId: item.id,
+      monthKey: input.monthKey,
+      amount: input.amount,
+    });
+  } catch { /* ignore journey failures */ }
+
   return item;
 }
 
@@ -230,6 +255,11 @@ export async function confirmTenantPayment(
       (a) => a.kind === 'approve_tenant_payment' && a.payload?.paymentId === paymentId,
     );
     if (match) await removePendingAction(match.id);
+  } catch { /* ignore */ }
+
+  try {
+    const { completePaymentJourney } = await import('@/src/utils/tenant-ops-journey-store');
+    await completePaymentJourney(paymentId);
   } catch { /* ignore */ }
 
   return { ...target, status: 'confirmed', confirmedAt: now };
