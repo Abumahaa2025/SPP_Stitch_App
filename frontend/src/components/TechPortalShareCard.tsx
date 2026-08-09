@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { GlassCard } from '@/src/components/GlassCard';
 import { inAppTechRouteFor } from '@/src/utils/technician-store';
 import { buildTechPortalLink } from '@/src/utils/portal-links';
+import { sharePortalInstallLink } from '@/src/utils/portal-install';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
 import type { TechnicianRecord } from '@/src/types/technician';
@@ -19,12 +20,14 @@ type Props = {
 
 /** Technician portal — link, QR, WhatsApp, allowed tasks. */
 export function TechPortalShareCard({ tech, testID = 'tech-portal-share' }: Props) {
-  const { t, isRTL } = useI18n();
+  const { t, isRTL, lang } = useI18n();
+  const ar = lang === 'ar' || !!isRTL;
   const router = useRouter();
   const live = buildTechPortalLink(tech.portalToken, tech.id, { name: tech.name });
   const shareUrl = live.url;
   const qrUri = `https://api.qrserver.com/v1/create-qr-code/?size=140x140&data=${encodeURIComponent(shareUrl)}`;
-  const msg = `${t('op.tech.title')}: ${shareUrl}\n\n${t('opsv2.portalInstall.shareTip' as any)}`;
+  const installTip = t('opsv2.portalInstall.shareTip' as any);
+  const msg = `${t('op.tech.title')} — ${ar ? 'تنزيل كتطبيق' : 'install as app'}:\n${shareUrl}\n\n${installTip}`;
 
   const shareWhatsApp = () => {
     Haptics.selectionAsync();
@@ -34,6 +37,16 @@ export function TechPortalShareCard({ tech, testID = 'tech-portal-share' }: Prop
       default: digits ? `https://wa.me/${digits}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`,
     });
     Linking.openURL(url!).catch(() => {});
+  };
+
+  const shareInstall = () => {
+    Haptics.selectionAsync();
+    sharePortalInstallLink({
+      url: shareUrl,
+      roleLabel: t('opsv2.portalInstall.role.tech' as any),
+      ar,
+      tip: installTip,
+    });
   };
 
   return (
@@ -51,7 +64,14 @@ export function TechPortalShareCard({ tech, testID = 'tech-portal-share' }: Prop
           <Text style={styles.link} selectable numberOfLines={3}>{shareUrl}</Text>
         </View>
       </View>
+      <Text style={[styles.sub, isRTL && styles.rtl, { marginTop: 8 }]}>
+        {t('opsv2.portalInstall.ownerHint' as any)}
+      </Text>
       <View style={[styles.actions, isRTL && styles.rowRtl]}>
+        <Pressable style={styles.btnPrimary} onPress={shareInstall} testID={`${testID}-install`}>
+          <Feather name="download" size={14} color={colors.bg} />
+          <Text style={styles.btnPrimaryText}>{t('opsv2.portalInstall.downloadBtn' as any)}</Text>
+        </Pressable>
         <Pressable style={styles.btn} onPress={shareWhatsApp} testID={`${testID}-whatsapp`}>
           <Feather name="message-circle" size={14} color={colors.emerald} />
           <Text style={styles.btnText}>{t('result.sendLink' as any)}</Text>
@@ -87,4 +107,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.03)',
   },
   btnText: { color: colors.emerald, fontSize: 12, fontWeight: typography.weight.medium },
+  btnPrimary: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 8, paddingHorizontal: 12, borderRadius: radius.md,
+    backgroundColor: colors.emerald,
+  },
+  btnPrimaryText: { color: colors.bg, fontSize: 12, fontWeight: typography.weight.semibold },
 });

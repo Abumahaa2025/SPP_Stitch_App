@@ -22,6 +22,7 @@ import { usePortalAccess } from '@/src/hooks/usePortalAccess';
 import { useTechnicians } from '@/src/hooks/useTechnicians';
 import { inAppTechRoute } from '@/src/utils/operational-flow-engine';
 import { inAppAgentRoute, inAppGuardPortal } from '@/src/utils/portal-access-store';
+import { sharePortalInstallLink } from '@/src/utils/portal-install';
 import { useNotificationPrefs } from '@/src/hooks/usePreferences';
 import { colors, spacing, typography, radius } from '@/src/theme';
 import { useI18n } from '@/src/i18n';
@@ -373,6 +374,25 @@ export default function PortalsManagementScreen() {
             {t('opsv2.portals.guardInstallHint' as any)}
           </Text>
           <View style={[styles.actions, isRTL && styles.rowRtl]}>
+            {g.portalUrl ? (
+              <Pressable
+                style={[styles.actionBtn, { backgroundColor: colors.emerald }]}
+                onPress={() => {
+                  Haptics.selectionAsync();
+                  sharePortalInstallLink({
+                    url: g.portalUrl!,
+                    roleLabel: t('opsv2.portalInstall.role.guard' as any),
+                    ar,
+                    tip: t('opsv2.portalInstall.shareTip' as any),
+                  });
+                }}
+                testID={`install-guard-${g.id}`}
+              >
+                <Text style={[styles.actionText, { color: colors.bg }]}>
+                  {t('opsv2.portalInstall.downloadBtn' as any)}
+                </Text>
+              </Pressable>
+            ) : null}
             <Pressable
               style={styles.actionBtn}
               onPress={() => router.push(inAppGuardPortal(g.id, g.portalToken) as any)}
@@ -385,7 +405,7 @@ export default function PortalsManagementScreen() {
                 style={styles.actionBtn}
                 onPress={() => shareWhatsApp(
                   g.phone,
-                  `${t('opsv2.guard.title' as any)}: ${g.portalUrl}\n\n${t('opsv2.portalInstall.shareTip' as any)}`,
+                  `${t('opsv2.guard.title' as any)} — ${ar ? 'تنزيل كتطبيق' : 'install as app'}:\n${g.portalUrl}\n\n${t('opsv2.portalInstall.shareTip' as any)}`,
                 )}
               >
                 <Text style={[styles.actionText, { color: colors.gold }]}>

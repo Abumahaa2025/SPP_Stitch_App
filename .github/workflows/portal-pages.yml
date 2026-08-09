@@ -9,6 +9,8 @@ name: Portal Pages
     branches: [main]
     paths:
       - 'docs/portal-open.html'
+      - 'docs/sw-portal.js'
+      - 'docs/portal-icon.png'
       - '.github/workflows/portal-pages.yml'
 
 permissions:
@@ -33,6 +35,8 @@ jobs:
         run: |
           mkdir -p _site
           cp docs/portal-open.html _site/portal-open.html
+          cp docs/sw-portal.js _site/sw-portal.js
+          cp docs/portal-icon.png _site/portal-icon.png
           echo '<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=portal-open.html" /></head><body></body></html>' > _site/index.html
 
       - uses: actions/upload-pages-artifact@v3
