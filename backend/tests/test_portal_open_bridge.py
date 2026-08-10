@@ -27,9 +27,24 @@ def test_portal_open_returns_html_page():
     assert "<!DOCTYPE html>" in body or "<html" in body.lower()
     assert "SPP" in body or "بوابة" in body
     assert "jsdelivr" not in body.lower()
+    assert 'id="installCard"' in body
+    assert "تنزيل" in body or "install" in body.lower()
+    assert 'id="openNowCard"' in body
+    assert "isInAppBrowser" in body
+    assert "revealWebPortal" in body
 
 
 def test_portal_open_no_cdn_redirect():
     res = client.get("/portal/open?role=tech&t=abc", follow_redirects=False)
     assert res.status_code == 200
     assert "text/html" in (res.headers.get("content-type") or "").lower()
+
+
+def test_portal_install_assets_served():
+    icon = client.get("/portal/portal-icon.png")
+    assert icon.status_code == 200
+    assert "image/png" in (icon.headers.get("content-type") or "").lower()
+    sw = client.get("/portal/sw-portal.js")
+    assert sw.status_code == 200
+    assert "javascript" in (sw.headers.get("content-type") or "").lower()
+    assert "skipWaiting" in sw.text

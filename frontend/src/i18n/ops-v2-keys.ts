@@ -195,6 +195,9 @@ export const opsV2En = {
   'opsv2.portalInstall.role.agent': 'agent portal',
   'opsv2.portalInstall.role.guard': 'guard portal',
   'opsv2.portalInstall.shareTip': 'When you open the link: install it as an app on your phone (Add to Home Screen) so it opens like an app anytime.',
+  'opsv2.portalInstall.downloadBtn': 'Install as app',
+  'opsv2.portalInstall.installNow': 'Install now',
+  'opsv2.portalInstall.ownerHint': 'Share so they download this portal link as a phone app.',
   'opsv2.portals.shareGuard': 'Send guard link',
   'opsv2.portals.guardInstallHint': 'The guard sees install-as-app steps when opening the link.',
 
@@ -519,6 +522,9 @@ export const opsV2Ar = {
   'opsv2.portalInstall.role.agent': 'بوابة الوكيل',
   'opsv2.portalInstall.role.guard': 'بوابة الحارس',
   'opsv2.portalInstall.shareTip': 'عند فتح الرابط: ثبّته كتطبيق على جوالك (إضافة إلى الشاشة الرئيسية) ليفتح كأي تطبيق في أي وقت.',
+  'opsv2.portalInstall.downloadBtn': 'تنزيل كتطبيق',
+  'opsv2.portalInstall.installNow': 'ثبّت الآن',
+  'opsv2.portalInstall.ownerHint': 'شارك لينزّلوا رابط هذه البوابة كتطبيق على الجوال.',
   'opsv2.portals.shareGuard': 'إرسال رابط الحارس',
   'opsv2.portals.guardInstallHint': 'عند فتح الرابط يظهر للحارس توضيح تثبيته كتطبيق على الجوال.',
 
