@@ -80,6 +80,17 @@
     <h1 id="title">بوابة المستأجر</h1>
     <p class="lead" id="subtitle">جاري تجهيز بوابتك…</p>
 
+    <!-- Primary CTA — iPhone WhatsApp opens the HTTPS portal here (no spp:// required). -->
+    <div class="card" id="openNowCard">
+      <h2>فتح البوابة</h2>
+      <p class="hint" id="openNowHint">اضغط لفتح بوابتك مباشرة داخل واتساب أو المتصفح على الآيفون.</p>
+      <div class="actions">
+        <a class="btn primary" id="openNowBtn" href="#portalMain">فتح البوابة الآن</a>
+        <a class="btn secondary hidden" id="openSafariBtn" href="#">فتح في Safari (آيفون)</a>
+      </div>
+      <p class="ok" id="openNowStatus">جاهز — يفتح مباشرة عند الضغط على الرابط.</p>
+    </div>
+
     <div class="card" id="installCard">
       <h2>تنزيل كتطبيق على الجوال</h2>
       <p class="hint" id="installLead">احفظ رابط هذه البوابة على الشاشة الرئيسية ليفتح كأي تطبيق — مستأجر · فني · وكيل · حارس.</p>
@@ -90,9 +101,16 @@
       <p class="ok hidden" id="installStatus"></p>
     </div>
 
+    <div id="portalMain"></div>
+
     <div class="card" id="infoCard">
       <h2>بيانات الوحدة</h2>
       <div id="details"></div>
+    </div>
+
+    <div class="card" id="roleDeskCard">
+      <h2 id="roleDeskTitle">مكتب البوابة</h2>
+      <p class="hint" id="roleDeskBody">بوابتك جاهزة للاستخدام من هذا الرابط.</p>
     </div>
 
     <div class="card" id="featuresCard">
@@ -183,10 +201,29 @@
         return '<div class="row"><span class="label">' + r[0] + '</span><span class="value">' + r[1] + '</span></div>';
       }).join('');
 
-      if (role !== 'tenant') {
+      var roleDeskTitle = document.getElementById('roleDeskTitle');
+      var roleDeskBody = document.getElementById('roleDeskBody');
+      if (role === 'tech') {
         document.getElementById('maintCard').classList.add('hidden');
         document.getElementById('techCard').classList.add('hidden');
         document.getElementById('featuresCard').classList.add('hidden');
+        roleDeskTitle.textContent = 'مكتب الفني';
+        roleDeskBody.textContent = 'تم فتح رابط الفني. يمكنك تثبيت البوابة كتطبيق واستلام المهام والتوثيق بصورة/فيديو.';
+      } else if (role === 'agent') {
+        document.getElementById('maintCard').classList.add('hidden');
+        document.getElementById('techCard').classList.add('hidden');
+        document.getElementById('featuresCard').classList.add('hidden');
+        roleDeskTitle.textContent = 'مكتب الوكيل';
+        roleDeskBody.textContent = 'تم فتح رابط الوكيل. ثبّت البوابة كتطبيق لمتابعة العقود والمستأجرين والصيانة.';
+      } else if (role === 'guard') {
+        document.getElementById('maintCard').classList.add('hidden');
+        document.getElementById('techCard').classList.add('hidden');
+        document.getElementById('featuresCard').classList.add('hidden');
+        roleDeskTitle.textContent = 'مكتب الحارس';
+        roleDeskBody.textContent = 'تم فتح رابط الحارس. ثبّت البوابة كتطبيق لاستلام المهام والملاحظات الميدانية.';
+      } else {
+        roleDeskTitle.textContent = 'مكتب المستأجر';
+        roleDeskBody.textContent = 'تم فتح رابط المستأجر. يمكنك طلب صيانة ومتابعة الحالة والتواصل مع الفني من هذه الصفحة.';
       }
 
       var techPill = document.getElementById('techPill');
@@ -294,12 +331,29 @@
       var installBtn = document.getElementById('installApp');
       var installStatus = document.getElementById('installStatus');
       var installSteps = document.getElementById('installSteps');
+      var openNowBtn = document.getElementById('openNowBtn');
+      var openSafariBtn = document.getElementById('openSafariBtn');
+      var openNowHint = document.getElementById('openNowHint');
+      var openNowStatus = document.getElementById('openNowStatus');
       var ua = navigator.userAgent || '';
-      var isIOS = /iPad|iPhone|iPod/i.test(ua);
+      var isIOS = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var isAndroid = /Android/i.test(ua);
+      // WhatsApp / Facebook in-app browsers on iPhone block custom spp:// schemes.
+      var isInAppBrowser = /WhatsApp|FBAN|FBAV|Instagram|Line\//i.test(ua);
       var steps = isIOS
         ? ['افتح هذه الصفحة في Safari', 'اضغط مشاركة □↑', 'اختر «إضافة إلى الشاشة الرئيسية»', 'افتح الأيقونة من الشاشة الرئيسية كتطبيق']
         : ['افتح هذه الصفحة في Chrome', 'القائمة ⋮ ← تثبيت التطبيق / إضافة إلى الشاشة الرئيسية', 'أو اضغط الزر أعلاه إن ظهر', 'افتح الأيقونة من الشاشة الرئيسية لاحقاً'];
       installSteps.innerHTML = steps.map(function (s) { return '<li>' + s + '</li>'; }).join('');
+
+      if (isIOS) {
+        openNowHint.textContent = isInAppBrowser
+          ? 'تم فتح الرابط من واتساب على الآيفون — البوابة تعمل مباشرة هنا بدون تطبيق إضافي.'
+          : 'تم فتح الرابط على الآيفون — البوابة جاهزة مباشرة في هذه الصفحة.';
+        openSafariBtn.classList.remove('hidden');
+        // x-safari-https opens the same HTTPS URL in Safari (best for Add to Home Screen).
+        openSafariBtn.href = 'x-safari-https://' + location.host + location.pathname + location.search + location.hash;
+        intentApp.classList.add('hidden');
+      }
 
       window.addEventListener('beforeinstallprompt', function (e) {
         e.preventDefault();
@@ -318,15 +372,24 @@
           return;
         }
         installStatus.textContent = isIOS
-          ? 'على iPhone: استخدم Safari ← مشاركة ← إضافة إلى الشاشة الرئيسية.'
+          ? 'على iPhone: استخدم «فتح في Safari» ثم مشاركة ← إضافة إلى الشاشة الرئيسية.'
           : 'استخدم قائمة المتصفح لتثبيت التطبيق / إضافة إلى الشاشة الرئيسية.';
         installStatus.classList.remove('hidden');
         try { installSteps.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch (e) {}
       });
 
-      function tryOpen() {
+      function revealWebPortal() {
+        openNowStatus.textContent = '✓ البوابة مفتوحة — أكمل من الأقسام بالأسفل.';
+        try {
+          var target = document.getElementById('portalMain') || document.getElementById('infoCard');
+          if (target && target.scrollIntoView) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } catch (e) {}
+      }
+
+      function tryNativeOpen() {
+        // Never auto-fire spp:// on iOS/WhatsApp — it shows “cannot open page” and blocks the web portal.
+        if (isIOS || (isInAppBrowser && !isAndroid)) return;
         document.getElementById('status').classList.remove('hidden');
-        var isAndroid = /Android/i.test(navigator.userAgent);
         var iframe = document.createElement('iframe');
         iframe.style.display = 'none';
         iframe.src = isAndroid ? intent : deep;
@@ -334,16 +397,32 @@
         setTimeout(function () { try { document.body.removeChild(iframe); } catch (e) {} }, 1500);
       }
 
+      openNowBtn.addEventListener('click', function (e) {
+        // Keep href="#portalMain" for no-JS / preview; enhance with scroll.
+        e.preventDefault();
+        revealWebPortal();
+      });
+
       openApp.addEventListener('click', function (e) {
         e.preventDefault();
-        window.location.href = /Android/i.test(navigator.userAgent) ? intent : deep;
+        if (isIOS) {
+          // Prefer staying on HTTPS portal inside WhatsApp/Safari.
+          revealWebPortal();
+          return;
+        }
+        window.location.href = isAndroid ? intent : deep;
       });
       intentApp.addEventListener('click', function (e) {
         e.preventDefault();
         window.location.href = intent;
       });
 
-      setTimeout(tryOpen, 400);
+      // iPhone WhatsApp: open web portal immediately. Android may try native app.
+      if (isIOS || isInAppBrowser) {
+        revealWebPortal();
+      } else {
+        setTimeout(tryNativeOpen, 400);
+      }
     })();
   </script>
 </body>

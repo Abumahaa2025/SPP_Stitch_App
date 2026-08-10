@@ -168,7 +168,8 @@ function buildHttpsBridge(role: PortalRole, id: string, token: string, meta?: Po
     prop: meta?.property,
     tn: meta?.techName,
     tp: meta?.techPhone,
-    v: '38',
+    // Bump when bridge HTML behavior changes so WhatsApp / CDNs fetch a fresh page.
+    v: '40',
   });
   return `${portalBridgeUrl()}?${q}`;
 }

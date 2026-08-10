@@ -29,6 +29,9 @@ def test_portal_open_returns_html_page():
     assert "jsdelivr" not in body.lower()
     assert 'id="installCard"' in body
     assert "تنزيل" in body or "install" in body.lower()
+    assert 'id="openNowCard"' in body
+    assert "isInAppBrowser" in body
+    assert "revealWebPortal" in body
 
 
 def test_portal_open_no_cdn_redirect():
